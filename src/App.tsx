@@ -14,6 +14,7 @@ import { AttendanceView } from './components/AttendanceView';
 import { MarkEntryView } from './components/MarkEntryView';
 import { StudentIDView } from './components/StudentIDView';
 import { DisciplineView } from './components/DisciplineView';
+import { FloatingBubbles } from './components/FloatingBubbles';
 import { AuthScreen } from './components/auth/AuthScreen';
 import { useAuth } from './context/AuthContext';
 import { doc, onSnapshot, setDoc, updateDoc, deleteDoc, collection, query, where } from 'firebase/firestore';
@@ -301,6 +302,22 @@ export default function App() {
     });
   };
 
+  const handleBulkDeleteStudents = (ids: number[]) => {
+    if (!ids || ids.length === 0) return;
+    const idSet = new Set(ids);
+    const count = ids.length;
+    const activityLogs = logActivity(
+      'STUDENT_DELETED',
+      'students',
+      'Multiple Students Removed',
+      `Bulk deleted ${count} student(s) from school records`
+    );
+    updateRemoteData({
+      students: data.students.filter(s => !idSet.has(s.id)),
+      activityLogs
+    });
+  };
+
   const handleAddTeacher = (teacher: Teacher) => {
     const activityLogs = logActivity(
       'TEACHER_ADDED',
@@ -558,8 +575,11 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#edf2f7] text-slate-800 p-3 sm:p-6 font-sans">
-      <div className="max-w-[1550px] mx-auto">
+    <div className="min-h-screen bg-[#edf2f7] text-slate-800 p-3 sm:p-6 font-sans relative overflow-x-hidden">
+      {/* Floating Ambient Bubbles with Beautiful Iridescent Colors */}
+      <FloatingBubbles />
+
+      <div className="max-w-[1550px] mx-auto relative z-10">
         {/* Navigation & Header */}
         <Navigation
           activeView={activeView}
@@ -598,6 +618,7 @@ export default function App() {
               onAddStudent={handleAddStudent}
               onUpdateStudent={handleUpdateStudent}
               onDeleteStudent={handleDeleteStudent}
+              onBulkDeleteStudents={handleBulkDeleteStudents}
               onBulkAddStudents={handleBulkAddStudents}
             />
           )}

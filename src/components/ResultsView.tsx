@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import { Student, SchoolInfo, UserAccount } from '../types';
 import { printReportCardDocument } from '../utils/export';
+import { exportGradeDistributionAndPerformancePDF } from '../utils/performancePdfExport';
 import { ReportCardDocument } from './ReportCard/ReportCardDocument';
 import { EditReportCardModal } from './ReportCard/EditReportCardModal';
 import { StudentComparisonView } from './StudentComparisonView';
@@ -45,8 +46,17 @@ import {
   calculatePerformanceSummary, 
   generateCharacterFromPerformance, 
   getDefaultPeriodSetting,
-  calculateOLevelDivision
+  calculateOLevelDivision,
+  calculatePrimaryScoreResult,
+  isPrimaryOrNursery,
+  getPrimarySubjectGradeInfo
 } from '../utils/reportCardUtils';
+import { 
+  ALL_SCHOOL_CLASSES, 
+  NURSERY_CLASSES, 
+  PRIMARY_CLASSES, 
+  SECONDARY_CLASSES 
+} from '../constants/defaults';
 
 interface ResultsViewProps {
   students: Student[];
@@ -59,7 +69,7 @@ interface ResultsViewProps {
   onNavigateToAttendance?: () => void;
 }
 
-// Complete list of available secondary and high school subjects with categories
+// Complete list of available Tanzanian subjects across Nursery, Primary, Secondary and High School
 export interface LedgerSubjectItem {
   key: string;
   label: string;
@@ -68,6 +78,30 @@ export interface LedgerSubjectItem {
 }
 
 export const ALL_AVAILABLE_SUBJECTS: LedgerSubjectItem[] = [
+  // Primary & Pre-Primary Tanzanian Subjects
+  { key: 'KISW', label: 'KISW', fullName: 'Kiswahili', category: 'Languages' },
+  { key: 'ENG.PRI', label: 'ENG', fullName: 'English Language (Primary)', category: 'Languages' },
+  { key: 'HISABATI', label: 'HIS', fullName: 'Hisabati (Mathematics)', category: 'Core' },
+  { key: 'SAYANSI', label: 'SAY', fullName: 'Sayansi na Teknolojia', category: 'Sciences' },
+  { key: 'JAMII', label: 'JAMII', fullName: 'Maarifa ya Jamii', category: 'Social' },
+  { key: 'URAIA', label: 'URAIA', fullName: 'Uraia na Maadili', category: 'Core' },
+  { key: 'STADI', label: 'STADI', fullName: 'Stadi za Kazi', category: 'Technical' },
+  { key: 'EDK', label: 'EDK', fullName: 'Elimu ya Dini ya Kiislamu', category: 'Religion' },
+  { key: 'EDKRI', label: 'EDKRI', fullName: 'Elimu ya Dini ya Kikristo', category: 'Religion' },
+  { key: 'TEHAMA', label: 'TEHAMA', fullName: 'TEHAMA (ICT)', category: 'Technical' },
+  { key: 'KUSOMA', label: 'KUSOMA', fullName: 'Kusoma', category: 'Languages' },
+  { key: 'KUANDIKA', label: 'KUANDIKA', fullName: 'Kuandika', category: 'Languages' },
+  { key: 'KUHESABU', label: 'KUHESABU', fullName: 'Kuhesabu', category: 'Core' },
+  { key: 'AFYA', label: 'AFYA', fullName: 'Afya na Mazingira', category: 'Sciences' },
+  { key: 'SANAA', label: 'SANAA', fullName: 'Sanaa na Michezo', category: 'Arts' },
+  { key: 'AWALI.NUM', label: 'NUM', fullName: 'Kuhesabu na Namba (Awali)', category: 'Core' },
+  { key: 'AWALI.LIT', label: 'LIT', fullName: 'Kusoma na Kuwasiliana (Awali)', category: 'Languages' },
+  { key: 'AWALI.ENG', label: 'ENG.A', fullName: 'Lugha ya Kiingereza ya Awali', category: 'Languages' },
+  { key: 'AWALI.ENV', label: 'ENV', fullName: 'Afya na Mazingira ya Mtoto', category: 'Sciences' },
+  { key: 'AWALI.ART', label: 'ART', fullName: 'Sanaa, Muziki na Michezo ya Awali', category: 'Arts' },
+  { key: 'AWALI.SOC', label: 'SOC', fullName: 'Maadili na Malezi Bora', category: 'Social' },
+
+  // Secondary School Subjects
   { key: 'ENG', label: 'ENG', fullName: 'English Language', category: 'Languages' },
   { key: 'KIS', label: 'KIS', fullName: 'Kiswahili', category: 'Languages' },
   { key: 'B.MATH', label: 'B.MATH', fullName: 'Mathematics', category: 'Core' },
@@ -94,6 +128,18 @@ export const ALL_AVAILABLE_SUBJECTS: LedgerSubjectItem[] = [
 
 export const DEFAULT_ACTIVE_SUBJECT_KEYS = [
   'ENG', 'KIS', 'B.MATH', 'GEO', 'HIS', 'BIO', 'CHE', 'PHY', 'CIV', 'BUS', 'COMP'
+];
+
+export const PRIMARY_UPPER_SUBJECT_KEYS = [
+  'KISW', 'ENG.PRI', 'HISABATI', 'SAYANSI', 'JAMII', 'URAIA', 'EDK'
+];
+
+export const PRIMARY_LOWER_SUBJECT_KEYS = [
+  'KUSOMA', 'KUANDIKA', 'KUHESABU', 'AFYA', 'SANAA'
+];
+
+export const NURSERY_SUBJECT_KEYS = [
+  'AWALI.NUM', 'AWALI.LIT', 'AWALI.ENG', 'AWALI.ENV', 'AWALI.ART', 'AWALI.SOC'
 ];
 
 export const ResultsView: React.FC<ResultsViewProps> = ({
@@ -271,18 +317,33 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
       const total = scores.reduce((a, b) => a + b, 0);
       const avgNum = scores.length > 0 ? Number((total / scores.length).toFixed(1)) : 0;
       
-      // Official NECTA O-Level Division Calculation:
-      // Best 7 subjects: Div I (7-17), Div II (18-21), Div III (22-25), Div IV (26-33), Div 0 (34-35).
-      const olevel = calculateOLevelDivision(newMarks);
-      const division = scores.length > 0 ? olevel.division : undefined;
+      const isStudentPrimary = isPrimaryOrNursery(s.level, s.className || selectedClass);
 
-      return {
-        ...s,
-        marks: newMarks,
-        total,
-        average: scores.length > 0 ? String(avgNum) : undefined,
-        division
-      };
+      if (isStudentPrimary) {
+        const primaryRes = calculatePrimaryScoreResult(newMarks);
+        return {
+          ...s,
+          marks: newMarks,
+          total,
+          average: scores.length > 0 ? String(avgNum) : undefined,
+          primaryGrade: primaryRes.overallGrade,
+          passStatus: primaryRes.passStatus,
+          division: primaryRes.overallGrade
+        };
+      } else {
+        // Official NECTA O-Level Division Calculation:
+        // Best 7 subjects: Div I (7-17), Div II (18-21), Div III (22-25), Div IV (26-33), Div 0 (34-35).
+        const olevel = calculateOLevelDivision(newMarks);
+        const division = scores.length > 0 ? olevel.division : undefined;
+
+        return {
+          ...s,
+          marks: newMarks,
+          total,
+          average: scores.length > 0 ? String(avgNum) : undefined,
+          division
+        };
+      }
     });
 
     // Rank candidates
@@ -581,7 +642,9 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
     link.remove();
   };
 
-  // Dashboard calculations matching Screenshot C
+  const isClassPrimary = isPrimaryOrNursery(undefined, selectedClass);
+
+  // Dashboard & Grade Distribution calculations (A, B, C, D, E, F) and Class Average
   const dashboardMetrics = useMemo(() => {
     const totalCandidates = classCandidates.length;
     let divI = 0;
@@ -592,6 +655,18 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
     let divIncomplete = 0;
     let sumAvg = 0;
     let countedAvg = 0;
+
+    const gradeDistribution: Record<'A' | 'B' | 'C' | 'D' | 'E' | 'F', number> = {
+      A: 0,
+      B: 0,
+      C: 0,
+      D: 0,
+      E: 0,
+      F: 0
+    };
+
+    let passCount = 0;
+    let failCount = 0;
 
     classCandidates.forEach(s => {
       if (s.division === 'I') divI++;
@@ -606,18 +681,100 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
         if (!isNaN(num)) {
           sumAvg += num;
           countedAvg++;
+
+          if (isClassPrimary) {
+            // Tanzanian Primary: A=81-100, B=61-80, C=41-60, D=21-40, E=0-20
+            if (num >= 81) { gradeDistribution.A++; passCount++; }
+            else if (num >= 61) { gradeDistribution.B++; passCount++; }
+            else if (num >= 41) { gradeDistribution.C++; passCount++; }
+            else if (num >= 21) { gradeDistribution.D++; failCount++; }
+            else { gradeDistribution.E++; failCount++; }
+          } else {
+            // Secondary NECTA CSEE: A=75-100, B=65-74, C=45-64, D=30-44, F=0-29
+            if (num >= 75) { gradeDistribution.A++; passCount++; }
+            else if (num >= 65) { gradeDistribution.B++; passCount++; }
+            else if (num >= 45) { gradeDistribution.C++; passCount++; }
+            else if (num >= 30) { gradeDistribution.D++; passCount++; }
+            else { gradeDistribution.F++; failCount++; }
+          }
         }
       }
     });
 
     const avgOverall = countedAvg > 0 ? (sumAvg / countedAvg).toFixed(1) : '-';
-    // School GPA calculation (standard NECTA scale: Div I=1, Div II=2, Div III=3, Div IV=4, 0=5)
+    const passRate = (passCount + failCount) > 0 
+      ? ((passCount / (passCount + failCount)) * 100).toFixed(1) 
+      : '0.0';
+
+    // School GPA calculation
     let schoolGPA = '-';
-    const gradedCandidates = divI + divII + divIII + divIV + div0;
-    if (gradedCandidates > 0) {
-      const weighted = (divI * 1.0 + divII * 2.0 + divIII * 3.0 + divIV * 4.0 + div0 * 5.0) / gradedCandidates;
-      schoolGPA = weighted.toFixed(2);
+    if (isClassPrimary) {
+      const graded = gradeDistribution.A + gradeDistribution.B + gradeDistribution.C + gradeDistribution.D + gradeDistribution.E;
+      if (graded > 0) {
+        const weighted = (
+          gradeDistribution.A * 1.0 + 
+          gradeDistribution.B * 2.0 + 
+          gradeDistribution.C * 3.0 + 
+          gradeDistribution.D * 4.0 + 
+          gradeDistribution.E * 5.0
+        ) / graded;
+        schoolGPA = weighted.toFixed(2);
+      }
+    } else {
+      const gradedCandidates = divI + divII + divIII + divIV + div0;
+      if (gradedCandidates > 0) {
+        const weighted = (divI * 1.0 + divII * 2.0 + divIII * 3.0 + divIV * 4.0 + div0 * 5.0) / gradedCandidates;
+        schoolGPA = weighted.toFixed(2);
+      }
     }
+
+    // Subject by Subject Performance Breakdown & Grade counts
+    const subjectPerformances = activeLedgerSubjects.map(sub => {
+      let subTotal = 0;
+      let tested = 0;
+      let highest = -1;
+      let lowest = 999;
+      let passed = 0;
+      const subGrades: Record<'A' | 'B' | 'C' | 'D' | 'E' | 'F', number> = {
+        A: 0, B: 0, C: 0, D: 0, E: 0, F: 0
+      };
+
+      classCandidates.forEach(s => {
+        const sc = s.marks?.[sub.fullName] ?? s.marks?.[sub.key];
+        if (typeof sc === 'number' && !isNaN(sc)) {
+          subTotal += sc;
+          tested++;
+          if (sc > highest) highest = sc;
+          if (sc < lowest) lowest = sc;
+
+          if (isClassPrimary) {
+            const pInfo = getPrimarySubjectGradeInfo(sc);
+            subGrades[pInfo.grade as 'A' | 'B' | 'C' | 'D' | 'E']++;
+            if (sc >= 41) passed++;
+          } else {
+            if (sc >= 75) { subGrades.A++; passed++; }
+            else if (sc >= 65) { subGrades.B++; passed++; }
+            else if (sc >= 45) { subGrades.C++; passed++; }
+            else if (sc >= 30) { subGrades.D++; passed++; }
+            else { subGrades.F++; }
+          }
+        }
+      });
+
+      const meanScore = tested > 0 ? Number((subTotal / tested).toFixed(1)) : 0;
+      const subPassRate = tested > 0 ? Number(((passed / tested) * 100).toFixed(1)) : 0;
+
+      return {
+        subjectKey: sub.key,
+        subjectName: sub.fullName,
+        testedCount: tested,
+        meanScore,
+        highestScore: highest >= 0 ? highest : 0,
+        lowestScore: lowest <= 100 ? lowest : 0,
+        passRate: subPassRate,
+        grades: subGrades
+      };
+    });
 
     return {
       totalCandidates,
@@ -628,9 +785,55 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
       divIV,
       div0,
       divIncomplete,
-      avgOverall
+      avgOverall,
+      passRate,
+      passCount,
+      failCount,
+      gradeDistribution,
+      subjectPerformances
     };
-  }, [classCandidates]);
+  }, [classCandidates, activeLedgerSubjects, isClassPrimary]);
+
+  // Export Grade Distribution & Student Performance Summary to formatted PDF
+  const handleExportPerformancePdf = () => {
+    exportGradeDistributionAndPerformancePDF({
+      schoolInfo,
+      className: selectedClass,
+      stream: selectedStream,
+      examName: selectedExam,
+      academicYear: String(new Date().getFullYear()),
+      totalCandidates: dashboardMetrics.totalCandidates,
+      classAverage: dashboardMetrics.avgOverall,
+      passRate: dashboardMetrics.passRate,
+      gradeDistribution: dashboardMetrics.gradeDistribution,
+      divisionDistribution: {
+        divI: dashboardMetrics.divI,
+        divII: dashboardMetrics.divII,
+        divIII: dashboardMetrics.divIII,
+        divIV: dashboardMetrics.divIV,
+        div0: dashboardMetrics.div0,
+        incomplete: dashboardMetrics.divIncomplete
+      },
+      schoolGPA: dashboardMetrics.schoolGPA,
+      isPrimary: isClassPrimary,
+      subjectPerformances: dashboardMetrics.subjectPerformances,
+      topCandidates: classCandidates
+        .filter(c => c.total !== undefined)
+        .sort((a, b) => (b.total || 0) - (a.total || 0))
+        .map((c, idx) => ({
+          rank: idx + 1,
+          regNo: c.regNo,
+          name: c.name,
+          gender: c.gender || 'Unknown',
+          total: c.total || 0,
+          average: c.average || '0',
+          divisionOrGrade: isClassPrimary 
+            ? `Grade ${c.primaryGrade || c.division || 'A'}` 
+            : `Division ${c.division || 'N/A'}`,
+          passStatus: c.passStatus
+        }))
+    });
+  };
 
   // Report Card navigation
   const currentIndex = students.findIndex(s => s.regNo === selectedStudentReg);
@@ -667,15 +870,34 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
             <span className="text-slate-500 uppercase tracking-wider text-[11px]">Class:</span>
             <select
               value={selectedClass}
-              onChange={e => setSelectedClass(e.target.value)}
+              onChange={e => {
+                const newClass = e.target.value;
+                setSelectedClass(newClass);
+                if (NURSERY_CLASSES.includes(newClass)) {
+                  const hasNursery = activeSubjectKeys.some(k => NURSERY_SUBJECT_KEYS.includes(k));
+                  if (!hasNursery) handleSaveSubjectKeys(NURSERY_SUBJECT_KEYS);
+                } else if (newClass === 'Standard 1' || newClass === 'Standard 2') {
+                  const hasLower = activeSubjectKeys.some(k => PRIMARY_LOWER_SUBJECT_KEYS.includes(k));
+                  if (!hasLower) handleSaveSubjectKeys(PRIMARY_LOWER_SUBJECT_KEYS);
+                } else if (PRIMARY_CLASSES.includes(newClass)) {
+                  const hasUpper = activeSubjectKeys.some(k => PRIMARY_UPPER_SUBJECT_KEYS.includes(k));
+                  if (!hasUpper) handleSaveSubjectKeys(PRIMARY_UPPER_SUBJECT_KEYS);
+                } else if (SECONDARY_CLASSES.includes(newClass)) {
+                  const hasSecondary = activeSubjectKeys.some(k => DEFAULT_ACTIVE_SUBJECT_KEYS.includes(k));
+                  if (!hasSecondary) handleSaveSubjectKeys(DEFAULT_ACTIVE_SUBJECT_KEYS);
+                }
+              }}
               className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 font-bold text-slate-800 focus:ring-2 focus:ring-blue-500"
             >
-              <option value="Form 1">Form 1</option>
-              <option value="Form 2">Form 2</option>
-              <option value="Form 3">Form 3</option>
-              <option value="Form 4">Form 4</option>
-              <option value="Form 5">Form 5</option>
-              <option value="Form 6">Form 6</option>
+              <optgroup label="Pre-Primary / Nursery (Elimu ya Awali)">
+                {NURSERY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+              </optgroup>
+              <optgroup label="Primary School (Elimu ya Msingi: Std 1 - 7)">
+                {PRIMARY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+              </optgroup>
+              <optgroup label="Secondary School (Form 1 - 6)">
+                {SECONDARY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+              </optgroup>
             </select>
           </div>
 
@@ -704,7 +926,10 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
               <option value="Terminal">Terminal</option>
               <option value="Annual">Annual</option>
               <option value="Midterm II">Midterm II</option>
-              <option value="Mock">Mock</option>
+              <option value="Pre-Mock">Pre-Mock</option>
+              <option value="Mock">Mock Exam</option>
+              <option value="PSLE Final">PSLE Final (Primary)</option>
+              <option value="NECTA Final">NECTA Final (CSEE)</option>
             </select>
           </div>
         </div>
@@ -889,9 +1114,20 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                 type="button"
                 onClick={handleExportCsv}
                 className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                title="Export results ledger to CSV spreadsheet"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>Export</span>
+                <span>Export CSV</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportPerformancePdf}
+                className="px-3 py-1.5 bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                title="Export formatted Grade Distribution & Performance Summary PDF"
+              >
+                <FileText className="w-3.5 h-3.5 text-rose-600" />
+                <span>Export PDF</span>
               </button>
 
               <button
@@ -959,6 +1195,54 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                 Customize Subject Columns
               </button>
             )}
+          </div>
+
+          {/* Quick Grade Distribution & Class Average Summary Ribbon */}
+          <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-bold uppercase text-slate-500">Class Average:</span>
+              <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 font-black font-mono">
+                {dashboardMetrics.avgOverall !== '-' ? `${dashboardMetrics.avgOverall}%` : '-'}
+              </span>
+              <span className="text-slate-300">|</span>
+              <span className="text-[10px] font-bold uppercase text-slate-500">Pass Rate:</span>
+              <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-black font-mono">
+                {dashboardMetrics.passRate}%
+              </span>
+              <span className="text-slate-300">|</span>
+              <span className="text-[10px] font-bold uppercase text-slate-500">Grades:</span>
+              <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-black text-[10px] border border-emerald-300">
+                A: {dashboardMetrics.gradeDistribution.A}
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 font-black text-[10px] border border-blue-300">
+                B: {dashboardMetrics.gradeDistribution.B}
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-black text-[10px] border border-amber-300">
+                C: {dashboardMetrics.gradeDistribution.C}
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-orange-100 text-orange-800 font-black text-[10px] border border-orange-300">
+                D: {dashboardMetrics.gradeDistribution.D}
+              </span>
+              {isClassPrimary ? (
+                <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 font-black text-[10px] border border-rose-300">
+                  E: {dashboardMetrics.gradeDistribution.E}
+                </span>
+              ) : (
+                <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 font-black text-[10px] border border-rose-300">
+                  F: {dashboardMetrics.gradeDistribution.F}
+                </span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleExportPerformancePdf}
+              className="text-xs text-rose-700 hover:text-rose-900 font-bold flex items-center gap-1 cursor-pointer transition-colors"
+              title="Download Grade Distribution & Student Performance Summary PDF"
+            >
+              <FileText className="w-3.5 h-3.5 text-rose-600" />
+              <span>Export PDF Report</span>
+            </button>
           </div>
 
           {/* Teacher Mode Notice Banner */}
@@ -1068,21 +1352,37 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                         {st.average ? `${st.average}%` : '-'}
                       </td>
                       <td className="p-2 border-r border-slate-200 text-center font-black bg-slate-50/40">
-                        {st.division ? (
-                          <span 
-                            title={st.division === 'INCOMPLETE' ? 'Incomplete: Fewer than 7 subjects scored' : `Division ${st.division}`}
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                              st.division === 'I' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
-                              st.division === 'II' ? 'bg-blue-100 text-blue-800 border border-blue-300' :
-                              st.division === 'III' ? 'bg-amber-100 text-amber-800 border border-amber-300' :
-                              st.division === 'IV' ? 'bg-orange-100 text-orange-800 border border-orange-300' :
-                              st.division === 'INCOMPLETE' ? 'bg-purple-100 text-purple-800 border border-purple-300' :
-                              'bg-red-100 text-red-800 border border-red-300'
-                            }`}
-                          >
-                            {st.division === 'INCOMPLETE' ? 'INC' : st.division}
-                          </span>
-                        ) : '-'}
+                        {isClassPrimary ? (
+                          (st.primaryGrade || st.division) ? (
+                            <span 
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                (st.primaryGrade || st.division) === 'A' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                                (st.primaryGrade || st.division) === 'B' ? 'bg-blue-100 text-blue-800 border border-blue-300' :
+                                (st.primaryGrade || st.division) === 'C' ? 'bg-amber-100 text-amber-800 border border-amber-300' :
+                                (st.primaryGrade || st.division) === 'D' ? 'bg-orange-100 text-orange-800 border border-orange-300' :
+                                'bg-rose-100 text-rose-800 border border-rose-300'
+                              }`}
+                            >
+                              Grade {st.primaryGrade || st.division}
+                            </span>
+                          ) : '-'
+                        ) : (
+                          st.division ? (
+                            <span 
+                              title={st.division === 'INCOMPLETE' ? 'Incomplete: Fewer than 7 subjects scored' : `Division ${st.division}`}
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                st.division === 'I' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                                st.division === 'II' ? 'bg-blue-100 text-blue-800 border border-blue-300' :
+                                st.division === 'III' ? 'bg-amber-100 text-amber-800 border border-amber-300' :
+                                st.division === 'IV' ? 'bg-orange-100 text-orange-800 border border-orange-300' :
+                                st.division === 'INCOMPLETE' ? 'bg-purple-100 text-purple-800 border border-purple-300' :
+                                'bg-red-100 text-red-800 border border-red-300'
+                              }`}
+                            >
+                              {st.division === 'INCOMPLETE' ? 'INC' : st.division}
+                            </span>
+                          ) : '-'
+                        )}
                       </td>
                       <td className="p-2 border-r border-slate-200 text-center font-mono font-bold text-slate-700 bg-slate-50/40">
                         {st.reportCardData?.positionInClass ?? idx + 1}
@@ -1107,112 +1407,367 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
         </div>
       )}
 
-      {/* TAB 2: DASHBOARD (Screenshot C) */}
+      {/* TAB 2: DASHBOARD */}
       {activeTab === 'dashboard' && (
         <div className="space-y-6">
-          {/* Top 4 KPI Metrics matching Screenshot C */}
+          {/* Dashboard Header Bar with PDF Export */}
+          <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-xs flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-indigo-600" />
+                <h3 className="text-base sm:text-lg font-black text-slate-800">
+                  {selectedClass.toUpperCase()} {selectedStream !== 'All' ? `(${selectedStream})` : ''} - {selectedExam} Academic Analytics
+                </h3>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Official {isClassPrimary ? 'Tanzanian Primary Education (Msingi)' : 'NECTA Secondary Education'} Grade Distribution and Examination Insights
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleExportPerformancePdf}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold flex items-center gap-2 cursor-pointer shadow-xs transition-colors"
+                title="Export this grade distribution and performance summary as a publication-ready PDF"
+              >
+                <FileText className="w-4 h-4" />
+                <span>Export Performance PDF</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Top 4 KPI Metrics */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs text-center">
               <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Candidates</div>
               <div className="text-3xl font-black text-slate-800 mt-1">{dashboardMetrics.totalCandidates}</div>
+              <div className="text-[11px] text-slate-400 mt-0.5">{classCandidates.length} enrolled</div>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs text-center">
+              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Class Average</div>
+              <div className="text-3xl font-black text-blue-600 mt-1">
+                {dashboardMetrics.avgOverall !== '-' ? `${dashboardMetrics.avgOverall}%` : '-'}
+              </div>
+              <div className="text-[11px] text-slate-400 mt-0.5">Mean Score ({selectedExam})</div>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs text-center">
+              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Pass Rate</div>
+              <div className="text-3xl font-black text-emerald-600 mt-1">
+                {dashboardMetrics.passRate}%
+              </div>
+              <div className="text-[11px] text-emerald-600 font-semibold mt-0.5">{dashboardMetrics.passCount} passed</div>
             </div>
 
             <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs text-center">
               <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">School GPA</div>
               <div className="text-3xl font-black text-indigo-600 mt-1">{dashboardMetrics.schoolGPA}</div>
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs text-center">
-              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Division I</div>
-              <div className="text-3xl font-black text-emerald-600 mt-1">{dashboardMetrics.divI}</div>
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs text-center">
-              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Average</div>
-              <div className="text-3xl font-black text-blue-600 mt-1">
-                {dashboardMetrics.avgOverall !== '-' ? `${dashboardMetrics.avgOverall}%` : '-'}
-              </div>
+              <div className="text-[11px] text-slate-400 mt-0.5">Scale: 1.0 (Top) - 5.0</div>
             </div>
           </div>
 
-          {/* Division Summary Section matching Screenshot C */}
-          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-4">
-            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
-              Division Summary ({selectedClass} {selectedStream} - {selectedExam})
-            </h3>
+          {/* Grade Distribution Summary (A, B, C, D, E, F) */}
+          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-blue-600" />
+                  <span>Grade Distribution Summary ({selectedClass} - {selectedExam})</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Breakdown of candidate overall averages into standard performance tiers
+                </p>
+              </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+              <div className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full">
+                Grading System: <span className="text-blue-700">{isClassPrimary ? 'Primary (A: 81-100, B: 61-80, C: 41-60, D: 21-40, E: 0-20)' : 'NECTA CSEE (A: 75+, B: 65+, C: 45+, D: 30+, F: <30)'}</span>
+              </div>
+            </div>
+
+            {/* Visual Colored Grade Cards */}
+            <div className={`grid grid-cols-2 ${isClassPrimary ? 'sm:grid-cols-5' : 'sm:grid-cols-5'} gap-3`}>
+              {/* Grade A */}
               <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
-                <div className="text-[11px] font-bold text-emerald-800 uppercase">Division I</div>
-                <div className="text-xs text-emerald-600 font-semibold mt-0.5">7-17 pts</div>
-                <div className="text-2xl font-black text-emerald-700 mt-1">{dashboardMetrics.divI}</div>
+                <div className="text-xs font-black text-emerald-800 uppercase tracking-wider">GRADE A</div>
+                <div className="text-[10px] text-emerald-600 font-semibold mt-0.5">
+                  {isClassPrimary ? '81-100% (Bora Sana)' : '75-100% (Distinction)'}
+                </div>
+                <div className="text-3xl font-black text-emerald-700 mt-2">
+                  {dashboardMetrics.gradeDistribution.A}
+                </div>
+                <div className="text-[11px] text-emerald-600 font-bold mt-1">
+                  {dashboardMetrics.totalCandidates > 0 
+                    ? `${((dashboardMetrics.gradeDistribution.A / dashboardMetrics.totalCandidates) * 100).toFixed(1)}%`
+                    : '0%'}
+                </div>
               </div>
 
+              {/* Grade B */}
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl text-center">
-                <div className="text-[11px] font-bold text-blue-800 uppercase">Division II</div>
-                <div className="text-xs text-blue-600 font-semibold mt-0.5">18-21 pts</div>
-                <div className="text-2xl font-black text-blue-700 mt-1">{dashboardMetrics.divII}</div>
+                <div className="text-xs font-black text-blue-800 uppercase tracking-wider">GRADE B</div>
+                <div className="text-[10px] text-blue-600 font-semibold mt-0.5">
+                  {isClassPrimary ? '61-80% (Vizuri Sana)' : '65-74% (Very Good)'}
+                </div>
+                <div className="text-3xl font-black text-blue-700 mt-2">
+                  {dashboardMetrics.gradeDistribution.B}
+                </div>
+                <div className="text-[11px] text-blue-600 font-bold mt-1">
+                  {dashboardMetrics.totalCandidates > 0 
+                    ? `${((dashboardMetrics.gradeDistribution.B / dashboardMetrics.totalCandidates) * 100).toFixed(1)}%`
+                    : '0%'}
+                </div>
               </div>
 
+              {/* Grade C */}
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-center">
-                <div className="text-[11px] font-bold text-amber-800 uppercase">Division III</div>
-                <div className="text-xs text-amber-600 font-semibold mt-0.5">22-25 pts</div>
-                <div className="text-2xl font-black text-amber-700 mt-1">{dashboardMetrics.divIII}</div>
+                <div className="text-xs font-black text-amber-800 uppercase tracking-wider">GRADE C</div>
+                <div className="text-[10px] text-amber-600 font-semibold mt-0.5">
+                  {isClassPrimary ? '41-60% (Wastani / Pass)' : '45-64% (Good)'}
+                </div>
+                <div className="text-3xl font-black text-amber-700 mt-2">
+                  {dashboardMetrics.gradeDistribution.C}
+                </div>
+                <div className="text-[11px] text-amber-600 font-bold mt-1">
+                  {dashboardMetrics.totalCandidates > 0 
+                    ? `${((dashboardMetrics.gradeDistribution.C / dashboardMetrics.totalCandidates) * 100).toFixed(1)}%`
+                    : '0%'}
+                </div>
               </div>
 
+              {/* Grade D */}
               <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl text-center">
-                <div className="text-[11px] font-bold text-orange-800 uppercase">Division IV</div>
-                <div className="text-xs text-orange-600 font-semibold mt-0.5">26-33 pts</div>
-                <div className="text-2xl font-black text-orange-700 mt-1">{dashboardMetrics.divIV}</div>
+                <div className="text-xs font-black text-orange-800 uppercase tracking-wider">GRADE D</div>
+                <div className="text-[10px] text-orange-600 font-semibold mt-0.5">
+                  {isClassPrimary ? '21-40% (Hafifu / Fail)' : '30-44% (Satisfactory)'}
+                </div>
+                <div className="text-3xl font-black text-orange-700 mt-2">
+                  {dashboardMetrics.gradeDistribution.D}
+                </div>
+                <div className="text-[11px] text-orange-600 font-bold mt-1">
+                  {dashboardMetrics.totalCandidates > 0 
+                    ? `${((dashboardMetrics.gradeDistribution.D / dashboardMetrics.totalCandidates) * 100).toFixed(1)}%`
+                    : '0%'}
+                </div>
               </div>
 
-              <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-center">
-                <div className="text-[11px] font-bold text-red-800 uppercase">Below / Div 0</div>
-                <div className="text-xs text-red-600 font-semibold mt-0.5">34-35 pts</div>
-                <div className="text-2xl font-black text-red-700 mt-1">{dashboardMetrics.div0}</div>
-              </div>
+              {/* Grade E / F */}
+              {isClassPrimary ? (
+                <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-center">
+                  <div className="text-xs font-black text-rose-800 uppercase tracking-wider">GRADE E</div>
+                  <div className="text-[10px] text-rose-600 font-semibold mt-0.5">0-20% (Hafifu Sana)</div>
+                  <div className="text-3xl font-black text-rose-700 mt-2">
+                    {dashboardMetrics.gradeDistribution.E}
+                  </div>
+                  <div className="text-[11px] text-rose-600 font-bold mt-1">
+                    {dashboardMetrics.totalCandidates > 0 
+                      ? `${((dashboardMetrics.gradeDistribution.E / dashboardMetrics.totalCandidates) * 100).toFixed(1)}%`
+                      : '0%'}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-center">
+                  <div className="text-xs font-black text-red-800 uppercase tracking-wider">GRADE F</div>
+                  <div className="text-[10px] text-red-600 font-semibold mt-0.5">0-29% (Fail)</div>
+                  <div className="text-3xl font-black text-red-700 mt-2">
+                    {dashboardMetrics.gradeDistribution.F}
+                  </div>
+                  <div className="text-[11px] text-red-600 font-bold mt-1">
+                    {dashboardMetrics.totalCandidates > 0 
+                      ? `${((dashboardMetrics.gradeDistribution.F / dashboardMetrics.totalCandidates) * 100).toFixed(1)}%`
+                      : '0%'}
+                  </div>
+                </div>
+              )}
+            </div>
 
-              <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl text-center">
-                <div className="text-[11px] font-bold text-purple-800 uppercase">Incomplete</div>
-                <div className="text-xs text-purple-600 font-semibold mt-0.5">&lt; 7 subjects</div>
-                <div className="text-2xl font-black text-purple-700 mt-1">{dashboardMetrics.divIncomplete}</div>
+            {/* Proportion Progress Bar */}
+            <div className="space-y-1.5 pt-2">
+              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">
+                <span>Distribution Proportion</span>
+                <span>{dashboardMetrics.totalCandidates} Total Candidates</span>
+              </div>
+              <div className="w-full h-3 rounded-full bg-slate-100 overflow-hidden flex">
+                <div 
+                  style={{ width: `${dashboardMetrics.totalCandidates > 0 ? (dashboardMetrics.gradeDistribution.A / dashboardMetrics.totalCandidates) * 100 : 0}%` }}
+                  className="bg-emerald-500 transition-all duration-300" 
+                  title={`Grade A: ${dashboardMetrics.gradeDistribution.A}`}
+                />
+                <div 
+                  style={{ width: `${dashboardMetrics.totalCandidates > 0 ? (dashboardMetrics.gradeDistribution.B / dashboardMetrics.totalCandidates) * 100 : 0}%` }}
+                  className="bg-blue-500 transition-all duration-300" 
+                  title={`Grade B: ${dashboardMetrics.gradeDistribution.B}`}
+                />
+                <div 
+                  style={{ width: `${dashboardMetrics.totalCandidates > 0 ? (dashboardMetrics.gradeDistribution.C / dashboardMetrics.totalCandidates) * 100 : 0}%` }}
+                  className="bg-amber-500 transition-all duration-300" 
+                  title={`Grade C: ${dashboardMetrics.gradeDistribution.C}`}
+                />
+                <div 
+                  style={{ width: `${dashboardMetrics.totalCandidates > 0 ? (dashboardMetrics.gradeDistribution.D / dashboardMetrics.totalCandidates) * 100 : 0}%` }}
+                  className="bg-orange-500 transition-all duration-300" 
+                  title={`Grade D: ${dashboardMetrics.gradeDistribution.D}`}
+                />
+                <div 
+                  style={{ width: `${dashboardMetrics.totalCandidates > 0 ? ((isClassPrimary ? dashboardMetrics.gradeDistribution.E : dashboardMetrics.gradeDistribution.F) / dashboardMetrics.totalCandidates) * 100 : 0}%` }}
+                  className="bg-rose-500 transition-all duration-300" 
+                  title={`Grade ${isClassPrimary ? 'E' : 'F'}: ${isClassPrimary ? dashboardMetrics.gradeDistribution.E : dashboardMetrics.gradeDistribution.F}`}
+                />
               </div>
             </div>
           </div>
 
-          {/* Subject Performance Breakdown */}
-          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-4">
-            <h3 className="text-sm font-bold text-[#1f4d8b] uppercase tracking-wider">
-              Subject Mean Performance
-            </h3>
+          {/* Division Summary Section (Secondary) / Classification (Primary) */}
+          {!isClassPrimary ? (
+            <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-4">
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
+                NECTA Division Summary ({selectedClass} {selectedStream} - {selectedExam})
+              </h3>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
-              {activeLedgerSubjects.map(sub => {
-                let subTotal = 0;
-                let subCount = 0;
-                classCandidates.forEach(s => {
-                  const sc = s.marks?.[sub.fullName] ?? s.marks?.[sub.key];
-                  if (typeof sc === 'number' && !isNaN(sc)) {
-                    subTotal += sc;
-                    subCount++;
-                  }
-                });
-                const subAvg = subCount > 0 ? (subTotal / subCount).toFixed(1) : '-';
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
+                  <div className="text-[11px] font-bold text-emerald-800 uppercase">Division I</div>
+                  <div className="text-xs text-emerald-600 font-semibold mt-0.5">7-17 pts</div>
+                  <div className="text-2xl font-black text-emerald-700 mt-1">{dashboardMetrics.divI}</div>
+                </div>
 
-                return (
-                  <div key={sub.key} className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-center">
-                    <div className="text-[10px] font-bold text-slate-500 uppercase truncate" title={sub.fullName}>
-                      {sub.label}
-                    </div>
-                    <div className="text-lg font-black text-slate-800 mt-0.5">
-                      {subAvg !== '-' ? `${subAvg}%` : '-'}
-                    </div>
-                    <div className="text-[10px] text-slate-400 font-medium">
-                      {subCount} scored
-                    </div>
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl text-center">
+                  <div className="text-[11px] font-bold text-blue-800 uppercase">Division II</div>
+                  <div className="text-xs text-blue-600 font-semibold mt-0.5">18-21 pts</div>
+                  <div className="text-2xl font-black text-blue-700 mt-1">{dashboardMetrics.divII}</div>
+                </div>
+
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-center">
+                  <div className="text-[11px] font-bold text-amber-800 uppercase">Division III</div>
+                  <div className="text-xs text-amber-600 font-semibold mt-0.5">22-25 pts</div>
+                  <div className="text-2xl font-black text-amber-700 mt-1">{dashboardMetrics.divIII}</div>
+                </div>
+
+                <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl text-center">
+                  <div className="text-[11px] font-bold text-orange-800 uppercase">Division IV</div>
+                  <div className="text-xs text-orange-600 font-semibold mt-0.5">26-33 pts</div>
+                  <div className="text-2xl font-black text-orange-700 mt-1">{dashboardMetrics.divIV}</div>
+                </div>
+
+                <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-center">
+                  <div className="text-[11px] font-bold text-red-800 uppercase">Below / Div 0</div>
+                  <div className="text-xs text-red-600 font-semibold mt-0.5">34-35 pts</div>
+                  <div className="text-2xl font-black text-red-700 mt-1">{dashboardMetrics.div0}</div>
+                </div>
+
+                <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl text-center">
+                  <div className="text-[11px] font-bold text-purple-800 uppercase">Incomplete</div>
+                  <div className="text-xs text-purple-600 font-semibold mt-0.5">&lt; 7 subjects</div>
+                  <div className="text-2xl font-black text-purple-700 mt-1">{dashboardMetrics.divIncomplete}</div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-4">
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
+                Primary School Pass Status Classification ({selectedClass} - {selectedExam})
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-black text-emerald-800 uppercase">Waliopasi (Passed: Grade A, B, C)</div>
+                    <div className="text-xs text-emerald-600 font-semibold mt-0.5">Alama 41 - 100%</div>
                   </div>
-                );
-              })}
+                  <div className="text-3xl font-black text-emerald-700">{dashboardMetrics.passCount}</div>
+                </div>
+                <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-black text-rose-800 uppercase">Hawajapasi (Failed: Grade D, E)</div>
+                    <div className="text-xs text-rose-600 font-semibold mt-0.5">Alama 0 - 40%</div>
+                  </div>
+                  <div className="text-3xl font-black text-rose-700">{dashboardMetrics.failCount}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Subject Performance & Grade Distribution Table */}
+          <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
+            <div className="p-4 sm:p-5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-slate-50/80">
+              <div>
+                <h3 className="text-sm font-bold text-[#1f4d8b] uppercase tracking-wider">
+                  Subject Mean Performance & Grade Breakdown
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Detailed analysis of candidate scores, pass rates, and grade distribution per subject
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleExportPerformancePdf}
+                className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-rose-700 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              >
+                <FileText className="w-3.5 h-3.5 text-rose-600" />
+                <span>Download Report (PDF)</span>
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-100 text-slate-700 border-b border-slate-200 uppercase text-[11px] font-black">
+                    <th className="p-3 border-r border-slate-200">Subject</th>
+                    <th className="p-3 border-r border-slate-200 text-center">Tested</th>
+                    <th className="p-3 border-r border-slate-200 text-center">Mean Score</th>
+                    <th className="p-3 border-r border-slate-200 text-center">Pass Rate</th>
+                    <th className="p-3 border-r border-slate-200 text-center bg-emerald-50 text-emerald-800">A</th>
+                    <th className="p-3 border-r border-slate-200 text-center bg-blue-50 text-blue-800">B</th>
+                    <th className="p-3 border-r border-slate-200 text-center bg-amber-50 text-amber-800">C</th>
+                    <th className="p-3 border-r border-slate-200 text-center bg-orange-50 text-orange-800">D</th>
+                    <th className="p-3 border-r border-slate-200 text-center bg-rose-50 text-rose-800">
+                      {isClassPrimary ? 'E' : 'F'}
+                    </th>
+                    <th className="p-3 border-r border-slate-200 text-center">Highest</th>
+                    <th className="p-3 text-center">Lowest</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {dashboardMetrics.subjectPerformances.map((sub, idx) => (
+                    <tr key={sub.subjectKey} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                      <td className="p-3 border-r border-slate-200 font-bold text-slate-900">
+                        <span>{sub.subjectName}</span>
+                        <span className="ml-2 font-mono text-[10px] text-slate-400">({sub.subjectKey})</span>
+                      </td>
+                      <td className="p-3 border-r border-slate-200 text-center font-mono text-slate-700">
+                        {sub.testedCount}
+                      </td>
+                      <td className="p-3 border-r border-slate-200 text-center font-mono font-black text-blue-700">
+                        {sub.testedCount > 0 ? `${sub.meanScore}%` : '-'}
+                      </td>
+                      <td className="p-3 border-r border-slate-200 text-center font-mono font-bold text-emerald-700">
+                        {sub.testedCount > 0 ? `${sub.passRate}%` : '-'}
+                      </td>
+                      <td className="p-3 border-r border-slate-200 text-center font-mono font-bold text-emerald-800 bg-emerald-50/40">
+                        {sub.grades.A}
+                      </td>
+                      <td className="p-3 border-r border-slate-200 text-center font-mono font-bold text-blue-800 bg-blue-50/40">
+                        {sub.grades.B}
+                      </td>
+                      <td className="p-3 border-r border-slate-200 text-center font-mono font-bold text-amber-800 bg-amber-50/40">
+                        {sub.grades.C}
+                      </td>
+                      <td className="p-3 border-r border-slate-200 text-center font-mono font-bold text-orange-800 bg-orange-50/40">
+                        {sub.grades.D}
+                      </td>
+                      <td className="p-3 border-r border-slate-200 text-center font-mono font-bold text-rose-800 bg-rose-50/40">
+                        {isClassPrimary ? sub.grades.E : sub.grades.F}
+                      </td>
+                      <td className="p-3 border-r border-slate-200 text-center font-mono text-slate-800">
+                        {sub.testedCount > 0 ? sub.highestScore : '-'}
+                      </td>
+                      <td className="p-3 text-center font-mono text-slate-800">
+                        {sub.testedCount > 0 ? sub.lowestScore : '-'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -1349,17 +1904,31 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                 <span className="text-xs font-bold text-slate-600 mr-1">Quick Presets:</span>
                 <button
                   type="button"
-                  onClick={() => handleSaveSubjectKeys(ALL_AVAILABLE_SUBJECTS.map(s => s.key))}
-                  className="px-2.5 py-1 text-xs font-bold rounded-md bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 cursor-pointer"
+                  onClick={() => handleSaveSubjectKeys(PRIMARY_UPPER_SUBJECT_KEYS)}
+                  className="px-2.5 py-1 text-xs font-bold rounded-md bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 text-emerald-800 cursor-pointer"
                 >
-                  Show All ({ALL_AVAILABLE_SUBJECTS.length})
+                  Primary Std 3-7 (7 Subjects)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSaveSubjectKeys(PRIMARY_LOWER_SUBJECT_KEYS)}
+                  className="px-2.5 py-1 text-xs font-bold rounded-md bg-teal-50 border border-teal-300 hover:bg-teal-100 text-teal-800 cursor-pointer"
+                >
+                  Primary Std 1-2 (5 Subjects)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSaveSubjectKeys(NURSERY_SUBJECT_KEYS)}
+                  className="px-2.5 py-1 text-xs font-bold rounded-md bg-amber-50 border border-amber-300 hover:bg-amber-100 text-amber-800 cursor-pointer"
+                >
+                  Nursery / Awali (6 Areas)
                 </button>
                 <button
                   type="button"
                   onClick={() => handleSaveSubjectKeys(['ENG', 'KIS', 'B.MATH', 'GEO', 'HIS', 'BIO', 'CIV'])}
-                  className="px-2.5 py-1 text-xs font-bold rounded-md bg-white border border-slate-300 hover:bg-slate-100 text-blue-700 cursor-pointer"
+                  className="px-2.5 py-1 text-xs font-bold rounded-md bg-blue-50 border border-blue-300 hover:bg-blue-100 text-blue-800 cursor-pointer"
                 >
-                  NECTA Core 7
+                  Secondary Core 7
                 </button>
                 <button
                   type="button"
@@ -1381,6 +1950,13 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                   className="px-2.5 py-1 text-xs font-bold rounded-md bg-white border border-slate-300 hover:bg-slate-100 text-purple-700 cursor-pointer"
                 >
                   Commercial
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSaveSubjectKeys(ALL_AVAILABLE_SUBJECTS.map(s => s.key))}
+                  className="px-2.5 py-1 text-xs font-bold rounded-md bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 cursor-pointer"
+                >
+                  Show All ({ALL_AVAILABLE_SUBJECTS.length})
                 </button>
               </div>
 

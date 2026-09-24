@@ -30,13 +30,15 @@ export interface StudentReportCardData {
   dateIssued?: string;
 }
 
+export type EducationLevel = 'PRE_PRIMARY' | 'PRIMARY' | 'CSEE' | 'ACSEE';
+
 export interface Student {
   id: number;
   regNo: string;
   name: string;
   gender: 'Male' | 'Female' | '';
-  className: string; // "Form 1" to "Form 6"
-  level: 'CSEE' | 'ACSEE';
+  className: string; // "Baby Class", "Standard 1" to "Standard 7", "Form 1" to "Form 6"
+  level: EducationLevel;
   dob: string;
   stream?: string;
   combination?: string;
@@ -45,6 +47,9 @@ export interface Student {
   total?: number;
   average?: string;
   division?: string;
+  primaryGrade?: 'A' | 'B' | 'C' | 'D' | 'E';
+  passStatus?: 'AMEFAULU' | 'HAJAFAULU' | string;
+  gpa?: number;
   reportCardData?: StudentReportCardData;
   passportPhoto?: string; // base64 / URL for passport size photo
   registeredAt?: string;
@@ -91,7 +96,7 @@ export interface Exam {
   id: number;
   name: string;
   type?: string;
-  level: 'CSEE' | 'ACSEE';
+  level: EducationLevel;
   className: string;
   date: string;
   status?: 'Active' | 'Inactive';
@@ -125,7 +130,7 @@ export interface PeriodSetting {
 export interface StreamSetting {
   id: number;
   className: string;
-  level: 'CSEE' | 'ACSEE';
+  level: EducationLevel;
   streams: string[];
 }
 
@@ -169,7 +174,7 @@ export interface InvigilationSession {
   end: string;
   time: string;
   subject: string;
-  level: 'CSEE' | 'ACSEE';
+  level: EducationLevel;
   className: string;
   stream: string;
   rooms: number;

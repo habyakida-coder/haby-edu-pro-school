@@ -12,8 +12,16 @@ import {
   Filter
 } from 'lucide-react';
 import { Student, Teacher, UserAccount, Exam } from '../types';
-import { SUBJECT_LIST } from '../constants/defaults';
-import { calculateOLevelDivision } from '../utils/reportCardUtils';
+import { 
+  SUBJECT_LIST, 
+  NURSERY_SUBJECTS, 
+  LOWER_PRIMARY_SUBJECTS, 
+  UPPER_PRIMARY_SUBJECTS,
+  NURSERY_CLASSES,
+  PRIMARY_CLASSES,
+  SECONDARY_CLASSES
+} from '../constants/defaults';
+import { calculateOLevelDivision, calculatePrimaryScoreResult, isPrimaryOrNursery, getPrimarySubjectGradeInfo } from '../utils/reportCardUtils';
 
 interface MarkEntryViewProps {
   students: Student[];
@@ -50,13 +58,25 @@ export const MarkEntryView: React.FC<MarkEntryViewProps> = ({
     return Array.from(set).sort();
   }, [students]);
 
-  // Subjects filtered for teacher mode
+  const isClassPrimary = isPrimaryOrNursery(undefined, selectedClass);
+  const isClassNursery = NURSERY_CLASSES.includes(selectedClass);
+  const isClassLowerPrimary = selectedClass === 'Standard 1' || selectedClass === 'Standard 2';
+
+  // Subjects filtered for teacher mode and appropriate school level
   const availableSubjects = useMemo(() => {
-    const allValid = SUBJECT_LIST.filter(s => !['Breakfast', 'Lunch', 'Sports and Games', 'General Assembly'].includes(s));
+    let baseList = SUBJECT_LIST.filter(s => !['Breakfast', 'Lunch', 'Sports and Games', 'General Assembly'].includes(s));
+    if (isClassNursery) {
+      baseList = NURSERY_SUBJECTS;
+    } else if (isClassLowerPrimary) {
+      baseList = LOWER_PRIMARY_SUBJECTS;
+    } else if (isClassPrimary) {
+      baseList = UPPER_PRIMARY_SUBJECTS;
+    }
+
     if (currentUser?.role === 'TEACHER') {
       const assigned = currentUser.assignedSubjects || [];
       if (assigned.length > 0) {
-        return allValid.filter(sub => 
+        return baseList.filter(sub => 
           assigned.some(a => 
             a.toLowerCase() === sub.toLowerCase() || 
             sub.toLowerCase().includes(a.toLowerCase()) ||
@@ -65,8 +85,8 @@ export const MarkEntryView: React.FC<MarkEntryViewProps> = ({
         );
       }
     }
-    return allValid;
-  }, [currentUser]);
+    return baseList;
+  }, [currentUser, isClassNursery, isClassLowerPrimary, isClassPrimary]);
 
   const [selectedSubject, setSelectedSubject] = useState<string>(availableSubjects[0] || 'English Language');
 
@@ -118,6 +138,14 @@ export const MarkEntryView: React.FC<MarkEntryViewProps> = ({
       return { grade: '-', color: 'text-slate-400 bg-slate-100' };
     }
     const s = Number(score);
+    if (isClassPrimary) {
+      const p = getPrimarySubjectGradeInfo(s);
+      if (p.grade === 'A') return { grade: 'A', color: 'text-emerald-700 bg-emerald-100 border-emerald-300' };
+      if (p.grade === 'B') return { grade: 'B', color: 'text-blue-700 bg-blue-100 border-blue-300' };
+      if (p.grade === 'C') return { grade: 'C', color: 'text-amber-700 bg-amber-100 border-amber-300' };
+      if (p.grade === 'D') return { grade: 'D', color: 'text-orange-700 bg-orange-100 border-orange-300' };
+      return { grade: 'E', color: 'text-rose-700 bg-rose-100 border-rose-300' };
+    }
     // Official O-Level: A=75-100, B=65-74, C=45-64, D=30-44, F=0-29
     if (s >= 75) return { grade: 'A', color: 'text-emerald-700 bg-emerald-100 border-emerald-300' };
     if (s >= 65) return { grade: 'B', color: 'text-blue-700 bg-blue-100 border-blue-300' };
@@ -130,7 +158,9 @@ export const MarkEntryView: React.FC<MarkEntryViewProps> = ({
   const stats = useMemo(() => {
     let markedCount = 0;
     let totalScore = 0;
-    const dist: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, F: 0 };
+    const dist: Record<string, number> = isClassPrimary 
+      ? { A: 0, B: 0, C: 0, D: 0, E: 0 }
+      : { A: 0, B: 0, C: 0, D: 0, F: 0 };
 
     filteredStudents.forEach(s => {
       const scoreVal = getStudentScore(s);
@@ -152,7 +182,7 @@ export const MarkEntryView: React.FC<MarkEntryViewProps> = ({
       avg,
       dist
     };
-  }, [filteredStudents, localScores, selectedSubject]);
+  }, [filteredStudents, localScores, selectedSubject, isClassPrimary]);
 
   const handleSaveAll = () => {
     const updated = students.map(s => {
@@ -170,16 +200,30 @@ export const MarkEntryView: React.FC<MarkEntryViewProps> = ({
       const total = markVals.reduce((acc, curr) => acc + curr, 0);
       const avg = markVals.length > 0 ? (total / markVals.length).toFixed(1) : undefined;
       
-      // Calculate Official NECTA O-Level Division (Best 7, A=1..F=5, <7 subjects = INCOMPLETE)
-      const olevel = calculateOLevelDivision(currentMarks);
+      const isStudentPrimary = isPrimaryOrNursery(s.level, s.className || selectedClass);
 
-      return {
-        ...s,
-        marks: currentMarks,
-        total,
-        average: avg,
-        division: olevel.division
-      };
+      if (isStudentPrimary) {
+        const primaryRes = calculatePrimaryScoreResult(currentMarks);
+        return {
+          ...s,
+          marks: currentMarks,
+          total,
+          average: avg,
+          primaryGrade: primaryRes.overallGrade,
+          passStatus: primaryRes.passStatus,
+          division: primaryRes.overallGrade
+        };
+      } else {
+        // Calculate Official NECTA O-Level Division (Best 7, A=1..F=5, <7 subjects = INCOMPLETE)
+        const olevel = calculateOLevelDivision(currentMarks);
+        return {
+          ...s,
+          marks: currentMarks,
+          total,
+          average: avg,
+          division: olevel.division
+        };
+      }
     });
 
     onUpdateStudents(updated);
@@ -262,12 +306,15 @@ export const MarkEntryView: React.FC<MarkEntryViewProps> = ({
               onChange={e => setSelectedClass(e.target.value)}
               className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 font-bold text-slate-800 focus:ring-2 focus:ring-blue-500"
             >
-              <option value="Form 1">Form 1</option>
-              <option value="Form 2">Form 2</option>
-              <option value="Form 3">Form 3</option>
-              <option value="Form 4">Form 4</option>
-              <option value="Form 5">Form 5</option>
-              <option value="Form 6">Form 6</option>
+              <optgroup label="Pre-Primary / Nursery (Elimu ya Awali)">
+                {NURSERY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+              </optgroup>
+              <optgroup label="Primary School (Elimu ya Msingi: Std 1 - 7)">
+                {PRIMARY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+              </optgroup>
+              <optgroup label="Secondary School (Form 1 - 6)">
+                {SECONDARY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+              </optgroup>
             </select>
           </div>
 

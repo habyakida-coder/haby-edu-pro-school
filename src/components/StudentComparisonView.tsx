@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { Student, SchoolInfo } from '../types';
 import { LedgerSubjectItem, ALL_AVAILABLE_SUBJECTS } from './ResultsView';
-import { calculateOLevelDivision } from '../utils/reportCardUtils';
+import { calculateOLevelDivision, isPrimaryOrNursery, getPrimarySubjectGradeInfo } from '../utils/reportCardUtils';
 
 interface StudentComparisonViewProps {
   students: Student[];
@@ -82,9 +82,19 @@ export const StudentComparisonView: React.FC<StudentComparisonViewProps> = ({
     return null;
   };
 
-  // Grade helper based on standard NECTA O-Level boundary
+  const isClassPrimary = isPrimaryOrNursery(undefined, selectedClass);
+
+  // Grade helper based on standard NECTA O-Level boundary or Primary boundary
   const getGrade = (score: number | null): { grade: string; color: string; bg: string } => {
     if (score === null) return { grade: '-', color: 'text-slate-400', bg: 'bg-slate-100' };
+    if (isClassPrimary) {
+      const p = getPrimarySubjectGradeInfo(score);
+      if (p.grade === 'A') return { grade: 'A', color: 'text-emerald-700', bg: 'bg-emerald-100 border-emerald-300' };
+      if (p.grade === 'B') return { grade: 'B', color: 'text-blue-700', bg: 'bg-blue-100 border-blue-300' };
+      if (p.grade === 'C') return { grade: 'C', color: 'text-amber-700', bg: 'bg-amber-100 border-amber-300' };
+      if (p.grade === 'D') return { grade: 'D', color: 'text-orange-700', bg: 'bg-orange-100 border-orange-300' };
+      return { grade: 'E', color: 'text-rose-700', bg: 'bg-rose-100 border-rose-300' };
+    }
     if (score >= 75) return { grade: 'A', color: 'text-emerald-700', bg: 'bg-emerald-100 border-emerald-300' };
     if (score >= 65) return { grade: 'B', color: 'text-blue-700', bg: 'bg-blue-100 border-blue-300' };
     if (score >= 45) return { grade: 'C', color: 'text-amber-700', bg: 'bg-amber-100 border-amber-300' };
@@ -403,14 +413,26 @@ export const StudentComparisonView: React.FC<StudentComparisonViewProps> = ({
                       {st.gender}
                     </span>
                   )}
-                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-black border ${
-                    st.division === 'I' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
-                    st.division === 'II' ? 'bg-blue-100 text-blue-800 border-blue-300' :
-                    st.division === 'III' ? 'bg-amber-100 text-amber-800 border-amber-300' :
-                    'bg-slate-100 text-slate-800 border-slate-300'
-                  }`}>
-                    DIV {st.division || olevel.division || 'N/A'} ({olevel.points} pts)
-                  </span>
+                  {isClassPrimary ? (
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-black border ${
+                      st.primaryGrade === 'A' || st.division === 'A' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
+                      st.primaryGrade === 'B' || st.division === 'B' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                      st.primaryGrade === 'C' || st.division === 'C' ? 'bg-amber-100 text-amber-800 border-amber-300' :
+                      st.primaryGrade === 'D' || st.division === 'D' ? 'bg-orange-100 text-orange-800 border-orange-300' :
+                      'bg-rose-100 text-rose-800 border-rose-300'
+                    }`}>
+                      Grade {st.primaryGrade || st.division || 'A'} • {st.passStatus || (['A','B','C'].includes(st.primaryGrade || st.division || '') ? 'AMEFAULU' : 'HAJAFAULU')}
+                    </span>
+                  ) : (
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-black border ${
+                      st.division === 'I' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
+                      st.division === 'II' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                      st.division === 'III' ? 'bg-amber-100 text-amber-800 border-amber-300' :
+                      'bg-slate-100 text-slate-800 border-slate-300'
+                    }`}>
+                      DIV {st.division || olevel.division || 'N/A'} ({olevel.points} pts)
+                    </span>
+                  )}
                 </div>
               </div>
 

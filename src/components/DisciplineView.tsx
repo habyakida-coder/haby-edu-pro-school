@@ -15,6 +15,11 @@ import {
   Printer
 } from 'lucide-react';
 import { DisciplineRecord, Student, UserAccount } from '../types';
+import { 
+  NURSERY_CLASSES, 
+  PRIMARY_CLASSES, 
+  SECONDARY_CLASSES 
+} from '../constants/defaults';
 
 interface DisciplineViewProps {
   records: DisciplineRecord[];
@@ -34,9 +39,24 @@ export const DisciplineView: React.FC<DisciplineViewProps> = ({
   onDeleteRecord
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [classFilter, setClassFilter] = useState<string>('All');
+  const [streamFilter, setStreamFilter] = useState<string>('All');
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Dynamic streams collected from all registered students
+  const availableStreams = useMemo(() => {
+    const set = new Set<string>();
+    students.forEach(s => {
+      if (s.stream && s.stream.trim()) {
+        const clean = s.stream.trim().replace(/^STREAM\s+/i, '');
+        if (clean) set.add(clean.toUpperCase());
+      }
+    });
+    ['A', 'B', 'C', 'D', 'E'].forEach(st => set.add(st));
+    return Array.from(set).sort();
+  }, [students]);
 
   // Form state
   const [studentReg, setStudentReg] = useState(students[0]?.regNo || '');
@@ -55,9 +75,15 @@ export const DisciplineView: React.FC<DisciplineViewProps> = ({
         r.title.toLowerCase().includes(searchQuery.toLowerCase());
       const matchCategory = categoryFilter === 'All' || r.category === categoryFilter;
       const matchStatus = statusFilter === 'All' || r.status === statusFilter;
-      return matchSearch && matchCategory && matchStatus;
+      const matchClass = classFilter === 'All' || r.className?.toLowerCase() === classFilter.toLowerCase();
+      
+      const st = students.find(s => s.regNo === r.regNo || s.id === r.studentId);
+      const studentStream = st?.stream ? st.stream.toUpperCase().replace(/^STREAM\s+/i, '') : '';
+      const matchStream = streamFilter === 'All' || studentStream === streamFilter.toUpperCase();
+
+      return matchSearch && matchCategory && matchStatus && matchClass && matchStream;
     });
-  }, [records, searchQuery, categoryFilter, statusFilter]);
+  }, [records, searchQuery, categoryFilter, statusFilter, classFilter, streamFilter, students]);
 
   const stats = useMemo(() => {
     const total = records.length;
@@ -165,6 +191,40 @@ export const DisciplineView: React.FC<DisciplineViewProps> = ({
             <Plus className="w-4 h-4" />
             <span>Log Conduct Incident</span>
           </button>
+
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold text-slate-500 uppercase text-[11px]">Class:</span>
+            <select
+              value={classFilter}
+              onChange={e => setClassFilter(e.target.value)}
+              className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold text-slate-700"
+            >
+              <option value="All">All Classes</option>
+              <optgroup label="Pre-Primary / Nursery">
+                {NURSERY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+              </optgroup>
+              <optgroup label="Primary School (Std 1 - 7)">
+                {PRIMARY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+              </optgroup>
+              <optgroup label="Secondary School (Form 1 - 6)">
+                {SECONDARY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+              </optgroup>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold text-slate-500 uppercase text-[11px]">Stream:</span>
+            <select
+              value={streamFilter}
+              onChange={e => setStreamFilter(e.target.value)}
+              className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold text-slate-700"
+            >
+              <option value="All">All Streams</option>
+              {availableStreams.map(str => (
+                <option key={str} value={str}>Stream {str}</option>
+              ))}
+            </select>
+          </div>
 
           <div className="flex items-center gap-1.5">
             <span className="font-bold text-slate-500 uppercase text-[11px]">Category:</span>

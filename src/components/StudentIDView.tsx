@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Search, 
   Printer, 
@@ -8,11 +8,16 @@ import {
   ShieldCheck, 
   Calendar, 
   BookOpen, 
-  Sparkles,
-  Download,
-  Filter
+  Sparkles, 
+  Download, 
+  Filter 
 } from 'lucide-react';
 import { Student, SchoolInfo } from '../types';
+import { 
+  NURSERY_CLASSES, 
+  PRIMARY_CLASSES, 
+  SECONDARY_CLASSES 
+} from '../constants/defaults';
 
 interface StudentIDViewProps {
   students: Student[];
@@ -26,12 +31,47 @@ export const StudentIDView: React.FC<StudentIDViewProps> = ({
   const [searchReg, setSearchReg] = useState<string>('');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(students[0] || null);
   const [selectedClassFilter, setSelectedClassFilter] = useState<string>('All');
+  const [selectedStreamFilter, setSelectedStreamFilter] = useState<string>('All');
   const [batchPrintMode, setBatchPrintMode] = useState<boolean>(false);
+
+  // Dynamic streams collected from all registered students
+  const availableStreams = useMemo(() => {
+    const set = new Set<string>();
+    students.forEach(s => {
+      if (s.stream && s.stream.trim()) {
+        const clean = s.stream.trim().replace(/^STREAM\s+/i, '');
+        if (clean) set.add(clean.toUpperCase());
+      }
+    });
+    ['A', 'B', 'C', 'D', 'E'].forEach(st => set.add(st));
+    return Array.from(set).sort();
+  }, [students]);
+
+  const filteredStudents = useMemo(() => {
+    return students.filter(s => {
+      const matchSearch = !searchReg.trim() ||
+        s.name.toLowerCase().includes(searchReg.trim().toLowerCase()) ||
+        s.regNo.toLowerCase().includes(searchReg.trim().toLowerCase());
+      const matchClass = selectedClassFilter === 'All' || s.className.toLowerCase() === selectedClassFilter.toLowerCase();
+      const matchStream = selectedStreamFilter === 'All' ||
+        (s.stream ? (
+          s.stream.toUpperCase().replace(/^STREAM\s+/i, '') === selectedStreamFilter.toUpperCase() ||
+          s.stream.toUpperCase().includes(selectedStreamFilter.toUpperCase())
+        ) : true);
+      return matchSearch && matchClass && matchStream;
+    });
+  }, [students, searchReg, selectedClassFilter, selectedStreamFilter]);
+
+  // Keep selected student synced with filtered results
+  useEffect(() => {
+    if (filteredStudents.length > 0 && (!selectedStudent || !filteredStudents.some(s => s.id === selectedStudent.id))) {
+      setSelectedStudent(filteredStudents[0]);
+    }
+  }, [filteredStudents, selectedStudent]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchReg.trim()) {
-      alert('Please enter a registration number.');
       return;
     }
     const found = students.find(s => 
@@ -48,10 +88,6 @@ export const StudentIDView: React.FC<StudentIDViewProps> = ({
   const handlePrint = () => {
     window.print();
   };
-
-  const filteredStudents = selectedClassFilter === 'All' 
-    ? students 
-    : students.filter(s => s.className === selectedClassFilter);
 
   return (
     <div className="space-y-6">
@@ -109,38 +145,63 @@ export const StudentIDView: React.FC<StudentIDViewProps> = ({
         </div>
       </div>
 
-      {/* Class Quick Selection & Student Picker */}
+      {/* Class Quick Selection & Student Picker (Matching Registration Filtering) */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-slate-500 uppercase tracking-wider text-[11px]">Filter Class:</span>
-          <select
-            value={selectedClassFilter}
-            onChange={e => setSelectedClassFilter(e.target.value)}
-            className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1 font-bold text-slate-700"
-          >
-            <option value="All">All Classes</option>
-            <option value="Form 1">Form 1</option>
-            <option value="Form 2">Form 2</option>
-            <option value="Form 3">Form 3</option>
-            <option value="Form 4">Form 4</option>
-            <option value="Form 5">Form 5</option>
-            <option value="Form 6">Form 6</option>
-          </select>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold text-slate-500 uppercase tracking-wider text-[11px]">Class:</span>
+            <select
+              value={selectedClassFilter}
+              onChange={e => setSelectedClassFilter(e.target.value)}
+              className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold text-slate-700"
+            >
+              <option value="All">All Classes</option>
+              <optgroup label="Pre-Primary / Nursery">
+                {NURSERY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+              </optgroup>
+              <optgroup label="Primary School (Std 1 - 7)">
+                {PRIMARY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+              </optgroup>
+              <optgroup label="Secondary School (Form 1 - 6)">
+                {SECONDARY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+              </optgroup>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold text-slate-500 uppercase tracking-wider text-[11px]">Stream:</span>
+            <select
+              value={selectedStreamFilter}
+              onChange={e => setSelectedStreamFilter(e.target.value)}
+              className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold text-slate-700"
+            >
+              <option value="All">All Streams</option>
+              {availableStreams.map(str => (
+                <option key={str} value={str}>Stream {str}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="font-bold text-slate-500 uppercase tracking-wider text-[11px]">Select Candidate:</span>
+          <span className="font-bold text-slate-500 uppercase tracking-wider text-[11px]">
+            Candidate ({filteredStudents.length}):
+          </span>
           <select
             value={selectedStudent?.regNo || ''}
             onChange={e => {
               const st = students.find(s => s.regNo === e.target.value);
               if (st) setSelectedStudent(st);
             }}
-            className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1 font-bold text-slate-800 max-w-[220px]"
+            className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold text-slate-800 max-w-[260px]"
           >
-            {filteredStudents.map(s => (
-              <option key={s.id} value={s.regNo}>{s.regNo} - {s.name}</option>
-            ))}
+            {filteredStudents.length === 0 ? (
+              <option value="">No matching candidates</option>
+            ) : (
+              filteredStudents.map(s => (
+                <option key={s.id} value={s.regNo}>{s.regNo} - {s.name} ({s.className})</option>
+              ))
+            )}
           </select>
         </div>
       </div>

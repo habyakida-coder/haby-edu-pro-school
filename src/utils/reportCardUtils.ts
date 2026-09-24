@@ -1,4 +1,217 @@
-import { CharacterTrait, ReportCardPeriodSetting, Student, StudentReportCardData } from '../types';
+import { CharacterTrait, ReportCardPeriodSetting, Student, StudentReportCardData, EducationLevel } from '../types';
+
+/**
+ * Helper to test if a level or className belongs to Primary School
+ */
+export function isPrimaryLevel(level?: string, className?: string): boolean {
+  if (level === 'PRIMARY') return true;
+  if (className && (
+    className.startsWith('Standard') || 
+    className.startsWith('Std') || 
+    className.startsWith('Darasa')
+  )) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Helper to test if a level or className belongs to Pre-Primary / Nursery
+ */
+export function isPrePrimaryLevel(level?: string, className?: string): boolean {
+  if (level === 'PRE_PRIMARY') return true;
+  if (className && (
+    className.startsWith('Nursery') || 
+    className.startsWith('Baby') || 
+    className.startsWith('Pre-Unit') || 
+    className.includes('Awali')
+  )) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Checks if a class or student is either Primary or Pre-Primary
+ */
+export function isPrimaryOrNursery(level?: string, className?: string): boolean {
+  return isPrimaryLevel(level, className) || isPrePrimaryLevel(level, className);
+}
+
+/**
+ * Automatically determine EducationLevel from className
+ */
+export function getEducationLevelFromClass(className: string): EducationLevel {
+  if (isPrePrimaryLevel(undefined, className)) return 'PRE_PRIMARY';
+  if (isPrimaryLevel(undefined, className)) return 'PRIMARY';
+  if (className === 'Form 5' || className === 'Form 6') return 'ACSEE';
+  return 'CSEE';
+}
+
+/**
+ * Tanzanian NECTA Primary School Subject Grading Scale (Standard 1 - 7 / PSLE / SFNA):
+ * - A: 81 - 100% (Bora Sana / Distinction / Very Good)
+ * - B: 61 - 80% (Nzuri Sana / Good / Above Average)
+ * - C: 41 - 60% (Wastani / Average / Pass)
+ * - D: 21 - 40% (Hafifu / Weak / Below Average)
+ * - E: 0 - 20% (Hafifu Sana / Fail / Poor)
+ */
+export interface PrimaryGradeInfo {
+  score: number;
+  grade: 'A' | 'B' | 'C' | 'D' | 'E';
+  points: number;
+  remark: string;
+  swahiliRemark: string;
+  color: string;
+  bg: string;
+  border: string;
+}
+
+export function getPrimarySubjectGradeInfo(score: number): PrimaryGradeInfo {
+  const num = Math.min(100, Math.max(0, Math.round(score)));
+  if (num >= 81) {
+    return {
+      score: num,
+      grade: 'A',
+      points: 1,
+      remark: 'Distinction',
+      swahiliRemark: 'Bora Sana (Ufaulu wa Juu)',
+      color: '#15803d', // emerald-700
+      bg: '#dcfce7',
+      border: '#86efac'
+    };
+  }
+  if (num >= 61) {
+    return {
+      score: num,
+      grade: 'B',
+      points: 2,
+      remark: 'Very Good',
+      swahiliRemark: 'Vizuri Sana',
+      color: '#1d4ed8', // blue-700
+      bg: '#dbeafe',
+      border: '#93c5fd'
+    };
+  }
+  if (num >= 41) {
+    return {
+      score: num,
+      grade: 'C',
+      points: 3,
+      remark: 'Average / Pass',
+      swahiliRemark: 'Wastani (Amefaulu)',
+      color: '#0369a1', // sky-700
+      bg: '#e0f2fe',
+      border: '#7dd3fc'
+    };
+  }
+  if (num >= 21) {
+    return {
+      score: num,
+      grade: 'D',
+      points: 4,
+      remark: 'Weak / Below Average',
+      swahiliRemark: 'Hafifu (Chini ya Wastani)',
+      color: '#b45309', // amber-700
+      bg: '#fef3c7',
+      border: '#fcd34d'
+    };
+  }
+  return {
+    score: num,
+    grade: 'E',
+    points: 5,
+    remark: 'Fail',
+    swahiliRemark: 'Hafifu Sana (Amefeli)',
+    color: '#b91c1c', // red-700
+    bg: '#fee2e2',
+    border: '#fca5a5'
+  };
+}
+
+export interface PrimaryScoreResult {
+  total: number;
+  maxPossibleTotal: number;
+  average: number;
+  overallGrade: 'A' | 'B' | 'C' | 'D' | 'E';
+  gradeLabel: string;
+  passStatus: 'AMEFAULU' | 'HAJAFAULU';
+  passStatusLabel: string;
+  gpa: number;
+  scoredSubjectsCount: number;
+  description: string;
+}
+
+export function calculatePrimaryScoreResult(marks: Record<string, number | undefined | null>): PrimaryScoreResult {
+  const validEntries: { subject: string; score: number }[] = [];
+  Object.entries(marks || {}).forEach(([subject, score]) => {
+    if (typeof score === 'number' && !isNaN(score) && score >= 0) {
+      validEntries.push({ subject, score });
+    }
+  });
+
+  const count = validEntries.length;
+  if (count === 0) {
+    return {
+      total: 0,
+      maxPossibleTotal: 0,
+      average: 0,
+      overallGrade: 'E',
+      gradeLabel: 'DARAJA -',
+      passStatus: 'HAJAFAULU',
+      passStatusLabel: 'HAKUNA MATOKEO',
+      gpa: 0,
+      scoredSubjectsCount: 0,
+      description: 'Hakuna alama zilizorekodiwa'
+    };
+  }
+
+  const total = validEntries.reduce((sum, item) => sum + item.score, 0);
+  const average = Number((total / count).toFixed(1));
+  const maxPossibleTotal = count * 100;
+
+  let overallGrade: 'A' | 'B' | 'C' | 'D' | 'E' = 'E';
+  let passStatus: 'AMEFAULU' | 'HAJAFAULU' = 'HAJAFAULU';
+  let passStatusLabel = 'HAJAFAULU (FAILED)';
+
+  if (average >= 81) {
+    overallGrade = 'A';
+    passStatus = 'AMEFAULU';
+    passStatusLabel = 'AMEFAULU (DISTINCTION)';
+  } else if (average >= 61) {
+    overallGrade = 'B';
+    passStatus = 'AMEFAULU';
+    passStatusLabel = 'AMEFAULU (VERY GOOD)';
+  } else if (average >= 41) {
+    overallGrade = 'C';
+    passStatus = 'AMEFAULU';
+    passStatusLabel = 'AMEFAULU (PASS)';
+  } else if (average >= 21) {
+    overallGrade = 'D';
+    passStatus = 'HAJAFAULU';
+    passStatusLabel = 'HAJAFAULU (WEAK)';
+  } else {
+    overallGrade = 'E';
+    passStatus = 'HAJAFAULU';
+    passStatusLabel = 'HAJAFAULU (FAIL)';
+  }
+
+  const totalPoints = validEntries.reduce((sum, item) => sum + getPrimarySubjectGradeInfo(item.score).points, 0);
+  const gpa = Number((totalPoints / count).toFixed(2));
+
+  return {
+    total,
+    maxPossibleTotal,
+    average,
+    overallGrade,
+    gradeLabel: `DARAJA ${overallGrade}`,
+    passStatus,
+    passStatusLabel,
+    gpa,
+    scoredSubjectsCount: count,
+    description: `Jumla: ${total}/${maxPossibleTotal} • Wastani: ${average}% (${overallGrade}) • ${passStatus}`
+  };
+}
 
 export interface SubjectGradeInfo {
   score: number;
@@ -190,7 +403,11 @@ export interface PerformanceSummary {
   status: 'EXCELLENT' | 'VERY_GOOD' | 'GOOD' | 'PASS' | 'WARNING';
 }
 
-export function calculatePerformanceSummary(marks: Record<string, number>): PerformanceSummary {
+export function calculatePerformanceSummary(
+  marks: Record<string, number>,
+  level?: EducationLevel,
+  className?: string
+): PerformanceSummary {
   const entries = Object.entries(marks || {});
   const subjectCount = entries.length;
   
@@ -206,6 +423,40 @@ export function calculatePerformanceSummary(marks: Record<string, number>): Perf
       subjectCount: 0,
       gradeCounts: { A: 0, B: 0, C: 0, D: 0, F: 0 },
       status: 'WARNING'
+    };
+  }
+
+  // Check if Primary or Pre-Primary (Tanzanian NECTA Primary Scale: A=81-100, B=61-80, C=41-60, D=21-40, E=0-20)
+  if (isPrimaryOrNursery(level, className)) {
+    const primaryRes = calculatePrimaryScoreResult(marks);
+    const gradeCounts = { A: 0, B: 0, C: 0, D: 0, F: 0 };
+    entries.forEach(([, score]) => {
+      const pInfo = getPrimarySubjectGradeInfo(score);
+      if (pInfo.grade === 'E') {
+        gradeCounts['F']++;
+      } else {
+        gradeCounts[pInfo.grade]++;
+      }
+    });
+
+    let status: PerformanceSummary['status'] = 'PASS';
+    if (primaryRes.overallGrade === 'A') status = 'EXCELLENT';
+    else if (primaryRes.overallGrade === 'B') status = 'VERY_GOOD';
+    else if (primaryRes.overallGrade === 'C') status = 'GOOD';
+    else if (primaryRes.overallGrade === 'D') status = 'PASS';
+    else status = 'WARNING';
+
+    return {
+      total: primaryRes.total,
+      average: primaryRes.average,
+      division: primaryRes.overallGrade,
+      divisionDesc: `${primaryRes.passStatus} (${primaryRes.passStatusLabel})`,
+      pointsTotal: Math.round(primaryRes.gpa * subjectCount),
+      best7Points: null,
+      gpa: primaryRes.gpa,
+      subjectCount,
+      gradeCounts,
+      status
     };
   }
 

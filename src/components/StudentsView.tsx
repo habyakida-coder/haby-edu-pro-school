@@ -16,10 +16,21 @@ import {
   Filter,
   ArrowUpDown,
   X,
-  User
+  User,
+  CheckSquare,
+  Square,
+  AlertTriangle
 } from 'lucide-react';
-import { Student, SchoolInfo } from '../types';
-import { SUBJECT_LIST } from '../constants/defaults';
+import { Student, SchoolInfo, EducationLevel } from '../types';
+import { 
+  SUBJECT_LIST, 
+  NURSERY_CLASSES, 
+  PRIMARY_CLASSES, 
+  SECONDARY_CLASSES, 
+  NURSERY_SUBJECTS_LIST, 
+  LOWER_PRIMARY_SUBJECTS_LIST, 
+  UPPER_PRIMARY_SUBJECTS_LIST 
+} from '../constants/defaults';
 import { downloadFile, escapeCSV, printFormattedSection } from '../utils/export';
 import { formatStudentRegNo, getNextStudentRegNo } from '../utils/studentRegUtils';
 
@@ -29,6 +40,7 @@ interface StudentsViewProps {
   onAddStudent: (student: Student) => void;
   onUpdateStudent: (student: Student) => void;
   onDeleteStudent: (id: number) => void;
+  onBulkDeleteStudents?: (ids: number[]) => void;
   onBulkAddStudents?: (newStudents: Student[]) => void;
 }
 
@@ -38,13 +50,14 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   onAddStudent,
   onUpdateStudent,
   onDeleteStudent,
+  onBulkDeleteStudents,
   onBulkAddStudents
 }) => {
   // Form State
   const [name, setName] = useState('');
   const [gender, setGender] = useState<'Male' | 'Female' | ''>('Male');
   const [className, setClassName] = useState('Form 1');
-  const [level, setLevel] = useState<'CSEE' | 'ACSEE'>('CSEE');
+  const [level, setLevel] = useState<EducationLevel>('CSEE');
   const [stream, setStream] = useState('STREAM A');
   const [combination, setCombination] = useState('PCM');
   const [dob, setDob] = useState('2010-01-01');
@@ -77,13 +90,55 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   const [streamFilter, setStreamFilter] = useState('ALL');
   const [sortBy, setSortBy] = useState<'regNo_asc' | 'regNo_desc' | 'name_asc'>('regNo_asc');
 
+  // Multiple Student Selection for Bulk Delete
+  const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+
   // Edit and View Modals
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [viewingRecordStudent, setViewingRecordStudent] = useState<Student | null>(null);
 
-  const handleLevelChange = (newLevel: 'CSEE' | 'ACSEE') => {
+  const handleClassChange = (newClass: string) => {
+    setClassName(newClass);
+    if (NURSERY_CLASSES.includes(newClass)) {
+      setLevel('PRE_PRIMARY');
+      setSelectedSubjects(NURSERY_SUBJECTS_LIST);
+      setShowAutoFillNotice(true);
+      setTimeout(() => setShowAutoFillNotice(false), 3000);
+    } else if (newClass === 'Standard 1' || newClass === 'Standard 2') {
+      setLevel('PRIMARY');
+      setSelectedSubjects(LOWER_PRIMARY_SUBJECTS_LIST);
+      setShowAutoFillNotice(true);
+      setTimeout(() => setShowAutoFillNotice(false), 3000);
+    } else if (PRIMARY_CLASSES.includes(newClass)) {
+      setLevel('PRIMARY');
+      setSelectedSubjects(UPPER_PRIMARY_SUBJECTS_LIST);
+      setShowAutoFillNotice(true);
+      setTimeout(() => setShowAutoFillNotice(false), 3000);
+    } else if (['Form 1', 'Form 2', 'Form 3', 'Form 4'].includes(newClass)) {
+      setLevel('CSEE');
+      setSelectedSubjects(['English Language', 'Kiswahili', 'Mathematics', 'Biology', 'Chemistry', 'Physics', 'Geography', 'History', 'Civics']);
+      setShowAutoFillNotice(true);
+      setTimeout(() => setShowAutoFillNotice(false), 3000);
+    } else if (['Form 5', 'Form 6'].includes(newClass)) {
+      setLevel('ACSEE');
+      autoFillCombinationSubjects(combination);
+    }
+  };
+
+  const handleLevelChange = (newLevel: EducationLevel) => {
     setLevel(newLevel);
-    if (newLevel === 'ACSEE') {
+    if (newLevel === 'PRE_PRIMARY') {
+      setSelectedSubjects(NURSERY_SUBJECTS_LIST);
+    } else if (newLevel === 'PRIMARY') {
+      if (className === 'Standard 1' || className === 'Standard 2') {
+        setSelectedSubjects(LOWER_PRIMARY_SUBJECTS_LIST);
+      } else {
+        setSelectedSubjects(UPPER_PRIMARY_SUBJECTS_LIST);
+      }
+    } else if (newLevel === 'CSEE') {
+      setSelectedSubjects(['English Language', 'Kiswahili', 'Mathematics', 'Biology', 'Chemistry', 'Physics', 'Geography', 'History', 'Civics']);
+    } else if (newLevel === 'ACSEE') {
       autoFillCombinationSubjects(combination);
     }
   };
@@ -314,6 +369,47 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
     return a.name.localeCompare(b.name);
   });
 
+  // Multiple selection helpers for student bulk deletion
+  const handleToggleSelectStudent = (id: number) => {
+    setSelectedStudentIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllFiltered = () => {
+    const allFilteredIds = sortedFilteredStudents.map(s => s.id);
+    const isAllSelected = allFilteredIds.length > 0 && allFilteredIds.every(id => selectedStudentIds.includes(id));
+    if (isAllSelected) {
+      setSelectedStudentIds(prev => prev.filter(id => !allFilteredIds.includes(id)));
+    } else {
+      setSelectedStudentIds(prev => Array.from(new Set([...prev, ...allFilteredIds])));
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedStudentIds([]);
+  };
+
+  const isAllFilteredSelected = sortedFilteredStudents.length > 0 && 
+    sortedFilteredStudents.every(s => selectedStudentIds.includes(s.id));
+  const isSomeFilteredSelected = sortedFilteredStudents.some(s => selectedStudentIds.includes(s.id)) && !isAllFilteredSelected;
+
+  const handleConfirmBulkDelete = () => {
+    if (selectedStudentIds.length === 0) return;
+    if (onBulkDeleteStudents) {
+      onBulkDeleteStudents(selectedStudentIds);
+    } else {
+      selectedStudentIds.forEach(id => onDeleteStudent(id));
+    }
+    setSelectedStudentIds([]);
+    setShowBulkDeleteModal(false);
+  };
+
+  const selectedStudentsList = useMemo(() => {
+    const set = new Set(selectedStudentIds);
+    return students.filter(s => set.has(s.id));
+  }, [students, selectedStudentIds]);
+
   return (
     <div className="space-y-6">
       {/* Sub-Navigation Tabs */}
@@ -482,15 +578,18 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                   <label className="text-xs font-bold text-slate-600 uppercase block mb-1">Class / Form *</label>
                   <select
                     value={className}
-                    onChange={e => setClassName(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white"
+                    onChange={e => handleClassChange(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white font-semibold text-slate-800"
                   >
-                    <option>Form 1</option>
-                    <option>Form 2</option>
-                    <option>Form 3</option>
-                    <option>Form 4</option>
-                    <option>Form 5</option>
-                    <option>Form 6</option>
+                    <optgroup label="Pre-Primary / Nursery (Elimu ya Awali)">
+                      {NURSERY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </optgroup>
+                    <optgroup label="Primary School (Elimu ya Msingi: Std 1 - 7)">
+                      {PRIMARY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </optgroup>
+                    <optgroup label="Secondary School (Form 1 - 6)">
+                      {SECONDARY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </optgroup>
                   </select>
                 </div>
 
@@ -498,28 +597,17 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                   <label className="text-xs font-bold text-slate-600 uppercase block mb-1">Level *</label>
                   <select
                     value={level}
-                    onChange={e => handleLevelChange(e.target.value as 'CSEE' | 'ACSEE')}
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white"
+                    onChange={e => handleLevelChange(e.target.value as EducationLevel)}
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white font-semibold text-slate-800"
                   >
-                    <option value="CSEE">CSEE (Ordinary Level Form 1-4)</option>
-                    <option value="ACSEE">ACSEE (Advanced Level Form 5-6)</option>
+                    <option value="PRE_PRIMARY">Pre-Primary (Elimu ya Awali / Nursery)</option>
+                    <option value="PRIMARY">Primary School (Elimu ya Msingi: Std 1 - 7)</option>
+                    <option value="CSEE">CSEE (Ordinary Level Form 1 - 4)</option>
+                    <option value="ACSEE">ACSEE (Advanced Level Form 5 - 6)</option>
                   </select>
                 </div>
 
-                {level === 'CSEE' ? (
-                  <div>
-                    <label className="text-xs font-bold text-slate-600 uppercase block mb-1">Stream *</label>
-                    <select
-                      value={stream}
-                      onChange={e => setStream(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white"
-                    >
-                      {allRegisteredStreams.map((st: string) => (
-                        <option key={st} value={`STREAM ${st}`}>STREAM {st}</option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
+                {level === 'ACSEE' ? (
                   <div>
                     <label className="text-xs font-bold text-slate-600 uppercase block mb-1">Combination *</label>
                     <select
@@ -543,6 +631,19 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                       <option value="HGL">HGL (History, Geography, English)</option>
                       <option value="HGK">HGK (History, Geography, Kiswahili)</option>
                       <option value="KLF">KLF (Kiswahili, English, Fine Art)</option>
+                    </select>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 uppercase block mb-1">Stream *</label>
+                    <select
+                      value={stream}
+                      onChange={e => setStream(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white"
+                    >
+                      {allRegisteredStreams.map((st: string) => (
+                        <option key={st} value={`STREAM ${st}`}>STREAM {st}</option>
+                      ))}
                     </select>
                   </div>
                 )}
@@ -638,6 +739,24 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                 Import CSV
                 <input type="file" accept=".csv" onChange={handleImportCSV} className="hidden" />
               </label>
+
+              {/* Quick tip banner for multiple deletion after registration */}
+              <div className="w-full mt-1.5 p-2.5 bg-blue-50/80 border border-blue-200/70 rounded-lg flex flex-wrap items-center justify-between gap-2 text-xs text-blue-900">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <CheckSquare className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span><strong>Multiple Delete Students:</strong> After registration, check the boxes on any students in the master list below to delete multiple candidates in one go.</span>
+                </span>
+                {selectedStudentIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowBulkDeleteModal(true)}
+                    className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-xs flex items-center gap-1 shrink-0 shadow-xs cursor-pointer transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Delete {selectedStudentIds.length} Selected
+                  </button>
+                )}
+              </div>
             </div>
           </form>
         </div>
@@ -676,12 +795,15 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
               className="px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white font-medium text-slate-700"
             >
               <option value="ALL">All Classes</option>
-              <option value="Form 1">Form 1</option>
-              <option value="Form 2">Form 2</option>
-              <option value="Form 3">Form 3</option>
-              <option value="Form 4">Form 4</option>
-              <option value="Form 5">Form 5</option>
-              <option value="Form 6">Form 6</option>
+              <optgroup label="Pre-Primary / Nursery">
+                {NURSERY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+              </optgroup>
+              <optgroup label="Primary School (Std 1 - 7)">
+                {PRIMARY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+              </optgroup>
+              <optgroup label="Secondary School (Form 1 - 6)">
+                {SECONDARY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+              </optgroup>
             </select>
 
             {/* Stream Filter */}
@@ -706,14 +828,92 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
               <option value="regNo_desc">Latest Registered First</option>
               <option value="name_asc">Alphabetical (A - Z)</option>
             </select>
+
+            {/* Multi-Delete Action Button */}
+            {selectedStudentIds.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => setShowBulkDeleteModal(true)}
+                className="px-3 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                title="Permanently remove selected students from register"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Selected ({selectedStudentIds.length})</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSelectAllFiltered}
+                className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg shadow-2xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                title="Select all visible students to delete or manage"
+              >
+                <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
+                <span>Multi-Select</span>
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Bulk Action Controls Banner for Multiple Student Deletions */}
+        {selectedStudentIds.length > 0 && (
+          <div className="bg-gradient-to-r from-amber-50 to-rose-50 border border-amber-200/80 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-xs animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-rose-600 text-white font-black text-xs flex items-center justify-center shadow-xs">
+                {selectedStudentIds.length}
+              </span>
+              <div>
+                <span className="font-bold text-slate-800 text-xs">
+                  {selectedStudentIds.length} Student{selectedStudentIds.length > 1 ? 's' : ''} Selected
+                </span>
+                <span className="text-slate-400 text-xs mx-1.5">•</span>
+                <button
+                  type="button"
+                  onClick={handleSelectAllFiltered}
+                  className="text-xs text-blue-700 hover:text-blue-900 font-bold underline cursor-pointer"
+                >
+                  {isAllFilteredSelected ? 'Deselect visible list' : `Select all ${sortedFilteredStudents.length} visible`}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleClearSelection}
+                className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors shadow-2xs"
+              >
+                Clear Selection
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowBulkDeleteModal(true)}
+                className="px-3.5 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                title="Permanently remove selected students from register"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Selected ({selectedStudentIds.length})</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Printable Section with Increased Font Size */}
         <div id="registered-students-print-table" className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-[11px] text-slate-600 font-bold uppercase tracking-wider">
+                <th className="p-2.5 border-r border-slate-200 w-10 text-center no-print">
+                  <input
+                    type="checkbox"
+                    checked={isAllFilteredSelected}
+                    ref={el => {
+                      if (el) el.indeterminate = isSomeFilteredSelected;
+                    }}
+                    onChange={handleSelectAllFiltered}
+                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    title={isAllFilteredSelected ? "Deselect all" : "Select all in filtered list"}
+                  />
+                </th>
                 <th className="p-2.5 border-r border-slate-200 w-10 text-center">#</th>
                 <th className="p-2.5 border-r border-slate-200 w-14 text-center">Photo</th>
                 <th className="p-2.5 border-r border-slate-200">Registration No</th>
@@ -728,74 +928,91 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
             <tbody>
               {sortedFilteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="p-8 text-center text-slate-400">
+                  <td colSpan={10} className="p-8 text-center text-slate-400">
                     No registered students found matching your criteria.
                   </td>
                 </tr>
               ) : (
-                sortedFilteredStudents.map((s, idx) => (
-                  <tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50/70">
-                    <td className="p-2.5 border-r border-slate-200 text-center font-bold text-slate-400">{idx + 1}</td>
-                    <td className="p-2.5 border-r border-slate-200 text-center">
-                      {s.passportPhoto ? (
-                        <img
-                          src={s.passportPhoto}
-                          alt={s.name}
-                          className="w-9 h-11 object-cover rounded border border-slate-300 mx-auto shadow-2xs"
+                sortedFilteredStudents.map((s, idx) => {
+                  const isSelected = selectedStudentIds.includes(s.id);
+                  return (
+                    <tr
+                      key={s.id}
+                      className={`border-b border-slate-100 hover:bg-slate-50/70 transition-colors ${
+                        isSelected ? 'bg-blue-50/70' : ''
+                      }`}
+                    >
+                      <td className="p-2.5 border-r border-slate-200 text-center no-print">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleSelectStudent(s.id)}
+                          className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          title={`Select ${s.name}`}
                         />
-                      ) : (
-                        <div className="w-9 h-11 bg-slate-100 rounded border border-slate-200 mx-auto flex items-center justify-center text-slate-400">
-                          <User className="w-4 h-4" />
+                      </td>
+                      <td className="p-2.5 border-r border-slate-200 text-center font-bold text-slate-400">{idx + 1}</td>
+                      <td className="p-2.5 border-r border-slate-200 text-center">
+                        {s.passportPhoto ? (
+                          <img
+                            src={s.passportPhoto}
+                            alt={s.name}
+                            className="w-9 h-11 object-cover rounded border border-slate-300 mx-auto shadow-2xs"
+                          />
+                        ) : (
+                          <div className="w-9 h-11 bg-slate-100 rounded border border-slate-200 mx-auto flex items-center justify-center text-slate-400">
+                            <User className="w-4 h-4" />
+                          </div>
+                        )}
+                      </td>
+                      <td className="p-2.5 border-r border-slate-200 font-mono font-bold text-blue-700">
+                        {s.regNo || `S${String(idx + 1).padStart(4, '0')}`}
+                      </td>
+                      <td className="p-2.5 border-r border-slate-200 font-bold text-slate-800">{s.name}</td>
+                      <td className="p-2.5 border-r border-slate-200 text-center">{s.gender}</td>
+                      <td className="p-2.5 border-r border-slate-200 font-semibold text-slate-700">
+                        {s.className} - {s.stream || s.combination || 'Standard'}
+                      </td>
+                      <td className="p-2.5 border-r border-slate-200">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          s.level === 'ACSEE' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {s.level}
+                        </span>
+                      </td>
+                      <td className="p-2.5 border-r border-slate-200 max-w-xs truncate" title={s.subjects.join(', ')}>
+                        <span className="font-bold text-slate-800">({s.subjects.length})</span> {s.subjects.slice(0, 4).join(', ')}{s.subjects.length > 4 ? '...' : ''}
+                      </td>
+                      <td className="p-2.5 text-center no-print">
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => setViewingRecordStudent(s)}
+                            className="px-2 py-1 text-[11px] font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 rounded border border-purple-200 cursor-pointer"
+                          >
+                            Record
+                          </button>
+                          <button
+                            onClick={() => setEditingStudent(s)}
+                            className="px-2 py-1 text-[11px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded border border-amber-200 cursor-pointer"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (confirm(`Delete student ${s.name}?`)) {
+                                onDeleteStudent(s.id);
+                              }
+                            }}
+                            className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded cursor-pointer"
+                            title="Delete Student"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
-                      )}
-                    </td>
-                    <td className="p-2.5 border-r border-slate-200 font-mono font-bold text-blue-700">
-                      {s.regNo || `S${String(idx + 1).padStart(4, '0')}`}
-                    </td>
-                    <td className="p-2.5 border-r border-slate-200 font-bold text-slate-800">{s.name}</td>
-                    <td className="p-2.5 border-r border-slate-200 text-center">{s.gender}</td>
-                    <td className="p-2.5 border-r border-slate-200 font-semibold text-slate-700">
-                      {s.className} - {s.stream || s.combination || 'Standard'}
-                    </td>
-                    <td className="p-2.5 border-r border-slate-200">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        s.level === 'ACSEE' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
-                      }`}>
-                        {s.level}
-                      </span>
-                    </td>
-                    <td className="p-2.5 border-r border-slate-200 max-w-xs truncate" title={s.subjects.join(', ')}>
-                      <span className="font-bold text-slate-800">({s.subjects.length})</span> {s.subjects.slice(0, 4).join(', ')}{s.subjects.length > 4 ? '...' : ''}
-                    </td>
-                    <td className="p-2.5 text-center no-print">
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={() => setViewingRecordStudent(s)}
-                          className="px-2 py-1 text-[11px] font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 rounded border border-purple-200 cursor-pointer"
-                        >
-                          Record
-                        </button>
-                        <button
-                          onClick={() => setEditingStudent(s)}
-                          className="px-2 py-1 text-[11px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded border border-amber-200 cursor-pointer"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (confirm(`Delete student ${s.name}?`)) {
-                              onDeleteStudent(s.id);
-                            }
-                          }}
-                          className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded cursor-pointer"
-                          title="Delete Student"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -858,15 +1075,26 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                     <label className="text-xs font-bold text-slate-600 block mb-1">Class</label>
                     <select
                       value={editingStudent.className}
-                      onChange={e => setEditingStudent({ ...editingStudent, className: e.target.value })}
+                      onChange={e => {
+                        const newClass = e.target.value;
+                        let newLevel: EducationLevel = editingStudent.level;
+                        if (NURSERY_CLASSES.includes(newClass)) newLevel = 'PRE_PRIMARY';
+                        else if (PRIMARY_CLASSES.includes(newClass)) newLevel = 'PRIMARY';
+                        else if (['Form 1', 'Form 2', 'Form 3', 'Form 4'].includes(newClass)) newLevel = 'CSEE';
+                        else if (['Form 5', 'Form 6'].includes(newClass)) newLevel = 'ACSEE';
+                        setEditingStudent({ ...editingStudent, className: newClass, level: newLevel });
+                      }}
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white"
                     >
-                      <option>Form 1</option>
-                      <option>Form 2</option>
-                      <option>Form 3</option>
-                      <option>Form 4</option>
-                      <option>Form 5</option>
-                      <option>Form 6</option>
+                      <optgroup label="Pre-Primary / Nursery">
+                        {NURSERY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                      </optgroup>
+                      <optgroup label="Primary School (Std 1 - 7)">
+                        {PRIMARY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                      </optgroup>
+                      <optgroup label="Secondary School (Form 1 - 6)">
+                        {SECONDARY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                      </optgroup>
                     </select>
                   </div>
                   <div>
@@ -953,8 +1181,14 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                 <div className="text-[10px] text-slate-500 uppercase font-bold">Average</div>
               </div>
               <div className="p-3 bg-purple-50 rounded-lg">
-                <div className="text-lg font-bold text-purple-800">{viewingRecordStudent.division || '-'}</div>
-                <div className="text-[10px] text-slate-500 uppercase font-bold">Division</div>
+                <div className="text-lg font-bold text-purple-800">
+                  {viewingRecordStudent.level === 'PRIMARY' || viewingRecordStudent.level === 'PRE_PRIMARY'
+                    ? (viewingRecordStudent.primaryGrade ? `Grade ${viewingRecordStudent.primaryGrade}` : viewingRecordStudent.division || '-')
+                    : viewingRecordStudent.division || '-'}
+                </div>
+                <div className="text-[10px] text-slate-500 uppercase font-bold">
+                  {viewingRecordStudent.level === 'PRIMARY' || viewingRecordStudent.level === 'PRE_PRIMARY' ? 'Primary Grade' : 'Division'}
+                </div>
               </div>
             </div>
 
@@ -981,6 +1215,98 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                 className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg cursor-pointer"
               >
                 Close Record
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirmation Modal */}
+      {showBulkDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4 border border-rose-100 animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="flex items-start gap-3.5">
+              <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 border border-rose-200">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-extrabold text-slate-900">
+                  Delete {selectedStudentIds.length} Registered Student{selectedStudentIds.length > 1 ? 's' : ''}?
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  You are about to remove multiple student records from the accredited school register.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBulkDeleteModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Warning Alert */}
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <div>
+                <strong className="font-bold">Permanent Deletion Warning:</strong>
+                <p className="text-rose-700 mt-0.5">
+                  This will permanently delete all {selectedStudentIds.length} selected students along with their examination marks, subject enrolments, and attendance history. This action cannot be recovered.
+                </p>
+              </div>
+            </div>
+
+            {/* Selected Students Preview List */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase">
+                <span>Selected Candidates to Remove ({selectedStudentsList.length})</span>
+                <span>{schoolInfo?.name || 'School Register'}</span>
+              </div>
+              <div className="max-h-52 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100 bg-slate-50/50 p-1">
+                {selectedStudentsList.map((st, i) => (
+                  <div key={st.id} className="p-2 flex items-center justify-between gap-3 text-xs bg-white rounded-lg my-0.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="text-[11px] font-mono text-slate-400 w-5 text-right">{i + 1}.</span>
+                      {st.passportPhoto ? (
+                        <img src={st.passportPhoto} alt={st.name} className="w-7 h-7 rounded object-cover border border-slate-200 shrink-0" />
+                      ) : (
+                        <div className="w-7 h-7 rounded bg-slate-100 flex items-center justify-center text-slate-500 shrink-0 text-[10px] font-bold border border-slate-200">
+                          {st.name.charAt(0)}
+                        </div>
+                      )}
+                      <div className="truncate">
+                        <div className="font-bold text-slate-800 truncate">{st.name}</div>
+                        <div className="text-[10px] text-slate-500 font-mono">
+                          {st.regNo || 'No RegNo'} • {st.className} {st.stream || st.combination || ''}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 shrink-0">
+                      {st.gender}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowBulkDeleteModal(false)}
+                className="px-4 py-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer transition-colors"
+              >
+                Cancel & Keep
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmBulkDelete}
+                className="px-5 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Yes, Permanently Delete ({selectedStudentIds.length})</span>
               </button>
             </div>
           </div>

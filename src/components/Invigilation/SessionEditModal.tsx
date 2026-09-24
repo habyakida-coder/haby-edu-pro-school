@@ -10,7 +10,7 @@ import {
   Sparkles,
   Info
 } from 'lucide-react';
-import { InvigilationSession } from '../../types';
+import { InvigilationSession, EducationLevel } from '../../types';
 import { SUBJECT_LIST, DEFAULT_CLASSES } from '../../constants/defaults';
 
 export const INVIGILATION_ALLOWED_SESSIONS = ['SESSION I', 'SESSION II', 'SESSION III'] as const;

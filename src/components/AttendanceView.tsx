@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   CalendarCheck, 
   Clock, 
@@ -22,6 +22,11 @@ import {
   Info
 } from 'lucide-react';
 import { Student, SchoolInfo, UserAccount, ReportCardPeriodSetting } from '../types';
+import { 
+  NURSERY_CLASSES, 
+  PRIMARY_CLASSES, 
+  SECONDARY_CLASSES 
+} from '../constants/defaults';
 
 interface AttendanceViewProps {
   students: Student[];
@@ -47,6 +52,43 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
   const [activeTab, setActiveTab] = useState<'summary' | 'subjects' | 'weekly' | 'official_slip'>('summary');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClass, setSelectedClass] = useState<string>('all');
+  const [selectedStream, setSelectedStream] = useState<string>('all');
+
+  // Dynamic streams collected from all registered students
+  const availableStreams = useMemo(() => {
+    const set = new Set<string>();
+    students.forEach(s => {
+      if (s.stream && s.stream.trim()) {
+        const clean = s.stream.trim().replace(/^STREAM\s+/i, '');
+        if (clean) set.add(clean.toUpperCase());
+      }
+    });
+    ['A', 'B', 'C', 'D', 'E'].forEach(st => set.add(st));
+    return Array.from(set).sort();
+  }, [students]);
+
+  // Filtered students matching Search, Class and Stream (same as Registration filter)
+  const filteredStudents = useMemo(() => {
+    return students.filter(s => {
+      const matchSearch = !searchQuery ||
+        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.regNo.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchClass = selectedClass === 'all' || s.className.toLowerCase() === selectedClass.toLowerCase();
+      const matchStream = selectedStream === 'all' ||
+        (s.stream ? (
+          s.stream.toUpperCase().replace(/^STREAM\s+/i, '') === selectedStream.toUpperCase() ||
+          s.stream.toUpperCase().includes(selectedStream.toUpperCase())
+        ) : true);
+      return matchSearch && matchClass && matchStream;
+    });
+  }, [students, searchQuery, selectedClass, selectedStream]);
+
+  // Keep selectedStudentId valid within filtered students
+  useEffect(() => {
+    if (filteredStudents.length > 0 && !filteredStudents.some(s => s.id === selectedStudentId)) {
+      setSelectedStudentId(filteredStudents[0].id);
+    }
+  }, [filteredStudents, selectedStudentId]);
 
   // Edit attendance state (for teachers/admins)
   const [isEditingAttendance, setIsEditingAttendance] = useState(false);
@@ -259,36 +301,73 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
           </div>
         </div>
 
-        {/* If non-parent, allow switching student */}
+        {/* Candidate Selector Toolbar (Matching Registration Filtering) */}
         <div className="mt-4 pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 flex-1 min-w-[240px]">
-              <Search className="w-4 h-4 text-slate-400" />
+          <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
+            {/* Search */}
+            <div className="relative flex-1 min-w-[180px]">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search student by name or registration number..."
-                className="w-full text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-300 focus:outline-none focus:border-blue-600 bg-white"
+                placeholder="Search name, Reg No..."
+                className="w-full pl-8 pr-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 focus:outline-none focus:border-blue-600 bg-white"
               />
             </div>
 
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-bold text-slate-600">Select Student:</label>
-              <select
-                value={selectedStudentId}
-                onChange={e => setSelectedStudentId(Number(e.target.value))}
-                className="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:border-blue-600"
-              >
-                {students
-                  .filter(s => searchQuery ? s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.regNo.toLowerCase().includes(searchQuery.toLowerCase()) : true)
-                  .map(s => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.regNo}) - {s.className} {s.stream}
-                    </option>
-                  ))}
-              </select>
-            </div>
+            {/* Class Filter */}
+            <select
+              value={selectedClass}
+              onChange={e => setSelectedClass(e.target.value)}
+              className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-700"
+            >
+              <option value="all">All Classes</option>
+              <optgroup label="Pre-Primary / Nursery">
+                {NURSERY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+              </optgroup>
+              <optgroup label="Primary School (Std 1 - 7)">
+                {PRIMARY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+              </optgroup>
+              <optgroup label="Secondary School (Form 1 - 6)">
+                {SECONDARY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+              </optgroup>
+            </select>
+
+            {/* Stream Filter */}
+            <select
+              value={selectedStream}
+              onChange={e => setSelectedStream(e.target.value)}
+              className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-700"
+            >
+              <option value="all">All Streams</option>
+              {availableStreams.map(str => (
+                <option key={str} value={str}>Stream {str}</option>
+              ))}
+            </select>
           </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-bold text-slate-600 shrink-0">
+              Student ({filteredStudents.length}):
+            </label>
+            <select
+              value={selectedStudentId}
+              onChange={e => setSelectedStudentId(Number(e.target.value))}
+              className="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:border-blue-600 max-w-[260px]"
+            >
+              {filteredStudents.length === 0 ? (
+                <option value="">No matching students found</option>
+              ) : (
+                filteredStudents.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.regNo}) - {s.className} {s.stream}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+        </div>
         </div>
 
       {/* Metric Cards Banner */}

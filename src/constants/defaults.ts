@@ -24,10 +24,80 @@ export const INITIAL_USERS: UserAccount[] = [
   }
 ];
 
-export const SUBJECT_LIST = [
+// Tanzanian Nursery / Pre-Primary Subjects (Elimu ya Awali)
+export const NURSERY_SUBJECTS_LIST = [
+  'Kuhesabu na Namba (Numeracy)',
+  'Kusoma na Kuwasiliana (Literacy)',
+  'Lugha ya Kiingereza ya Awali (Early English)',
+  'Afya na Mazingira ya Mtoto',
+  'Sanaa, Muziki na Michezo ya Awali',
+  'Maadili na Malezi Bora'
+];
+
+// Tanzanian Lower Primary Subjects (Standard 1 & 2 - KKK / 3Rs)
+export const LOWER_PRIMARY_SUBJECTS_LIST = [
+  'Kusoma (Reading)',
+  'Kuandika (Writing)',
+  'Kuhesabu (Arithmetic)',
+  'Afya na Mazingira (Health & Environment)',
+  'Sanaa na Michezo (Arts & Sports)',
   'English Language',
+  'Elimu ya Dini (Religious Education)'
+];
+
+// Tanzanian Upper & Middle Primary Subjects (Standard 3 to 7 - NECTA PSLE & SFNA)
+export const UPPER_PRIMARY_SUBJECTS_LIST = [
   'Kiswahili',
+  'English Language',
+  'Mathematics (Hisabati)',
+  'Science and Technology (Sayansi na Teknolojia)',
+  'Social Studies (Maarifa ya Jamii)',
+  'Civic and Moral Education (Uraia na Maadili)',
+  'Vocational Skills (Stadi za Kazi)',
+  'Religious Studies (Elimu ya Dini ya Kiislamu / Kikristo)',
+  'ICT / TEHAMA',
+  'French (Kifaransa)'
+];
+
+// All Tanzanian Primary Subjects Combined
+export const PRIMARY_SUBJECTS_LIST = [
+  ...UPPER_PRIMARY_SUBJECTS_LIST,
+  'Kusoma (Reading)',
+  'Kuandika (Writing)',
+  'Kuhesabu (Arithmetic)',
+  'Afya na Mazingira (Health & Environment)',
+  'Sanaa na Michezo (Arts & Sports)'
+];
+
+// Aliases for consistent naming across components
+export const NURSERY_SUBJECTS = NURSERY_SUBJECTS_LIST;
+export const LOWER_PRIMARY_SUBJECTS = LOWER_PRIMARY_SUBJECTS_LIST;
+export const UPPER_PRIMARY_SUBJECTS = UPPER_PRIMARY_SUBJECTS_LIST;
+export const PRIMARY_SUBJECTS = PRIMARY_SUBJECTS_LIST;
+
+export const SUBJECT_LIST = [
+  // Primary & Pre-Primary Subjects (Tanzanian Curriculum)
+  'Kiswahili',
+  'English Language',
+  'Mathematics (Hisabati)',
+  'Science and Technology (Sayansi na Teknolojia)',
+  'Social Studies (Maarifa ya Jamii)',
+  'Civic and Moral Education (Uraia na Maadili)',
+  'Vocational Skills (Stadi za Kazi)',
+  'Kusoma (Reading)',
+  'Kuandika (Writing)',
+  'Kuhesabu (Arithmetic)',
+  'Afya na Mazingira (Health & Environment)',
+  'Sanaa na Michezo (Arts & Sports)',
+  'Kuhesabu na Namba (Numeracy)',
+  'Kusoma na Kuwasiliana (Literacy)',
+  'Lugha ya Kiingereza ya Awali (Early English)',
+  'Afya na Mazingira ya Mtoto',
+  'Sanaa, Muziki na Michezo ya Awali',
+  'Maadili na Malezi Bora',
+  // Secondary O-Level & A-Level Subjects
   'Mathematics',
+  'Basic Mathematics',
   'Physics',
   'Chemistry',
   'Biology',
@@ -35,6 +105,7 @@ export const SUBJECT_LIST = [
   'History',
   'Civics',
   'Computer Studies',
+  'ICT / TEHAMA',
   'Commerce',
   'Book Keeping',
   'Economics',
@@ -42,10 +113,14 @@ export const SUBJECT_LIST = [
   'Business Studies',
   'Islamic Religious Education',
   'Christian Religious Education',
+  'Elimu ya Dini ya Kiislamu',
+  'Elimu ya Dini ya Kikristo',
+  'Religious Studies (Elimu ya Dini ya Kiislamu / Kikristo)',
   'Fine Art',
   'Home Economics',
   'Physical Education',
   'French',
+  'French (Kifaransa)',
   'Arabic',
   'German',
   'General Studies',
@@ -56,7 +131,6 @@ export const SUBJECT_LIST = [
   'Divinity',
   'Historia Ya Tanzania Na Maadili',
   'Literature in English',
-  'Elimu ya Dini ya Kiislamu',
   'Academic Communications',
   // Extra-curricular / special meal & activity periods
   'Religion',
@@ -89,7 +163,24 @@ export const EXTRA_CURRICULAR_ACTIVITIES = [
   { id: 'library', name: 'Library & Private Study', icon: 'Library', color: '#0d9488', bg: '#f0fdfa', border: '#99f6e4', text: '#115e59', cellBg: '#f0fdfa' }
 ];
 
-export const DEFAULT_CLASSES = [
+export const NURSERY_CLASSES = [
+  'Baby Class',
+  'Nursery 1',
+  'Nursery 2',
+  'Pre-Unit'
+];
+
+export const PRIMARY_CLASSES = [
+  'Standard 1',
+  'Standard 2',
+  'Standard 3',
+  'Standard 4',
+  'Standard 5',
+  'Standard 6',
+  'Standard 7'
+];
+
+export const SECONDARY_CLASSES = [
   'Form 1',
   'Form 2',
   'Form 3',
@@ -97,6 +188,14 @@ export const DEFAULT_CLASSES = [
   'Form 5',
   'Form 6'
 ];
+
+export const ALL_SCHOOL_CLASSES = [
+  ...NURSERY_CLASSES,
+  ...PRIMARY_CLASSES,
+  ...SECONDARY_CLASSES
+];
+
+export const DEFAULT_CLASSES = ALL_SCHOOL_CLASSES;
 
 export const DAYS_OF_WEEK = [
   'Monday',
@@ -153,6 +252,20 @@ export const DEFAULT_DAY_THEMES: Record<string, { name: string; bg: string; bord
 };
 
 export const FORM_STREAM_THEMES: Record<string, { badgeBg: string; badgeText: string; border: string; lightBg: string; accent: string }> = {
+  // Pre-Primary & Nursery
+  'Baby Class': { badgeBg: '#f43f5e', badgeText: '#ffffff', border: '#fda4af', lightBg: '#fff1f2', accent: '#e11d48' },
+  'Nursery 1': { badgeBg: '#ec4899', badgeText: '#ffffff', border: '#f472b6', lightBg: '#fdf2f8', accent: '#db2777' },
+  'Nursery 2': { badgeBg: '#d946ef', badgeText: '#ffffff', border: '#e879f9', lightBg: '#fdf4ff', accent: '#c026d3' },
+  'Pre-Unit': { badgeBg: '#a855f7', badgeText: '#ffffff', border: '#c084fc', lightBg: '#faf5ff', accent: '#9333ea' },
+  // Primary (Standard 1 to Standard 7)
+  'Standard 1': { badgeBg: '#0ea5e9', badgeText: '#ffffff', border: '#38bdf8', lightBg: '#f0f9ff', accent: '#0284c7' },
+  'Standard 2': { badgeBg: '#06b6d4', badgeText: '#ffffff', border: '#22d3ee', lightBg: '#ecfeff', accent: '#0891b2' },
+  'Standard 3': { badgeBg: '#14b8a6', badgeText: '#ffffff', border: '#2dd4bf', lightBg: '#f0fdfa', accent: '#0d9488' },
+  'Standard 4': { badgeBg: '#10b981', badgeText: '#ffffff', border: '#34d399', lightBg: '#ecfdf5', accent: '#059669' },
+  'Standard 5': { badgeBg: '#84cc16', badgeText: '#ffffff', border: '#a3e635', lightBg: '#f7fee7', accent: '#65a30d' },
+  'Standard 6': { badgeBg: '#eab308', badgeText: '#ffffff', border: '#fde047', lightBg: '#fefce8', accent: '#ca8a04' },
+  'Standard 7': { badgeBg: '#f97316', badgeText: '#ffffff', border: '#fb923c', lightBg: '#fff7ed', accent: '#ea580c' },
+  // Secondary (Form 1 to Form 6)
   'Form 1': {
     badgeBg: '#10b981',
     badgeText: '#ffffff',
@@ -290,6 +403,20 @@ export const INITIAL_PERIOD_SETTINGS = [
 ];
 
 export const INITIAL_STREAM_SETTINGS = [
+  // Pre-Primary & Nursery
+  { id: 101, className: 'Baby Class', level: 'PRE_PRIMARY' as const, streams: ['STREAM A', 'STREAM B'] },
+  { id: 102, className: 'Nursery 1', level: 'PRE_PRIMARY' as const, streams: ['STREAM A', 'STREAM B'] },
+  { id: 103, className: 'Nursery 2', level: 'PRE_PRIMARY' as const, streams: ['STREAM A', 'STREAM B'] },
+  { id: 104, className: 'Pre-Unit', level: 'PRE_PRIMARY' as const, streams: ['STREAM A', 'STREAM B'] },
+  // Primary (Standard 1 to 7)
+  { id: 105, className: 'Standard 1', level: 'PRIMARY' as const, streams: ['STREAM A', 'STREAM B'] },
+  { id: 106, className: 'Standard 2', level: 'PRIMARY' as const, streams: ['STREAM A', 'STREAM B'] },
+  { id: 107, className: 'Standard 3', level: 'PRIMARY' as const, streams: ['STREAM A', 'STREAM B'] },
+  { id: 108, className: 'Standard 4', level: 'PRIMARY' as const, streams: ['STREAM A', 'STREAM B'] },
+  { id: 109, className: 'Standard 5', level: 'PRIMARY' as const, streams: ['STREAM A', 'STREAM B'] },
+  { id: 110, className: 'Standard 6', level: 'PRIMARY' as const, streams: ['STREAM A', 'STREAM B'] },
+  { id: 111, className: 'Standard 7', level: 'PRIMARY' as const, streams: ['STREAM A', 'STREAM B'] },
+  // Secondary (Form 1 to 6)
   { id: 1, className: 'Form 1', level: 'CSEE' as const, streams: ['STREAM A', 'STREAM B'] },
   { id: 2, className: 'Form 2', level: 'CSEE' as const, streams: ['STREAM A', 'STREAM B'] },
   { id: 3, className: 'Form 3', level: 'CSEE' as const, streams: ['STREAM A', 'STREAM B'] },
@@ -476,13 +603,176 @@ export const INITIAL_STUDENTS = [
     total: 349,
     average: '43.6',
     division: 'IV'
+  },
+  // Standard 7 Students (Primary School Leaving Candidates - PSLE)
+  {
+    id: 7,
+    regNo: 'PS0001',
+    name: 'Baraka Said Mwinyi',
+    gender: 'Male' as const,
+    className: 'Standard 7',
+    level: 'PRIMARY' as const,
+    stream: 'STREAM A',
+    dob: '2013-05-14',
+    subjects: [
+      'Kiswahili',
+      'English Language',
+      'Mathematics (Hisabati)',
+      'Science and Technology (Sayansi na Teknolojia)',
+      'Social Studies (Maarifa ya Jamii)',
+      'Civic and Moral Education (Uraia na Maadili)',
+      'Vocational Skills (Stadi za Kazi)'
+    ],
+    marks: {
+      'Kiswahili': 88,
+      'English Language': 84,
+      'Mathematics (Hisabati)': 92,
+      'Science and Technology (Sayansi na Teknolojia)': 90,
+      'Social Studies (Maarifa ya Jamii)': 86,
+      'Civic and Moral Education (Uraia na Maadili)': 85,
+      'Vocational Skills (Stadi za Kazi)': 82
+    },
+    total: 607,
+    average: '86.7',
+    primaryGrade: 'A' as const,
+    passStatus: 'AMEFAULU'
+  },
+  {
+    id: 8,
+    regNo: 'PS0002',
+    name: 'Rehema Charles Mosha',
+    gender: 'Female' as const,
+    className: 'Standard 7',
+    level: 'PRIMARY' as const,
+    stream: 'STREAM A',
+    dob: '2013-09-22',
+    subjects: [
+      'Kiswahili',
+      'English Language',
+      'Mathematics (Hisabati)',
+      'Science and Technology (Sayansi na Teknolojia)',
+      'Social Studies (Maarifa ya Jamii)',
+      'Civic and Moral Education (Uraia na Maadili)',
+      'Vocational Skills (Stadi za Kazi)'
+    ],
+    marks: {
+      'Kiswahili': 76,
+      'English Language': 70,
+      'Mathematics (Hisabati)': 74,
+      'Science and Technology (Sayansi na Teknolojia)': 78,
+      'Social Studies (Maarifa ya Jamii)': 72,
+      'Civic and Moral Education (Uraia na Maadili)': 75,
+      'Vocational Skills (Stadi za Kazi)': 70
+    },
+    total: 515,
+    average: '73.6',
+    primaryGrade: 'B' as const,
+    passStatus: 'AMEFAULU'
+  },
+  {
+    id: 9,
+    regNo: 'PS0003',
+    name: 'Daudi John Msowoya',
+    gender: 'Male' as const,
+    className: 'Standard 7',
+    level: 'PRIMARY' as const,
+    stream: 'STREAM B',
+    dob: '2013-03-10',
+    subjects: [
+      'Kiswahili',
+      'English Language',
+      'Mathematics (Hisabati)',
+      'Science and Technology (Sayansi na Teknolojia)',
+      'Social Studies (Maarifa ya Jamii)',
+      'Civic and Moral Education (Uraia na Maadili)',
+      'Vocational Skills (Stadi za Kazi)'
+    ],
+    marks: {
+      'Kiswahili': 54,
+      'English Language': 48,
+      'Mathematics (Hisabati)': 52,
+      'Science and Technology (Sayansi na Teknolojia)': 56,
+      'Social Studies (Maarifa ya Jamii)': 50,
+      'Civic and Moral Education (Uraia na Maadili)': 58,
+      'Vocational Skills (Stadi za Kazi)': 52
+    },
+    total: 370,
+    average: '52.9',
+    primaryGrade: 'C' as const,
+    passStatus: 'AMEFAULU'
+  },
+  // Standard 4 Students (Standard Four National Assessment - SFNA)
+  {
+    id: 10,
+    regNo: 'PS0004',
+    name: 'Joshua Emmanuel Lyimo',
+    gender: 'Male' as const,
+    className: 'Standard 4',
+    level: 'PRIMARY' as const,
+    stream: 'STREAM A',
+    dob: '2016-01-18',
+    subjects: [
+      'Kiswahili',
+      'English Language',
+      'Mathematics (Hisabati)',
+      'Science and Technology (Sayansi na Teknolojia)',
+      'Social Studies (Maarifa ya Jamii)',
+      'Civic and Moral Education (Uraia na Maadili)'
+    ],
+    marks: {
+      'Kiswahili': 85,
+      'English Language': 80,
+      'Mathematics (Hisabati)': 88,
+      'Science and Technology (Sayansi na Teknolojia)': 82,
+      'Social Studies (Maarifa ya Jamii)': 84,
+      'Civic and Moral Education (Uraia na Maadili)': 86
+    },
+    total: 505,
+    average: '84.2',
+    primaryGrade: 'A' as const,
+    passStatus: 'AMEFAULU'
+  },
+  // Nursery / Pre-Primary Students (Elimu ya Awali)
+  {
+    id: 11,
+    regNo: 'NS0001',
+    name: 'Gloria Peter Massawe',
+    gender: 'Female' as const,
+    className: 'Nursery 2',
+    level: 'PRE_PRIMARY' as const,
+    stream: 'STREAM A',
+    dob: '2020-07-15',
+    subjects: [
+      'Kuhesabu na Namba (Numeracy)',
+      'Kusoma na Kuwasiliana (Literacy)',
+      'Lugha ya Kiingereza ya Awali (Early English)',
+      'Afya na Mazingira ya Mtoto',
+      'Sanaa, Muziki na Michezo ya Awali',
+      'Maadili na Malezi Bora'
+    ],
+    marks: {
+      'Kuhesabu na Namba (Numeracy)': 92,
+      'Kusoma na Kuwasiliana (Literacy)': 88,
+      'Lugha ya Kiingereza ya Awali (Early English)': 85,
+      'Afya na Mazingira ya Mtoto': 90,
+      'Sanaa, Muziki na Michezo ya Awali': 95,
+      'Maadili na Malezi Bora': 92
+    },
+    total: 542,
+    average: '90.3',
+    primaryGrade: 'A' as const,
+    passStatus: 'AMEFAULU'
   }
 ];
 
 export const INITIAL_EXAMS = [
-  { id: 1, name: 'Midterm I', type: 'Midterm I', level: 'CSEE' as const, className: 'All', date: '2026-03-15', status: 'Active' as const },
-  { id: 2, name: 'Terminal', type: 'Terminal', level: 'CSEE' as const, className: 'All', date: '2026-06-20', status: 'Active' as const },
-  { id: 3, name: 'Annual', type: 'Annual', level: 'CSEE' as const, className: 'All', date: '2026-11-15', status: 'Active' as const }
+  { id: 1, name: 'Midterm I Examination', type: 'Midterm I', level: 'CSEE' as const, className: 'All', date: '2026-03-15', status: 'Active' as const },
+  { id: 2, name: 'Terminal Examination', type: 'Terminal', level: 'CSEE' as const, className: 'All', date: '2026-06-20', status: 'Active' as const },
+  { id: 3, name: 'Annual Examination', type: 'Annual', level: 'CSEE' as const, className: 'All', date: '2026-11-15', status: 'Active' as const },
+  { id: 4, name: 'PSLE Mock Examination (Std 7)', type: 'National Mock', level: 'PRIMARY' as const, className: 'Standard 7', date: '2026-07-25', status: 'Active' as const },
+  { id: 5, name: 'SFNA National Assessment (Std 4)', type: 'National Assessment', level: 'PRIMARY' as const, className: 'Standard 4', date: '2026-10-20', status: 'Active' as const },
+  { id: 6, name: 'Primary Terminal Exam (Std 1-7)', type: 'Terminal', level: 'PRIMARY' as const, className: 'All', date: '2026-06-18', status: 'Active' as const },
+  { id: 7, name: 'Nursery Term II Evaluation', type: 'Assessment', level: 'PRE_PRIMARY' as const, className: 'All', date: '2026-06-15', status: 'Active' as const }
 ];
 
 export const INITIAL_SESSIONS = [
