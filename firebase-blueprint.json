@@ -1,0 +1,39 @@
+{
+  "collections": [
+    {
+      "name": "schools",
+      "description": "Registered schools using the system",
+      "fields": [
+        { "name": "name", "type": "string" },
+        { "name": "createdAt", "type": "timestamp" },
+        { "name": "status", "type": "string", "description": "ACTIVE, INACTIVE, or DORMANT" },
+        { "name": "adminUid", "type": "string" }
+      ]
+    },
+    {
+      "name": "users",
+      "description": "User profiles with roles and school association",
+      "fields": [
+        { "name": "email", "type": "string" },
+        { "name": "role", "type": "string", "description": "HEADMASTER, ACADEMIC, or TEACHER" },
+        { "name": "schoolId", "type": "string" },
+        { "name": "fullName", "type": "string" },
+        { "name": "isSuperAdmin", "type": "boolean" }
+      ]
+    },
+    {
+      "name": "schoolData",
+      "description": "Consolidated timetable and school-specific configuration",
+      "fields": [
+        { "name": "schoolId", "type": "string" },
+        { "name": "teachers", "type": "array" },
+        { "name": "assignments", "type": "array" },
+        { "name": "periodSettings", "type": "array" },
+        { "name": "streamSettings", "type": "array" },
+        { "name": "invigilationAssignments", "type": "map" },
+        { "name": "exams", "type": "array" },
+        { "name": "activityLogs", "type": "array", "description": "Audit trail entries tracking timetable, teacher, and student edits" }
+      ]
+    }
+  ]
+}

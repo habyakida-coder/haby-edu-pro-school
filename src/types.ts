@@ -1,0 +1,338 @@
+export interface CharacterTrait {
+  id: string;
+  name: string;
+  swahiliName?: string;
+  grade: 'A' | 'B' | 'C' | 'D' | 'F';
+  remark: string;
+}
+
+export interface ReportCardPeriodSetting {
+  termName: string; // e.g. "Term II - Terminal Examination"
+  academicYear: string; // e.g. "2025/2026"
+  evaluationPeriod: string; // e.g. "July - November 2026"
+  totalPeriods: number; // e.g. 240 lesson periods in term
+  attendedPeriods: number; // e.g. 235 periods attended
+  nextTermBegins?: string; // e.g. "15 January 2027"
+}
+
+export interface StudentReportCardData {
+  periodSetting?: ReportCardPeriodSetting;
+  characterAssessment?: {
+    overallConductGrade: 'A' | 'B' | 'C' | 'D' | 'F';
+    overallConductRemark: string;
+    traits: CharacterTrait[];
+  };
+  classTeacherRemarks?: string;
+  classTeacherName?: string;
+  headTeacherRemarks?: string;
+  positionInClass?: number;
+  totalStudentsInClass?: number;
+  dateIssued?: string;
+}
+
+export interface Student {
+  id: number;
+  regNo: string;
+  name: string;
+  gender: 'Male' | 'Female' | '';
+  className: string; // "Form 1" to "Form 6"
+  level: 'CSEE' | 'ACSEE';
+  dob: string;
+  stream?: string;
+  combination?: string;
+  subjects: string[];
+  marks?: Record<string, number>;
+  total?: number;
+  average?: string;
+  division?: string;
+  reportCardData?: StudentReportCardData;
+  passportPhoto?: string; // base64 / URL for passport size photo
+  registeredAt?: string;
+}
+
+export type SchoolStaffRole =
+  | 'Academic Master'
+  | 'Academic Mistress'
+  | 'Discipline Master'
+  | 'Discipline Mistress'
+  | 'Headmaster'
+  | 'Headmistress'
+  | 'Second Master'
+  | 'Deputy Headmaster'
+  | 'Examination Officer'
+  | 'Head of Department (HOD) - Science'
+  | 'Head of Department (HOD) - Mathematics'
+  | 'Head of Department (HOD) - Languages'
+  | 'Head of Department (HOD) - Arts & Social Studies'
+  | 'Class Teacher / Master'
+  | 'Sports & Games Master'
+  | 'Health & Environmental Master'
+  | 'Guidance & Counseling Master'
+  | 'Patron / Matron / Spiritual Patron'
+  | 'Subject Teacher'
+  | string;
+
+export interface Teacher {
+  id: number;
+  name: string;
+  initial: string;
+  subjects: string[];
+  excludeInvigilation: boolean;
+  color?: string; // Custom or auto-assigned color for the teacher/invigilator
+  schoolRole?: SchoolStaffRole; // e.g. Academic Master, Discipline Master, etc.
+  phone?: string;
+  email?: string;
+  passportPhoto?: string; // base64 / URL for teacher passport size photo
+  teachingStreams?: string[]; // e.g. ["Form 1 - STREAM A", "Form 2 - STREAM B"]
+  maxPeriodsPerWeek?: number; // target periods per week (each period = 40 mins)
+}
+
+export interface Exam {
+  id: number;
+  name: string;
+  type?: string;
+  level: 'CSEE' | 'ACSEE';
+  className: string;
+  date: string;
+  status?: 'Active' | 'Inactive';
+}
+
+export interface DisciplineRecord {
+  id: string;
+  studentId: number;
+  studentName: string;
+  regNo: string;
+  className: string;
+  date: string;
+  category: 'Merit' | 'Infraction' | 'Attendance' | 'Academic' | 'Other';
+  title: string;
+  description: string;
+  actionTaken: string;
+  reportedBy: string;
+  status: 'Open' | 'Under Review' | 'Resolved';
+}
+
+export interface PeriodSetting {
+  id: number;
+  day: string; // "Monday", "Tuesday", etc.
+  name: string; // "Period 1", "Period 2", etc.
+  start: string; // "08:00"
+  end: string;   // "08:40"
+  assignedTeacherId?: number; // assigned teacher / duty master for this period
+  defaultSubject?: string;
+}
+
+export interface StreamSetting {
+  id: number;
+  className: string;
+  level: 'CSEE' | 'ACSEE';
+  streams: string[];
+}
+
+export type ActivityType = 
+  | 'academic'
+  | 'environmental'
+  | 'sports'
+  | 'debates'
+  | 'remedial'
+  | 'assembly'
+  | 'clubs'
+  | 'religion'
+  | 'praying'
+  | 'breakfast'
+  | 'lunch'
+  | 'library'
+  | 'weekly_test'
+  | 'other';
+
+export interface TimetableAssignment {
+  id: number;
+  className: string;
+  stream: string;
+  day: string;
+  period: string; // formatted as "Period 1 (08:00-08:40)"
+  periodName?: string;
+  teacherId?: number;
+  subject: string;
+  room?: string;
+  activityType?: ActivityType;
+  customNote?: string;
+}
+
+export interface InvigilationSession {
+  id: number;
+  rawDate: string;
+  date: string;
+  day: string;
+  session: string; // "SESSION I", "SESSION II", "SESSION III"
+  start: string;
+  end: string;
+  time: string;
+  subject: string;
+  level: 'CSEE' | 'ACSEE';
+  className: string;
+  stream: string;
+  rooms: number;
+}
+
+export interface Supervisor {
+  id: number;
+  teacherId: number;
+  name: string;
+  initial: string;
+}
+
+export interface SchoolInfo {
+  name: string;
+  schoolNumber?: string; // Tanzanian NECTA center / school registration number e.g. "0123" or "S.0123"
+  address: string;
+  phone: string;
+  email: string;
+  motto: string;
+  principal: string;
+}
+
+export interface DayTheme {
+  day: string;
+  bg: string;         // light tint background for table/day header
+  border: string;     // border color
+  accent: string;     // header accent text
+  badgeBg: string;
+}
+
+export interface FormStreamTheme {
+  form: string;
+  primary: string;    // Main badge / border
+  bg: string;
+  text: string;
+}
+
+export type UserRole = 'HEADMASTER' | 'ACADEMIC' | 'TEACHER';
+
+export interface UserAccount {
+  id: string;
+  email: string;
+  fullName: string;
+  role: UserRole;
+  schoolId: string;
+  password?: string;
+  assignedSubjects?: string[];
+  lastLogin?: string;
+  isSuperAdmin?: boolean;
+}
+
+export interface AuthState {
+  isAuthenticated: boolean;
+  currentUser: UserAccount | null;
+}
+
+export type SchoolStatus = 'ACTIVE' | 'INACTIVE' | 'DORMANT';
+
+export interface School {
+  id: string;
+  name: string;
+  schoolNumber?: string;
+  createdAt: any;
+  status: SchoolStatus;
+  adminUid?: string;
+  adminEmail?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  motto?: string;
+  principal?: string;
+  studentCount?: number;
+  teacherCount?: number;
+}
+
+export interface TeacherEvaluation {
+  id: string;
+  teacherId: number;
+  teacherName: string;
+  evaluatorId: string;
+  evaluatorName: string;
+  evaluatorRole: string; // e.g. 'Academic Master', 'Headmaster', 'Second Master'
+  date: string;
+  className: string;
+  stream: string;
+  subject: string;
+  topicTaught: string;
+  periodName: string;
+  // Criteria scores (1 to 5: 5=Excellent, 4=Very Good, 3=Good/Satisfactory, 2=Needs Improvement, 1=Unsatisfactory)
+  lessonPlanningScore: number;       // Andaa Somo & Schemes of work
+  subjectMasteryScore: number;       // Content knowledge & accuracy
+  teachingMethodologyScore: number;  // Learner-centered methods & engagement
+  timeManagementScore: number;       // 40-minute period adherence & punctuality
+  teachingAidsScore: number;          // Use of teaching aids / apparatus
+  studentAssessmentScore: number;    // Exercises, questions & feedback
+  classroomManagementScore: number;  // Discipline, participation & environment
+  totalScore: number;                // out of 35
+  percentage: number;                // out of 100%
+  overallGrade: 'A' | 'B' | 'C' | 'D' | 'F';
+  strengths: string;
+  areasForImprovement: string;
+  academicMasterRemarks: string;
+}
+
+export type ActivityAction = 
+  | 'TIMETABLE_UPDATE'
+  | 'PERIOD_SETTINGS_UPDATE'
+  | 'STREAM_SETTINGS_UPDATE'
+  | 'TEACHER_ADDED'
+  | 'TEACHER_UPDATED'
+  | 'TEACHER_DELETED'
+  | 'STUDENT_ADDED'
+  | 'STUDENT_UPDATED'
+  | 'STUDENT_DELETED'
+  | 'STUDENTS_BULK_UPDATE'
+  | 'EXAM_ADDED'
+  | 'EXAM_UPDATED'
+  | 'EXAM_DELETED'
+  | 'INVIGILATION_UPDATE'
+  | 'SCHOOL_INFO_UPDATE'
+  | 'DISCIPLINE_RECORD_ADDED'
+  | 'DISCIPLINE_RECORD_UPDATED'
+  | 'DISCIPLINE_RECORD_DELETED'
+  | 'USER_ROLE_UPDATE'
+  | 'SYSTEM_RESET'
+  | 'BACKUP_RESTORE';
+
+export type ActivityCategory = 'timetable' | 'teachers' | 'students' | 'exams' | 'invigilation' | 'settings' | 'discipline' | 'results' | 'security';
+
+export interface ActivityLog {
+  id: string;
+  timestamp: string; // ISO 8601 string
+  userId: string;
+  userName: string;
+  userEmail: string;
+  userRole: UserRole;
+  action: ActivityAction;
+  category: ActivityCategory;
+  title: string;
+  description: string;
+  details?: Record<string, any>;
+}
+
+export interface AppData {
+  users?: UserAccount[];
+  students: Student[];
+  teachers: Teacher[];
+  exams: Exam[];
+  periodSettings: PeriodSetting[];
+  streamSettings: StreamSetting[];
+  timetableAssignments: TimetableAssignment[];
+  sessions: InvigilationSession[];
+  supervisors: Supervisor[];
+  resultsStatus: 'active' | 'inactive';
+  selectedInvigilators: number[];
+  invigilationAssignments: Record<string, number>; // key: `${sessionId}_room${roomIndex}` -> teacherId
+  timetableReleased: boolean;
+  classTimetableReleased: Record<string, boolean>;
+  schoolInfo: SchoolInfo;
+  dayThemes?: Record<string, string>; // day -> hex color or theme
+  subjectColors?: Record<string, string>; // subject -> hex color
+  teacherColors?: Record<number, string>; // teacherId -> hex color
+  activityLogs?: ActivityLog[];
+  disciplineRecords?: DisciplineRecord[];
+  teacherEvaluations?: TeacherEvaluation[];
+}
