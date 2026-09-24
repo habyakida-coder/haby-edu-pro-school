@@ -807,6 +807,8 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
           </table>
         </div>
       </div>
-    </div>
-  );
+    </>
+  )}
+</div>
+);
 };

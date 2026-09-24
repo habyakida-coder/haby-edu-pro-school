@@ -281,7 +281,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
     printFormattedSection(
       'registered-students-print-table',
       'Official Master List of Registered Students',
-      schoolInfo?.name || 'KIOMONI SECONDARY SCHOOL',
+      schoolInfo?.name || 'SECONDARY SCHOOL',
       { orientation: 'portrait', pageSize: 'A4', fontSize: 'large' }
     );
   };

@@ -40,6 +40,7 @@ import { Student, SchoolInfo, UserAccount } from '../types';
 import { printReportCardDocument } from '../utils/export';
 import { ReportCardDocument } from './ReportCard/ReportCardDocument';
 import { EditReportCardModal } from './ReportCard/EditReportCardModal';
+import { StudentComparisonView } from './StudentComparisonView';
 import { 
   calculatePerformanceSummary, 
   generateCharacterFromPerformance, 
@@ -105,7 +106,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
   currentUser,
   onNavigateToAttendance
 }) => {
-  const [activeTab, setActiveTab] = useState<'ledger' | 'dashboard' | 'reportcard'>('ledger');
+  const [activeTab, setActiveTab] = useState<'ledger' | 'dashboard' | 'reportcard' | 'comparison'>('ledger');
   const [selectedClass, setSelectedClass] = useState<string>('Form 1');
   const [selectedStream, setSelectedStream] = useState<string>('All');
   const [selectedExam, setSelectedExam] = useState<string>('Midterm I');
@@ -134,7 +135,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
   // Selected custom subject keys for the ledger
   const [selectedSubjectKeys, setSelectedSubjectKeys] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem(`haby_ledger_subjects_${schoolInfo?.id || 'default'}`);
+      const saved = localStorage.getItem(`haby_ledger_subjects_${schoolInfo?.name || 'default'}`);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -167,7 +168,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
   const handleSaveSubjectKeys = (keys: string[]) => {
     setSelectedSubjectKeys(keys);
     try {
-      localStorage.setItem(`haby_ledger_subjects_${schoolInfo?.id || 'default'}`, JSON.stringify(keys));
+      localStorage.setItem(`haby_ledger_subjects_${schoolInfo?.name || 'default'}`, JSON.stringify(keys));
     } catch {}
   };
 
@@ -756,6 +757,24 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
             <FileText className="w-3.5 h-3.5" />
             <span>Report Card</span>
           </button>
+          <button
+            onClick={() => setActiveTab('comparison')}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'comparison'
+                ? 'bg-[#1f4d8b] text-white shadow-xs'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5 text-amber-400" />
+            <span>Side-by-Side Comparison</span>
+            {selectedCandidateIds.length > 0 && (
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                activeTab === 'comparison' ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-800'
+              }`}>
+                {selectedCandidateIds.length}
+              </span>
+            )}
+          </button>
         </div>
 
         {onNavigateToAttendance && (
@@ -835,6 +854,18 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                 <Edit3 className="w-3.5 h-3.5" />
                 <span>{isEditMarksMode ? 'Done Editing' : 'Edit Marks'}</span>
               </button>
+
+              {selectedCandidateIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('comparison')}
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs animate-pulse"
+                  title="Compare selected candidates side by side"
+                >
+                  <Users className="w-3.5 h-3.5 text-amber-300" />
+                  <span>Compare Selected ({selectedCandidateIds.length})</span>
+                </button>
+              )}
 
               <button
                 type="button"
@@ -1156,7 +1187,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
             </h3>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
-              {LEDGER_SUBJECTS.map(sub => {
+              {activeLedgerSubjects.map(sub => {
                 let subTotal = 0;
                 let subCount = 0;
                 classCandidates.forEach(s => {
@@ -1267,6 +1298,24 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
             />
           )}
         </div>
+      )}
+
+      {/* TAB 4: MULTI-STUDENT SIDE-BY-SIDE PERFORMANCE COMPARISON */}
+      {activeTab === 'comparison' && (
+        <StudentComparisonView
+          students={students}
+          classCandidates={classCandidates}
+          selectedCandidateIds={selectedCandidateIds}
+          onToggleSelectCandidate={handleToggleSelectCandidate}
+          onClearSelectedCandidates={() => setSelectedCandidateIds([])}
+          onSelectCandidates={(ids) => setSelectedCandidateIds(ids)}
+          activeLedgerSubjects={activeLedgerSubjects}
+          selectedClass={selectedClass}
+          selectedStream={selectedStream}
+          selectedExam={selectedExam}
+          schoolInfo={schoolInfo}
+          onBackToLedger={() => setActiveTab('ledger')}
+        />
       )}
 
       {/* MODAL 1: CUSTOMIZE SUBJECTS MODAL */}

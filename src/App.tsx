@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { AppData, Student, Teacher, Exam, InvigilationSession, PeriodSetting, StreamSetting, TimetableAssignment, Supervisor, SchoolInfo, UserAccount, SchoolStatus, ActivityLog, ActivityAction, ActivityCategory, DisciplineRecord } from './types';
+import { AppData, Student, Teacher, Exam, InvigilationSession, PeriodSetting, StreamSetting, TimetableAssignment, Supervisor, SchoolInfo, UserAccount, SchoolStatus, ActivityLog, ActivityAction, ActivityCategory, DisciplineRecord, TeacherEvaluation } from './types';
 import { DEFAULT_APP_DATA } from './constants/defaults';
 import { Navigation, ActiveView } from './components/Navigation';
 import { DashboardView } from './components/DashboardView';
@@ -353,6 +353,30 @@ export default function App() {
     });
   };
 
+  const handleSaveEvaluation = (evaluation: TeacherEvaluation) => {
+    const current = data.teacherEvaluations || [];
+    const updated = [evaluation, ...current.filter(e => e.id !== evaluation.id)];
+    const activityLogs = logActivity(
+      'TEACHER_UPDATED',
+      'teachers',
+      'Teacher Evaluation Recorded',
+      `Academic lesson evaluation completed for ${evaluation.teacherName}`
+    );
+    updateRemoteData({ teacherEvaluations: updated, activityLogs });
+  };
+
+  const handleDeleteEvaluation = (id: string) => {
+    const current = data.teacherEvaluations || [];
+    const updated = current.filter(e => e.id !== id);
+    const activityLogs = logActivity(
+      'TEACHER_UPDATED',
+      'teachers',
+      'Teacher Evaluation Removed',
+      `Removed evaluation record #${id}`
+    );
+    updateRemoteData({ teacherEvaluations: updated, activityLogs });
+  };
+
   const handleAddExam = (exam: Exam, session: InvigilationSession) => {
     const activityLogs = logActivity(
       'EXAM_ADDED',
@@ -570,6 +594,7 @@ export default function App() {
           {activeView === 'students' && (
             <StudentsView
               students={data.students}
+              schoolInfo={data.schoolInfo}
               onAddStudent={handleAddStudent}
               onUpdateStudent={handleUpdateStudent}
               onDeleteStudent={handleDeleteStudent}
@@ -583,6 +608,12 @@ export default function App() {
               onAddTeacher={handleAddTeacher}
               onUpdateTeacher={handleUpdateTeacher}
               onDeleteTeacher={handleDeleteTeacher}
+              teacherEvaluations={data.teacherEvaluations || []}
+              onSaveEvaluation={handleSaveEvaluation}
+              onDeleteEvaluation={handleDeleteEvaluation}
+              streamSettings={data.streamSettings || []}
+              schoolInfo={data.schoolInfo}
+              currentUser={userAccount}
             />
           )}
 
