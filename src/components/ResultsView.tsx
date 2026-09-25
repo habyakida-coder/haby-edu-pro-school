@@ -36,12 +36,13 @@ import {
   Check,
   RefreshCw
 } from 'lucide-react';
-import { Student, SchoolInfo, UserAccount } from '../types';
+import { Student, SchoolInfo, UserAccount, Exam } from '../types';
 import { printReportCardDocument } from '../utils/export';
 import { exportGradeDistributionAndPerformancePDF } from '../utils/performancePdfExport';
 import { ReportCardDocument } from './ReportCard/ReportCardDocument';
 import { EditReportCardModal } from './ReportCard/EditReportCardModal';
 import { StudentComparisonView } from './StudentComparisonView';
+import { ExamDocumentsModal } from './Exams/ExamDocumentsModal';
 import { 
   calculatePerformanceSummary, 
   generateCharacterFromPerformance, 
@@ -67,6 +68,7 @@ interface ResultsViewProps {
   onToggleResultsStatus: (status: 'active' | 'inactive') => void;
   currentUser?: UserAccount | null;
   onNavigateToAttendance?: () => void;
+  exams?: Exam[];
 }
 
 // Complete list of available Tanzanian subjects across Nursery, Primary, Secondary and High School
@@ -150,7 +152,8 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
   onUpdateStudents,
   onToggleResultsStatus,
   currentUser,
-  onNavigateToAttendance
+  onNavigateToAttendance,
+  exams = []
 }) => {
   const [activeTab, setActiveTab] = useState<'ledger' | 'dashboard' | 'reportcard' | 'comparison'>('ledger');
   const [selectedClass, setSelectedClass] = useState<string>('Form 1');
@@ -158,6 +161,9 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
   const [selectedExam, setSelectedExam] = useState<string>('Midterm I');
   const [isEditMarksMode, setIsEditMarksMode] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'SAT' | 'NO_SUBJECT'>('ALL');
+  const [isDocModalOpen, setIsDocModalOpen] = useState(false);
+  const [docModalExamId, setDocModalExamId] = useState<number | undefined>(undefined);
 
   // Selected student for Report Card tab
   const [selectedStudentReg, setSelectedStudentReg] = useState<string>(students[0]?.regNo || '');
@@ -247,8 +253,19 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
     }
   }, [students, selectedStudentReg]);
 
-  // Filter students for the ledger matching Class and Stream
-  const classCandidates = useMemo(() => {
+  // Check if candidate has attempted at least 1 subject
+  const hasStudentAttemptedAnySubject = (student: Student, pending?: Record<string, any>): boolean => {
+    if (pending) {
+      const hasPending = Object.values(pending).some(v => v !== '' && v !== undefined && v !== null && !isNaN(Number(v)));
+      if (hasPending) return true;
+    }
+    if (!student.marks) return false;
+    const validScores = Object.values(student.marks).filter(v => v !== undefined && v !== null && v !== '' && typeof v === 'number' && !isNaN(v));
+    return validScores.length > 0;
+  };
+
+  // Base list of all candidates in this class and stream (unfiltered by search/status for accurate stats)
+  const allClassCandidates = useMemo(() => {
     return students.filter(s => {
       const matchClass = !selectedClass || s.className.toLowerCase() === selectedClass.toLowerCase();
       const matchStream = !selectedStream || selectedStream === 'All' || 
@@ -256,12 +273,26 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
           s.stream.toUpperCase().replace(/^STREAM\s+/i, '') === selectedStream.toUpperCase() ||
           s.stream.toUpperCase().includes(selectedStream.toUpperCase())
         ) : true);
+      return matchClass && matchStream;
+    });
+  }, [students, selectedClass, selectedStream]);
+
+  // Filter students for the ledger matching Class, Stream, Search, and Status (Sat vs Didn't do any subject)
+  const classCandidates = useMemo(() => {
+    return allClassCandidates.filter(s => {
       const matchSearch = !searchQuery || 
         s.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
         s.regNo.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchClass && matchStream && matchSearch;
+      
+      const attempted = hasStudentAttemptedAnySubject(s, pendingMarks[s.id]);
+      const matchStatus = 
+        statusFilter === 'ALL' ||
+        (statusFilter === 'SAT' && attempted) ||
+        (statusFilter === 'NO_SUBJECT' && !attempted);
+
+      return matchSearch && matchStatus;
     });
-  }, [students, selectedClass, selectedStream, searchQuery]);
+  }, [allClassCandidates, searchQuery, statusFilter, pendingMarks]);
 
   // Multi-select handlers
   const handleToggleSelectAll = () => {
@@ -646,7 +677,19 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
 
   // Dashboard & Grade Distribution calculations (A, B, C, D, E, F) and Class Average
   const dashboardMetrics = useMemo(() => {
-    const totalCandidates = classCandidates.length;
+    const totalCandidates = allClassCandidates.length;
+    const noSubjectStudents = allClassCandidates.filter(s => !hasStudentAttemptedAnySubject(s, pendingMarks[s.id]));
+    const noSubjectCount = noSubjectStudents.length;
+    const noSubjectBoys = noSubjectStudents.filter(s => s.gender === 'Male').length;
+    const noSubjectGirls = noSubjectStudents.filter(s => s.gender === 'Female').length;
+    const noSubjectRate = totalCandidates > 0 ? ((noSubjectCount / totalCandidates) * 100).toFixed(1) : '0.0';
+
+    const satCandidates = allClassCandidates.filter(s => hasStudentAttemptedAnySubject(s, pendingMarks[s.id]));
+    const satCount = satCandidates.length;
+    const satBoys = satCandidates.filter(s => s.gender === 'Male').length;
+    const satGirls = satCandidates.filter(s => s.gender === 'Female').length;
+    const satRate = totalCandidates > 0 ? ((satCount / totalCandidates) * 100).toFixed(1) : '0.0';
+
     let divI = 0;
     let divII = 0;
     let divIII = 0;
@@ -668,7 +711,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
     let passCount = 0;
     let failCount = 0;
 
-    classCandidates.forEach(s => {
+    allClassCandidates.forEach(s => {
       if (s.division === 'I') divI++;
       else if (s.division === 'II') divII++;
       else if (s.division === 'III') divIII++;
@@ -739,7 +782,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
         A: 0, B: 0, C: 0, D: 0, E: 0, F: 0
       };
 
-      classCandidates.forEach(s => {
+      allClassCandidates.forEach(s => {
         const sc = s.marks?.[sub.fullName] ?? s.marks?.[sub.key];
         if (typeof sc === 'number' && !isNaN(sc)) {
           subTotal += sc;
@@ -778,6 +821,16 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
 
     return {
       totalCandidates,
+      noSubjectStudents,
+      noSubjectCount,
+      noSubjectBoys,
+      noSubjectGirls,
+      noSubjectRate,
+      satCandidates,
+      satCount,
+      satBoys,
+      satGirls,
+      satRate,
       schoolGPA,
       divI,
       divII,
@@ -792,7 +845,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
       gradeDistribution,
       subjectPerformances
     };
-  }, [classCandidates, activeLedgerSubjects, isClassPrimary]);
+  }, [allClassCandidates, pendingMarks, activeLedgerSubjects, isClassPrimary]);
 
   // Export Grade Distribution & Student Performance Summary to formatted PDF
   const handleExportPerformancePdf = () => {
@@ -803,6 +856,9 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
       examName: selectedExam,
       academicYear: String(new Date().getFullYear()),
       totalCandidates: dashboardMetrics.totalCandidates,
+      noSubjectCount: dashboardMetrics.noSubjectCount,
+      satCandidatesCount: dashboardMetrics.satCount,
+      noSubjectRate: dashboardMetrics.noSubjectRate,
       classAverage: dashboardMetrics.avgOverall,
       passRate: dashboardMetrics.passRate,
       gradeDistribution: dashboardMetrics.gradeDistribution,
@@ -817,7 +873,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
       schoolGPA: dashboardMetrics.schoolGPA,
       isPrimary: isClassPrimary,
       subjectPerformances: dashboardMetrics.subjectPerformances,
-      topCandidates: classCandidates
+      topCandidates: allClassCandidates
         .filter(c => c.total !== undefined)
         .sort((a, b) => (b.total || 0) - (a.total || 0))
         .map((c, idx) => ({
@@ -863,6 +919,97 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
 
   return (
     <div className="space-y-5">
+      {/* Official School Branding & Examination Status Header */}
+      <div className="bg-gradient-to-r from-blue-950 via-[#1f4d8b] to-slate-900 text-white rounded-2xl p-5 shadow-sm border border-blue-900 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          {/* Logo or School Crest */}
+          {schoolInfo.logo ? (
+            <div className="w-16 h-16 rounded-xl bg-white p-1 border-2 border-amber-400 shadow-md shrink-0 flex items-center justify-center overflow-hidden">
+              <img 
+                src={schoolInfo.logo} 
+                alt={schoolInfo.name} 
+                className="w-full h-full object-contain" 
+              />
+            </div>
+          ) : (
+            <div className="w-16 h-16 rounded-xl bg-blue-800 border-2 border-amber-400 flex flex-col items-center justify-center shrink-0 shadow-md">
+              <GraduationCap className="w-8 h-8 text-amber-300" />
+              <span className="text-[9px] font-black text-white uppercase tracking-tighter">NECTA</span>
+            </div>
+          )}
+
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg sm:text-xl font-black tracking-wide text-white uppercase drop-shadow-xs">
+                {schoolInfo.name}
+              </h2>
+              {schoolInfo.schoolNumber && (
+                <span className="px-2 py-0.5 rounded-md bg-amber-400/20 border border-amber-300/40 text-amber-300 text-[11px] font-mono font-bold">
+                  REG: {schoolInfo.schoolNumber}
+                </span>
+              )}
+            </div>
+
+            <p className="text-xs text-blue-200 flex flex-wrap items-center gap-3">
+              {schoolInfo.motto && <span className="italic">"{schoolInfo.motto}"</span>}
+              <span className="text-blue-300/60">•</span>
+              <span className="flex items-center gap-1 font-semibold text-amber-200">
+                <span>Tel / WhatsApp:</span>
+                <span className="font-mono">{schoolInfo.phone || '0717616343'}</span>
+              </span>
+              <span className="text-blue-300/60">•</span>
+              <span className="text-blue-200">{schoolInfo.address || 'Tanzania'}</span>
+            </p>
+          </div>
+        </div>
+
+        {/* Right Actions: Results Release Status & Exam Documents Modal */}
+        <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto justify-start lg:justify-end border-t lg:border-t-0 pt-3 lg:pt-0 border-blue-800/60">
+          <button
+            type="button"
+            onClick={() => setIsDocModalOpen(true)}
+            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer"
+            title="Generate Photo Entry Form, ISAL, and CAL official documents for this class and stream"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-amber-300" />
+            <span>Exam Forms (Photo Entry, ISAL, CAL)</span>
+          </button>
+
+          {/* Results Status Toggle & Archive indicator */}
+          <div className="flex items-center gap-2 bg-white/10 backdrop-blur-xs px-3 py-1.5 rounded-xl border border-white/15 text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className={`w-2.5 h-2.5 rounded-full ${resultsStatus === 'active' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-200">
+                {resultsStatus === 'active' ? 'RESULTS RELEASED' : 'DRAFT / UNRELEASED'}
+              </span>
+            </div>
+
+            {currentUser?.role === 'ADMIN' && (
+              <button
+                type="button"
+                onClick={() => {
+                  const newStatus = resultsStatus === 'active' ? 'inactive' : 'active';
+                  if (confirm(
+                    newStatus === 'active' 
+                      ? 'Release examination results to students, teachers, and parents? Released exams are permanently recorded in past examination archives.' 
+                      : 'Revert examination results to unreleased processing status?'
+                  )) {
+                    onToggleResultsStatus(newStatus);
+                  }
+                }}
+                className={`ml-1 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors cursor-pointer ${
+                  resultsStatus === 'active'
+                    ? 'bg-rose-500/80 hover:bg-rose-600 text-white'
+                    : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                }`}
+              >
+                {resultsStatus === 'active' ? 'Unrelease' : 'Release Results'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Top Filter Bar matching Screenshot B & C */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-slate-700">
@@ -1197,6 +1344,72 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
             )}
           </div>
 
+          {/* Examination Participation & Absenteeism Summary Strip with Dynamic Filters */}
+          <div className="bg-gradient-to-r from-slate-50 via-blue-50/50 to-slate-50 border-b border-slate-200 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-black uppercase tracking-wider text-slate-700">Participation:</span>
+              
+              {/* Filter: All Candidates */}
+              <button
+                type="button"
+                onClick={() => setStatusFilter('ALL')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  statusFilter === 'ALL'
+                    ? 'bg-[#1f4d8b] text-white shadow-xs'
+                    : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                }`}
+                title="View all registered candidates in this class"
+              >
+                <span>All Registered</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${statusFilter === 'ALL' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-800'}`}>
+                  {dashboardMetrics.totalCandidates}
+                </span>
+              </button>
+
+              {/* Filter: Sat Exam */}
+              <button
+                type="button"
+                onClick={() => setStatusFilter('SAT')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  statusFilter === 'SAT'
+                    ? 'bg-emerald-700 text-white shadow-xs'
+                    : 'bg-white border border-slate-200 text-emerald-800 hover:bg-emerald-50'
+                }`}
+                title="Filter candidates who attempted at least one examination subject"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Sat Exam</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${statusFilter === 'SAT' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'}`}>
+                  {dashboardMetrics.satCount} ({dashboardMetrics.satRate}%)
+                </span>
+              </button>
+
+              {/* Filter: Didn't Do Any Subject */}
+              <button
+                type="button"
+                onClick={() => setStatusFilter('NO_SUBJECT')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  statusFilter === 'NO_SUBJECT'
+                    ? 'bg-rose-700 text-white shadow-xs'
+                    : 'bg-white border border-rose-200 text-rose-700 hover:bg-rose-50'
+                }`}
+                title="Filter candidates who did not do any subject (Absent / zero marks entered)"
+              >
+                <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
+                <span>Didn't Do Subject (Absent)</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${statusFilter === 'NO_SUBJECT' ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-800'}`}>
+                  {dashboardMetrics.noSubjectCount} ({dashboardMetrics.noSubjectRate}%)
+                </span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 text-[11px] text-slate-500 font-medium">
+              <span>Boys: <strong className="text-slate-800">{dashboardMetrics.satBoys} sat</strong> ({dashboardMetrics.noSubjectBoys} absent)</span>
+              <span>•</span>
+              <span>Girls: <strong className="text-slate-800">{dashboardMetrics.satGirls} sat</strong> ({dashboardMetrics.noSubjectGirls} absent)</span>
+            </div>
+          </div>
+
           {/* Quick Grade Distribution & Class Average Summary Ribbon */}
           <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
             <div className="flex flex-wrap items-center gap-2">
@@ -1312,7 +1525,17 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                         {st.regNo}
                       </td>
                       <td className="p-2 border-r border-slate-200 font-bold text-slate-900 whitespace-nowrap">
-                        {st.name}
+                        <div className="flex items-center gap-1.5">
+                          <span>{st.name}</span>
+                          {!hasStudentAttemptedAnySubject(st, pendingMarks[st.id]) && (
+                            <span 
+                              className="px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 font-bold text-[9px] border border-rose-200" 
+                              title="Candidate did not sit / zero subject marks entered"
+                            >
+                              ABSENT
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="p-2 border-r border-slate-200 text-center font-bold">
                         <span className={st.gender === 'Female' ? 'text-pink-700' : 'text-blue-700'}>
@@ -1346,13 +1569,20 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
 
                       {/* Summary Metrics */}
                       <td className="p-2 border-r border-slate-200 text-center font-mono font-black text-slate-900 bg-slate-50/40">
-                        {st.total ?? '-'}
+                        {hasStudentAttemptedAnySubject(st, pendingMarks[st.id]) ? (st.total ?? '-') : '-'}
                       </td>
                       <td className="p-2 border-r border-slate-200 text-center font-mono font-black text-blue-700 bg-slate-50/40">
-                        {st.average ? `${st.average}%` : '-'}
+                        {hasStudentAttemptedAnySubject(st, pendingMarks[st.id]) ? (st.average ? `${st.average}%` : '-') : '-'}
                       </td>
                       <td className="p-2 border-r border-slate-200 text-center font-black bg-slate-50/40">
-                        {isClassPrimary ? (
+                        {!hasStudentAttemptedAnySubject(st, pendingMarks[st.id]) ? (
+                          <span 
+                            className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200"
+                            title="Candidate did not sit any subject"
+                          >
+                            ABS
+                          </span>
+                        ) : isClassPrimary ? (
                           (st.primaryGrade || st.division) ? (
                             <span 
                               className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
@@ -1385,7 +1615,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                         )}
                       </td>
                       <td className="p-2 border-r border-slate-200 text-center font-mono font-bold text-slate-700 bg-slate-50/40">
-                        {st.reportCardData?.positionInClass ?? idx + 1}
+                        {hasStudentAttemptedAnySubject(st, pendingMarks[st.id]) ? (st.reportCardData?.positionInClass ?? idx + 1) : '-'}
                       </td>
                       <td className="p-2 text-center">
                         <button
@@ -1437,34 +1667,46 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
             </div>
           </div>
 
-          {/* Top 4 KPI Metrics */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs text-center">
-              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Candidates</div>
-              <div className="text-3xl font-black text-slate-800 mt-1">{dashboardMetrics.totalCandidates}</div>
-              <div className="text-[11px] text-slate-400 mt-0.5">{classCandidates.length} enrolled</div>
+          {/* Top 6 Executive KPI Metrics Including Examination Sitting & Absenteeism */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs text-center">
+              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Registered</div>
+              <div className="text-2xl sm:text-3xl font-black text-slate-800 mt-1">{dashboardMetrics.totalCandidates}</div>
+              <div className="text-[10px] text-slate-400 mt-0.5">{allClassCandidates.length} enrolled</div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs text-center">
-              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Class Average</div>
-              <div className="text-3xl font-black text-blue-600 mt-1">
+            <div className="bg-white border border-emerald-200 bg-emerald-50/20 rounded-xl p-4 shadow-xs text-center">
+              <div className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Sat For Exam</div>
+              <div className="text-2xl sm:text-3xl font-black text-emerald-700 mt-1">{dashboardMetrics.satCount}</div>
+              <div className="text-[10px] text-emerald-600 font-bold mt-0.5">{dashboardMetrics.satRate}% (B:{dashboardMetrics.satBoys} G:{dashboardMetrics.satGirls})</div>
+            </div>
+
+            <div className="bg-white border border-rose-200 bg-rose-50/30 rounded-xl p-4 shadow-xs text-center">
+              <div className="text-[10px] font-bold text-rose-800 uppercase tracking-wider">Didn't Do Subject</div>
+              <div className="text-2xl sm:text-3xl font-black text-rose-600 mt-1">{dashboardMetrics.noSubjectCount}</div>
+              <div className="text-[10px] text-rose-600 font-bold mt-0.5">{dashboardMetrics.noSubjectRate}% (B:{dashboardMetrics.noSubjectBoys} G:{dashboardMetrics.noSubjectGirls})</div>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs text-center">
+              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Class Average</div>
+              <div className="text-2xl sm:text-3xl font-black text-blue-600 mt-1">
                 {dashboardMetrics.avgOverall !== '-' ? `${dashboardMetrics.avgOverall}%` : '-'}
               </div>
-              <div className="text-[11px] text-slate-400 mt-0.5">Mean Score ({selectedExam})</div>
+              <div className="text-[10px] text-slate-400 mt-0.5">Mean Score ({selectedExam})</div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs text-center">
-              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Pass Rate</div>
-              <div className="text-3xl font-black text-emerald-600 mt-1">
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs text-center">
+              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Pass Rate</div>
+              <div className="text-2xl sm:text-3xl font-black text-emerald-600 mt-1">
                 {dashboardMetrics.passRate}%
               </div>
-              <div className="text-[11px] text-emerald-600 font-semibold mt-0.5">{dashboardMetrics.passCount} passed</div>
+              <div className="text-[10px] text-emerald-600 font-semibold mt-0.5">{dashboardMetrics.passCount} passed</div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs text-center">
-              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">School GPA</div>
-              <div className="text-3xl font-black text-indigo-600 mt-1">{dashboardMetrics.schoolGPA}</div>
-              <div className="text-[11px] text-slate-400 mt-0.5">Scale: 1.0 (Top) - 5.0</div>
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs text-center">
+              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">School GPA</div>
+              <div className="text-2xl sm:text-3xl font-black text-indigo-600 mt-1">{dashboardMetrics.schoolGPA}</div>
+              <div className="text-[10px] text-slate-400 mt-0.5">Scale: 1.0 (Top) - 5.0</div>
             </div>
           </div>
 
@@ -1686,6 +1928,98 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
               </div>
             </div>
           )}
+
+          {/* Candidates Who Did Not Sit Any Subject (Absenteeism Ledger Audit) */}
+          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600" />
+                  <span>Candidates Who Did Not Sit Any Subject ({dashboardMetrics.noSubjectCount} / {dashboardMetrics.totalCandidates})</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Official absenteeism audit ledger for {selectedClass} {selectedStream !== 'All' ? selectedStream : ''} ({selectedExam}). Candidates with zero recorded subject marks.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 border border-rose-200">
+                  Absentee Rate: {dashboardMetrics.noSubjectRate}%
+                </span>
+                <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  Sitting Rate: {dashboardMetrics.satRate}%
+                </span>
+              </div>
+            </div>
+
+            {dashboardMetrics.noSubjectCount === 0 ? (
+              <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-4 text-xs font-bold text-emerald-800 flex items-center gap-2.5">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <span>Excellent attendance! All {dashboardMetrics.totalCandidates} registered candidates sat and attempted examination subjects. Zero absentees recorded.</span>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-rose-50/80 text-rose-950 border-b border-rose-200 uppercase text-[10px] font-black tracking-wider">
+                      <th className="p-2.5 border-r border-rose-200 w-12 text-center">#</th>
+                      <th className="p-2.5 border-r border-rose-200 w-28">Reg / Index No</th>
+                      <th className="p-2.5 border-r border-rose-200">Candidate Full Name</th>
+                      <th className="p-2.5 border-r border-rose-200 text-center w-16">Gender</th>
+                      <th className="p-2.5 border-r border-rose-200 w-28">Class & Stream</th>
+                      <th className="p-2.5 border-r border-rose-200 text-center w-36">Examination Status</th>
+                      <th className="p-2.5 text-center w-28">Quick Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {allClassCandidates
+                      .filter(s => !hasStudentAttemptedAnySubject(s, pendingMarks[s.id]))
+                      .map((absentStudent, aIdx) => (
+                        <tr key={absentStudent.id} className="hover:bg-rose-50/30 transition-colors">
+                          <td className="p-2.5 border-r border-slate-200 text-center font-bold text-slate-500 font-mono">
+                            {aIdx + 1}
+                          </td>
+                          <td className="p-2.5 border-r border-slate-200 font-mono font-bold text-slate-800">
+                            {absentStudent.regNo}
+                          </td>
+                          <td className="p-2.5 border-r border-slate-200 font-bold text-slate-900">
+                            {absentStudent.name}
+                          </td>
+                          <td className="p-2.5 border-r border-slate-200 text-center font-bold">
+                            <span className={absentStudent.gender === 'Female' ? 'text-pink-700' : 'text-blue-700'}>
+                              {absentStudent.gender || 'Unknown'}
+                            </span>
+                          </td>
+                          <td className="p-2.5 border-r border-slate-200 text-slate-600">
+                            {absentStudent.className} {absentStudent.stream || ''}
+                          </td>
+                          <td className="p-2.5 border-r border-slate-200 text-center">
+                            <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 font-bold text-[10px] border border-rose-200">
+                              ABSENT / NO MARKS
+                            </span>
+                          </td>
+                          <td className="p-2.5 text-center">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSearchQuery(absentStudent.regNo);
+                                setStatusFilter('ALL');
+                                setActiveTab('ledger');
+                                setIsEditMarksMode(true);
+                              }}
+                              className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-[11px] font-bold cursor-pointer"
+                              title="Enter examination scores for this candidate"
+                            >
+                              Enter Marks
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
 
           {/* Subject Performance & Grade Distribution Table */}
           <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
@@ -2331,6 +2665,17 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Official Exam Documents Modal (Photo Entry, ISAL, CAL) */}
+      <ExamDocumentsModal
+        isOpen={isDocModalOpen}
+        onClose={() => setIsDocModalOpen(false)}
+        exams={exams || []}
+        students={students}
+        schoolInfo={schoolInfo}
+        initialClass={selectedClass}
+        initialStream={selectedStream}
+      />
     </div>
   );
 };

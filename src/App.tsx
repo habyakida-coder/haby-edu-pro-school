@@ -648,6 +648,7 @@ export default function App() {
               onToggleResultsStatus={status => updateRemoteData({ resultsStatus: status })}
               currentUser={userAccount}
               onNavigateToAttendance={() => setActiveView('attendance')}
+              exams={data.exams}
             />
           )}
 
@@ -695,6 +696,8 @@ export default function App() {
               onAddExam={handleAddExam}
               onUpdateExam={handleUpdateExam}
               onDeleteExam={handleDeleteExam}
+              students={data.students}
+              schoolInfo={data.schoolInfo}
             />
           )}
 

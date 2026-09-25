@@ -39,6 +39,9 @@ export interface PerformancePdfExportData {
   examName: string;
   academicYear?: string;
   totalCandidates: number;
+  noSubjectCount?: number;
+  satCandidatesCount?: number;
+  noSubjectRate?: string;
   classAverage: string | number;
   passRate: string | number;
   gradeDistribution: GradeCounts;
@@ -90,7 +93,7 @@ export function exportGradeDistributionAndPerformancePDF(data: PerformancePdfExp
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(224, 231, 255);
-  const subtitle = `REG NO: ${data.schoolInfo?.schoolNumber || 'TZ-SCH-001'}  •  OFFICIAL EXAMINATION PERFORMANCE & GRADE DISTRIBUTION REPORT`;
+  const subtitle = `REG NO: ${data.schoolInfo?.schoolNumber || 'S.0123'}  •  TEL: ${data.schoolInfo?.phone || '0717616343'}  •  OFFICIAL EXAMINATION PERFORMANCE REPORT`;
   doc.text(subtitle, pageWidth / 2, y + 14, { align: 'center' });
 
   const motto = data.schoolInfo?.motto ? `"${data.schoolInfo.motto}"` : 'EXCELLENCE • CHARACTER • DISCIPLINE';
@@ -123,19 +126,18 @@ export function exportGradeDistributionAndPerformancePDF(data: PerformancePdfExp
   y += 18;
 
   // ==========================================
-  // 3. EXECUTIVE KPI METRICS
+  // 3. EXECUTIVE KPI METRICS (Including Absent / Zero Subjects)
   // ==========================================
-  const kpiBoxWidth = (contentWidth - 9) / 4;
+  const kpiBoxWidth = (contentWidth - 12) / 5;
+  const satCount = data.satCandidatesCount ?? (data.totalCandidates - (data.noSubjectCount || 0));
+  const noSubCount = data.noSubjectCount ?? 0;
+
   const kpis = [
-    { label: 'CANDIDATES TESTED', val: String(data.totalCandidates), color: [30, 41, 59] as const, bg: [241, 245, 249] as const },
+    { label: 'REGISTERED', val: String(data.totalCandidates), color: [30, 41, 59] as const, bg: [241, 245, 249] as const },
+    { label: 'SAT EXAM', val: String(satCount), color: [5, 150, 105] as const, bg: [236, 253, 245] as const },
+    { label: 'DID NOT SIT (ABS)', val: String(noSubCount), color: [225, 29, 72] as const, bg: [255, 241, 242] as const },
     { label: 'CLASS AVERAGE', val: `${data.classAverage}%`, color: [37, 99, 235] as const, bg: [239, 246, 255] as const },
-    { label: 'OVERALL PASS RATE', val: `${data.passRate}%`, color: [16, 185, 129] as const, bg: [236, 253, 245] as const },
-    { 
-      label: data.isPrimary ? 'TOP GRADE STATUS' : 'SCHOOL GPA', 
-      val: data.isPrimary ? `A: ${data.gradeDistribution.A || 0}` : (data.schoolGPA || '3.20'), 
-      color: [124, 58, 237] as const, 
-      bg: [245, 243, 255] as const 
-    }
+    { label: 'OVERALL PASS RATE', val: `${data.passRate}%`, color: [16, 185, 129] as const, bg: [236, 253, 245] as const }
   ];
 
   kpis.forEach((kpi, idx) => {

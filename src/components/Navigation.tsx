@@ -78,16 +78,32 @@ export const Navigation: React.FC<NavigationProps> = ({
   return (
     <header className="space-y-3 mb-6">
       {/* Top Banner */}
-      <div className="bg-[#1f4d8b] text-white rounded-xl px-6 py-5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border border-blue-900">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              {schoolInfo.name || 'HABY EDU PRO'}
-            </h1>
+      <div className="bg-[#1f4d8b] text-white rounded-xl px-6 py-5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-blue-900">
+        <div className="flex items-center gap-3.5">
+          {schoolInfo.logo ? (
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white p-1 shadow-md border-2 border-amber-400 flex items-center justify-center shrink-0 overflow-hidden">
+              <img src={schoolInfo.logo} alt={schoolInfo.name} className="w-full h-full object-contain" />
+            </div>
+          ) : (
+            <div className="w-12 h-12 rounded-full bg-blue-800 text-amber-300 flex items-center justify-center font-black text-xl border-2 border-amber-400 shadow-sm shrink-0">
+              <GraduationCap className="w-7 h-7" />
+            </div>
+          )}
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight">
+                {schoolInfo.name || 'HABY EDU PRO'}
+              </h1>
+              {schoolInfo.schoolNumber && (
+                <span className="text-[10px] bg-amber-400 text-slate-900 font-black px-2 py-0.5 rounded uppercase tracking-wider hidden sm:inline-block">
+                  CTR: {schoolInfo.schoolNumber}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-blue-200 mt-0.5 font-medium">
+              {schoolInfo.motto || 'Comprehensive School Management & Academic Scheduling System'}
+            </p>
           </div>
-          <p className="text-xs sm:text-sm text-blue-200 mt-1 font-medium">
-            {schoolInfo.motto || 'Comprehensive School Management & Academic Scheduling System'}
-          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* User Authentication Status */}

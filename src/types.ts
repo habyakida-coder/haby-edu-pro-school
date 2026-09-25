@@ -187,6 +187,8 @@ export interface Supervisor {
   initial: string;
 }
 
+export type InstitutionalLevel = 'NURSERY' | 'PRIMARY' | 'SECONDARY';
+
 export interface SchoolInfo {
   name: string;
   schoolNumber?: string; // Tanzanian NECTA center / school registration number e.g. "0123" or "S.0123"
@@ -195,7 +197,13 @@ export interface SchoolInfo {
   email: string;
   motto: string;
   principal: string;
+  logo?: string; // base64 or URL for official school emblem / crest
+  badge?: string;
+  website?: string;
+  institutionalLevels?: InstitutionalLevel[]; // e.g. ['NURSERY', 'PRIMARY', 'SECONDARY'] or any combination
 }
+
+export type ExamDocumentType = 'PHOTO_ENTRY' | 'ISAL' | 'CAL';
 
 export interface DayTheme {
   day: string;

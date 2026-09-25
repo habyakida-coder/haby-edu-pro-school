@@ -16,23 +16,29 @@ import {
   List,
   Filter,
   Eye,
-  Check
+  Check,
+  FileSpreadsheet
 } from 'lucide-react';
-import { Exam, InvigilationSession, EducationLevel } from '../types';
+import { Exam, InvigilationSession, EducationLevel, Student, SchoolInfo } from '../types';
 import { ALL_SCHOOL_CLASSES, NURSERY_CLASSES, PRIMARY_CLASSES, SECONDARY_CLASSES } from '../constants/defaults';
+import { ExamDocumentsModal } from './Exams/ExamDocumentsModal';
 
 interface ExamsViewProps {
   exams: Exam[];
   onAddExam: (exam: Exam, session: InvigilationSession) => void;
   onUpdateExam?: (exam: Exam) => void;
   onDeleteExam: (id: number) => void;
+  students?: Student[];
+  schoolInfo?: SchoolInfo;
 }
 
 export const ExamsView: React.FC<ExamsViewProps> = ({
   exams,
   onAddExam,
   onUpdateExam,
-  onDeleteExam
+  onDeleteExam,
+  students = [],
+  schoolInfo
 }) => {
   const [viewMode, setViewMode] = useState<'calendar' | 'table'>('calendar');
   const [calendarScope, setCalendarScope] = useState<'month' | 'week'>('month');
@@ -45,6 +51,8 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedExamDetails, setSelectedExamDetails] = useState<Exam | null>(null);
+  const [isDocModalOpen, setIsDocModalOpen] = useState(false);
+  const [docModalExamId, setDocModalExamId] = useState<number | undefined>(undefined);
 
   // Form states
   const [name, setName] = useState('');
@@ -336,6 +344,19 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
               <span>List ({exams.length})</span>
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setDocModalExamId(undefined);
+              setIsDocModalOpen(true);
+            }}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+            title="Generate Photo Entry Form, ISAL, and CAL documents for each class and stream"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-amber-300" />
+            <span>Exam Documents (Photo Entry, ISAL, CAL)</span>
+          </button>
 
           <button
             onClick={() => setIsModalOpen(true)}
@@ -713,10 +734,22 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
                           </span>
                         </td>
                         <td className="p-3 text-center">
-                          <div className="flex items-center justify-center gap-3 font-bold text-xs">
+                          <div className="flex items-center justify-center gap-2.5 font-bold text-xs">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDocModalExamId(e.id);
+                                setIsDocModalOpen(true);
+                              }}
+                              className="px-2 py-1 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-300 rounded text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                              title="Generate Photo Entry, ISAL, and CAL forms for this exam"
+                            >
+                              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
+                              <span>Forms</span>
+                            </button>
                             <button
                               onClick={() => setSelectedExamDetails(e)}
-                              className="text-slate-600 hover:text-slate-900 cursor-pointer"
+                              className="text-slate-600 hover:text-slate-900 cursor-pointer p-1"
                               title="Inspect Details"
                             >
                               <Eye className="w-3.5 h-3.5" />
@@ -919,7 +952,20 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
               </div>
             </div>
 
-            <div className="pt-2 flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setDocModalExamId(selectedExamDetails.id);
+                setIsDocModalOpen(true);
+                setSelectedExamDetails(null);
+              }}
+              className="w-full py-2 bg-[#1f4d8b] hover:bg-blue-900 text-white rounded-lg font-bold flex items-center justify-center gap-2 cursor-pointer shadow-xs text-xs"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-amber-300" />
+              <span>Generate Exam Forms (Photo Entry, ISAL, CAL)</span>
+            </button>
+
+            <div className="pt-2 flex items-center justify-between gap-2 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => {
@@ -945,6 +991,24 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Official Exam Documents Modal (Photo Entry, ISAL, CAL) */}
+      <ExamDocumentsModal
+        isOpen={isDocModalOpen}
+        onClose={() => setIsDocModalOpen(false)}
+        exams={exams}
+        students={students}
+        schoolInfo={schoolInfo || {
+          name: 'KIOMONI SECONDARY SCHOOL',
+          schoolNumber: 'S.0123',
+          address: 'P.O. Box 1234, Tanga, Tanzania',
+          phone: '0717616343',
+          email: 'info@kiomonisec.ac.tz',
+          motto: 'Education for Development & Integrity',
+          principal: 'Dr. H. Akida'
+        }}
+        initialExamId={docModalExamId}
+      />
     </div>
   );
 };

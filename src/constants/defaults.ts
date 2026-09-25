@@ -1,5 +1,30 @@
 import { AppData, UserAccount } from '../types';
 
+export const DEFAULT_SCHOOL_LOGO = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200"><defs><linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%231e3a8a"/><stop offset="100%" stop-color="%230f172a"/></linearGradient><linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%23fbbf24"/><stop offset="100%" stop-color="%23d97706"/></linearGradient></defs><circle cx="100" cy="100" r="94" fill="none" stroke="%23d97706" stroke-width="4"/><circle cx="100" cy="100" r="88" fill="%23ffffff" stroke="%231e3a8a" stroke-width="2"/><path d="M 100 24 C 135 24 165 42 165 78 C 165 125 125 158 100 174 C 75 158 35 125 35 78 C 35 42 65 24 100 24 Z" fill="url(%23shieldGrad)" stroke="%23fbbf24" stroke-width="3"/><path d="M 100 42 L 100 115 M 100 48 Q 120 40 142 46 L 142 104 Q 120 98 100 108 Q 80 98 58 104 L 58 46 Q 80 40 100 48 Z" fill="%23ffffff" stroke="%23fbbf24" stroke-width="2"/><circle cx="100" cy="115" r="7" fill="%23ef4444"/><polygon points="100,126 102,132 108,132 103,136 105,142 100,138 95,142 97,136 92,132 98,132" fill="%23fbbf24"/><text x="100" y="160" font-family="Arial, sans-serif" font-weight="900" font-size="10" fill="%23fbbf24" text-anchor="middle" letter-spacing="1">EXCELLENCE</text></svg>`;
+
+export const PRESET_SCHOOL_LOGOS = [
+  {
+    id: 'navy_academic',
+    name: 'Academic Shield (Navy & Gold)',
+    dataUrl: DEFAULT_SCHOOL_LOGO
+  },
+  {
+    id: 'emerald_crest',
+    name: 'National Crest (Emerald & Gold)',
+    dataUrl: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200"><defs><linearGradient id="greenGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%23047857"/><stop offset="100%" stop-color="%23064e3b"/></linearGradient></defs><circle cx="100" cy="100" r="92" fill="%23ffffff" stroke="%23047857" stroke-width="5"/><circle cx="100" cy="100" r="82" fill="url(%23greenGrad)" stroke="%23f59e0b" stroke-width="3"/><polygon points="100,32 105,48 122,48 108,58 113,74 100,64 87,74 92,58 78,48 95,48" fill="%23fbbf24"/><path d="M 60 90 Q 100 80 140 90 L 135 130 Q 100 145 65 130 Z" fill="%23ffffff" stroke="%23fbbf24" stroke-width="2"/><text x="100" y="112" font-family="Arial, sans-serif" font-weight="900" font-size="14" fill="%23064e3b" text-anchor="middle">EDUCATION</text><text x="100" y="162" font-family="Arial, sans-serif" font-weight="800" font-size="10" fill="%23fbbf24" text-anchor="middle" letter-spacing="1">SELF RELIANCE</text></svg>`
+  },
+  {
+    id: 'royal_torch',
+    name: 'Torch of Wisdom (Royal Blue)',
+    dataUrl: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200"><defs><linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%231d4ed8"/><stop offset="100%" stop-color="%231e3a8a"/></linearGradient></defs><path d="M 100 20 L 175 55 L 175 125 Q 100 185 100 185 Q 25 125 25 125 L 25 55 Z" fill="url(%23blueGrad)" stroke="%23f59e0b" stroke-width="4"/><circle cx="100" cy="70" r="22" fill="%23ffffff"/><polygon points="100,52 102,62 107,63 103,67 104,73 100,69 96,73 97,67 93,63 98,62" fill="%23f59e0b"/><path d="M 85 100 L 115 100 L 108 140 L 92 140 Z" fill="%23f59e0b"/><polygon points="100,82 108,98 92,98" fill="%23ef4444"/><text x="100" y="165" font-family="Arial, sans-serif" font-weight="900" font-size="10" fill="%23ffffff" text-anchor="middle" letter-spacing="1">INTEGRITY</text></svg>`
+  },
+  {
+    id: 'gold_star',
+    name: 'Circular Seal (Gold & Onyx)',
+    dataUrl: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200"><circle cx="100" cy="100" r="92" fill="%230f172a" stroke="%23d97706" stroke-width="5"/><circle cx="100" cy="100" r="78" fill="%23ffffff" stroke="%230f172a" stroke-width="2"/><circle cx="100" cy="100" r="68" fill="%230f172a"/><polygon points="100,50 108,68 128,68 112,80 118,98 100,86 82,98 88,80 72,68 92,68" fill="%23f59e0b"/><text x="100" y="128" font-family="Arial, sans-serif" font-weight="900" font-size="12" fill="%23ffffff" text-anchor="middle">LEADERSHIP</text><text x="100" y="145" font-family="Arial, sans-serif" font-weight="800" font-size="9" fill="%23f59e0b" text-anchor="middle">DISCIPLINE</text></svg>`
+  }
+];
+
 export const INITIAL_USERS: UserAccount[] = [
   {
     id: 'usr_head',
@@ -854,10 +879,12 @@ export const DEFAULT_APP_DATA: AppData = {
     name: 'KIOMONI SECONDARY SCHOOL',
     schoolNumber: 'S.0123',
     address: 'P.O. Box 1234, Tanga, Tanzania',
-    phone: '+255 754 000 111',
+    phone: '0717616343',
     email: 'info@kiomonisec.ac.tz',
     motto: 'Education for Development & Integrity',
-    principal: 'Dr. H. Akida'
+    principal: 'Dr. H. Akida',
+    logo: DEFAULT_SCHOOL_LOGO,
+    institutionalLevels: ['NURSERY', 'PRIMARY', 'SECONDARY']
   },
   activityLogs: [
     {

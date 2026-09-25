@@ -8,13 +8,14 @@ import {
 } from 'lucide-react';
 import { 
   SchoolInfo, PeriodSetting, TimetableAssignment, UserAccount, Student, Teacher,
-  School as SchoolType, SchoolStatus, ActivityLog, ActivityCategory, ActivityAction 
+  School as SchoolType, SchoolStatus, ActivityLog, ActivityCategory, ActivityAction,
+  InstitutionalLevel
 } from '../types';
 import { PeriodSettingsManager } from './Timetable/PeriodSettingsManager';
 import { db } from '../lib/firebase';
 import { collection, query, onSnapshot, doc, updateDoc, addDoc, setDoc } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
-import { SUBJECT_LIST } from '../constants/defaults';
+import { SUBJECT_LIST, DEFAULT_SCHOOL_LOGO, PRESET_SCHOOL_LOGOS } from '../constants/defaults';
 
 interface SettingsViewProps {
   schoolInfo: SchoolInfo;
@@ -173,11 +174,70 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [name, setName] = useState(schoolInfo.name || '');
   const [schoolNumber, setSchoolNumber] = useState(schoolInfo.schoolNumber || 'S.0123');
   const [address, setAddress] = useState(schoolInfo.address || '');
-  const [phone, setPhone] = useState(schoolInfo.phone || '');
+  const [phone, setPhone] = useState(schoolInfo.phone || '0717616343');
   const [email, setEmail] = useState(schoolInfo.email || '');
   const [motto, setMotto] = useState(schoolInfo.motto || '');
   const [principal, setPrincipal] = useState(schoolInfo.principal || '');
+  const [logo, setLogo] = useState<string>(schoolInfo.logo || DEFAULT_SCHOOL_LOGO);
+  const [institutionalLevels, setInstitutionalLevels] = useState<InstitutionalLevel[]>(
+    schoolInfo.institutionalLevels || ['NURSERY', 'PRIMARY', 'SECONDARY']
+  );
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  // Sync state when schoolInfo changes
+  useEffect(() => {
+    if (schoolInfo) {
+      setName(schoolInfo.name || '');
+      setSchoolNumber(schoolInfo.schoolNumber || 'S.0123');
+      setAddress(schoolInfo.address || '');
+      setPhone(schoolInfo.phone || '0717616343');
+      setEmail(schoolInfo.email || '');
+      setMotto(schoolInfo.motto || '');
+      setPrincipal(schoolInfo.principal || '');
+      setLogo(schoolInfo.logo || DEFAULT_SCHOOL_LOGO);
+      setInstitutionalLevels(schoolInfo.institutionalLevels || ['NURSERY', 'PRIMARY', 'SECONDARY']);
+    }
+  }, [schoolInfo]);
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload a valid image file (PNG, JPG, or SVG).');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 256;
+        let w = img.width;
+        let h = img.height;
+        if (w > h) {
+          if (w > maxDim) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          }
+        } else {
+          if (h > maxDim) {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL('image/png', 0.9);
+        setLogo(dataUrl);
+      };
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Super Admin Register School Administrator (Headmaster) state
   const [targetSchoolId, setTargetSchoolId] = useState<string>('');
@@ -293,10 +353,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       name: name.trim() || 'KIOMONI SECONDARY SCHOOL',
       schoolNumber: schoolNumber.trim() || 'S.0123',
       address: address.trim(),
-      phone: phone.trim(),
+      phone: phone.trim() || '0717616343',
       email: email.trim(),
       motto: motto.trim(),
-      principal: principal.trim()
+      principal: principal.trim(),
+      logo: logo || DEFAULT_SCHOOL_LOGO
     });
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 3000);
@@ -611,6 +672,78 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <p className="text-[10px] text-blue-700 italic font-medium">
                 * Other staff members (Academic Masters, Teachers) need this ID to register and join your school profile.
               </p>
+            </div>
+
+            {/* School Branding & Emblem / Logo Card */}
+            <div className="p-4 bg-gradient-to-r from-slate-50 via-blue-50/40 to-slate-50 border border-slate-200 rounded-xl space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 rounded-2xl bg-white p-1.5 border-2 border-blue-900 shadow-md flex items-center justify-center shrink-0 overflow-hidden relative group">
+                    {logo ? (
+                      <img src={logo} alt="School Logo" className="w-full h-full object-contain" />
+                    ) : (
+                      <School className="w-10 h-10 text-slate-400" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-extrabold text-slate-800 flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-amber-500" />
+                      Official School Emblem & Branding
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      This emblem appears on all official School Documents (Photo Entry Forms, ISAL, CAL), Examination Papers, and Student Report Cards.
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      <label className="cursor-pointer px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-2xs">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Upload Logo</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleLogoUpload}
+                          className="hidden"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setLogo(DEFAULT_SCHOOL_LOGO)}
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors border border-slate-300"
+                      >
+                        Reset Default
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Preset Logos Picker */}
+              <div className="pt-2 border-t border-slate-200/80">
+                <span className="text-[11px] font-bold text-slate-600 block mb-2">
+                  Or select an accredited school crest template:
+                </span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {PRESET_SCHOOL_LOGOS.map((preset) => {
+                    const isSelected = logo === preset.dataUrl;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => setLogo(preset.dataUrl)}
+                        className={`p-2 rounded-lg border text-left flex items-center gap-2 transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-blue-50 border-blue-600 ring-2 ring-blue-500/20'
+                            : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        <img src={preset.dataUrl} alt={preset.name} className="w-8 h-8 object-contain shrink-0" />
+                        <span className="text-[11px] font-bold text-slate-700 leading-tight">
+                          {preset.name}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

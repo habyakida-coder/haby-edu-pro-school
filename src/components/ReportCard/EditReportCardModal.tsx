@@ -17,7 +17,10 @@ import {
   MessageSquare,
   Plus,
   Trash2,
-  RotateCcw
+  RotateCcw,
+  Camera,
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react';
 
 interface EditReportCardModalProps {
@@ -35,7 +38,8 @@ export const EditReportCardModal: React.FC<EditReportCardModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const [activeTab, setActiveTab] = useState<'marks' | 'periods' | 'character' | 'remarks'>('marks');
+  const [activeTab, setActiveTab] = useState<'marks' | 'periods' | 'character' | 'remarks' | 'photo'>('marks');
+  const [passportPhoto, setPassportPhoto] = useState<string>(student.passportPhoto || '');
 
   // Marks state
   const [marks, setMarks] = useState<Record<string, number>>(() => ({
@@ -123,6 +127,17 @@ export const EditReportCardModal: React.FC<EditReportCardModalProps> = ({
     setCharacterAssessment(generated);
   };
 
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPassportPhoto(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSaveAll = () => {
     const total = livePerf.total;
     const average = String(livePerf.average);
@@ -146,6 +161,7 @@ export const EditReportCardModal: React.FC<EditReportCardModalProps> = ({
       total,
       average,
       division,
+      passportPhoto: passportPhoto || undefined,
       reportCardData
     };
 
@@ -278,6 +294,19 @@ export const EditReportCardModal: React.FC<EditReportCardModalProps> = ({
           >
             <MessageSquare className="w-4 h-4" />
             <span>4. Official Remarks & Dates</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('photo')}
+            className={`px-4 py-2 text-xs font-bold border-b-2 transition-colors flex items-center gap-1.5 ${
+              activeTab === 'photo'
+                ? 'border-[#1f4d8b] text-[#1f4d8b]'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Camera className="w-4 h-4" />
+            <span>5. Passport Photo</span>
+            {passportPhoto && <span className="w-2 h-2 rounded-full bg-emerald-500" />}
           </button>
         </div>
 
@@ -625,6 +654,80 @@ export const EditReportCardModal: React.FC<EditReportCardModalProps> = ({
                   onChange={e => setDateIssued(e.target.value)}
                   className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white"
                 />
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: STUDENT PASSPORT PHOTO */}
+          {activeTab === 'photo' && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">Student Passport Photo</h3>
+                <p className="text-xs text-slate-500">
+                  This official passport photograph is printed on both Portrait and Landscape formats of the student&apos;s report card as well as the Photo Entry Form.
+                </p>
+              </div>
+
+              <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col sm:flex-row items-center gap-6">
+                <div className="w-28 h-32 rounded-xl border-2 border-dashed border-blue-400 bg-white flex flex-col items-center justify-center overflow-hidden shrink-0 shadow-xs relative group">
+                  {passportPhoto ? (
+                    <>
+                      <img 
+                        src={passportPhoto} 
+                        alt={student.name} 
+                        className="w-full h-full object-cover" 
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setPassportPhoto('')}
+                        className="absolute top-1 right-1 p-1 rounded-full bg-rose-600 text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer shadow-xs"
+                        title="Remove photo"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </>
+                  ) : (
+                    <div className="text-center p-2 text-slate-400">
+                      <Camera className="w-8 h-8 mx-auto mb-1 text-slate-300" />
+                      <span className="text-[10px] font-bold block">No Photo</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3 flex-1 text-center sm:text-left">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                      Upload or Replace Photograph
+                    </h4>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Recommended: Clear portrait on plain background (JPG, PNG or WebP). Maximum file size: 2MB.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                    <label className="px-4 py-2 bg-[#1f4d8b] hover:bg-blue-900 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors">
+                      <Upload className="w-3.5 h-3.5 text-amber-300" />
+                      <span>{passportPhoto ? 'Change Photo' : 'Upload Passport Photo'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoUpload}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {passportPhoto && (
+                      <button
+                        type="button"
+                        onClick={() => setPassportPhoto('')}
+                        className="px-3 py-2 bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Remove</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           )}

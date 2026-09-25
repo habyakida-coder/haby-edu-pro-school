@@ -221,7 +221,9 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
       return;
     }
 
-    const regNo = getNextStudentRegNo(students, schoolInfo?.schoolNumber);
+    const isPrimarySection = level === 'PRIMARY' || level === 'PRE_PRIMARY' || 
+      PRIMARY_CLASSES.includes(className) || NURSERY_CLASSES.includes(className);
+    const regNo = getNextStudentRegNo(students, schoolInfo?.schoolNumber, undefined, isPrimarySection);
     const newStudent: Student = {
       id: Date.now(),
       regNo,
@@ -284,9 +286,11 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
           const explicitRegNo = parts[7]?.replace(/"/g, '').trim();
 
           if (sName) {
+            const isBatchPrimary = (sLevel as string) === 'PRIMARY' || (sLevel as string) === 'PRE_PRIMARY' || 
+              PRIMARY_CLASSES.includes(sClass) || NURSERY_CLASSES.includes(sClass);
             newStudentsBatch.push({
               id: Date.now() + index,
-              regNo: explicitRegNo || formatStudentRegNo(schoolInfo?.schoolNumber, students.length + newStudentsBatch.length + 1),
+              regNo: explicitRegNo || formatStudentRegNo(schoolInfo?.schoolNumber, students.length + newStudentsBatch.length + 1, undefined, isBatchPrimary),
               name: sName,
               gender: sGender,
               className: sClass,
@@ -476,7 +480,12 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
             <div className="text-xs font-bold text-blue-800 bg-blue-50 px-3.5 py-2 rounded-lg border border-blue-200 flex items-center gap-1.5 shadow-xs">
               <span className="text-slate-500 uppercase text-[10px] tracking-wider">Next Reg Token:</span>
               <span className="font-mono text-xs font-black text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200">
-                {getNextStudentRegNo(students, schoolInfo?.schoolNumber)}
+                {getNextStudentRegNo(
+                  students, 
+                  schoolInfo?.schoolNumber, 
+                  undefined, 
+                  level === 'PRIMARY' || level === 'PRE_PRIMARY' || PRIMARY_CLASSES.includes(className) || NURSERY_CLASSES.includes(className)
+                )}
               </span>
             </div>
           </div>

@@ -5,7 +5,9 @@ import {
   calculateStudentRank, 
   generateCharacterFromPerformance, 
   getDefaultPeriodSetting,
-  getSubjectGradeInfo 
+  getSubjectGradeInfo,
+  isPrimaryOrNursery,
+  getPrimarySubjectGradeInfo
 } from '../../utils/reportCardUtils';
 import { 
   GraduationCap, 
@@ -38,6 +40,9 @@ export const ReportCardDocument: React.FC<ReportCardDocumentProps> = ({
   const marks = student.marks || {};
   const perf = calculatePerformanceSummary(marks);
   const rank = calculateStudentRank(student, allStudents);
+  const isPrimary = isPrimaryOrNursery(student.level, student.className);
+  const primaryOverallGrade = perf.average >= 81 ? 'A' : perf.average >= 61 ? 'B' : perf.average >= 41 ? 'C' : perf.average >= 21 ? 'D' : 'E';
+  const primaryPassStatus = perf.average >= 41 ? 'Waliopasi (Pass)' : 'Hawajapasi (Fail)';
 
   const periodSetting = student.reportCardData?.periodSetting || getDefaultPeriodSetting();
   
@@ -92,15 +97,28 @@ export const ReportCardDocument: React.FC<ReportCardDocumentProps> = ({
         {/* Landscape Header */}
         <div className="border-b-2 border-slate-900 pb-3 mb-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-14 h-14 rounded-full bg-[#1f4d8b] text-white flex items-center justify-center font-black text-xl shadow-xs border-2 border-slate-900 shrink-0">
-              <GraduationCap className="w-8 h-8" />
-            </div>
+            {schoolInfo.logo ? (
+              <div className="w-14 h-14 rounded-full bg-white p-1 shadow-xs border-2 border-slate-900 flex items-center justify-center shrink-0 overflow-hidden">
+                <img src={schoolInfo.logo} alt={schoolInfo.name} className="w-full h-full object-contain" />
+              </div>
+            ) : (
+              <div className="w-14 h-14 rounded-full bg-[#1f4d8b] text-white flex items-center justify-center font-black text-xl shadow-xs border-2 border-slate-900 shrink-0">
+                <GraduationCap className="w-8 h-8" />
+              </div>
+            )}
             <div>
-              <h1 className="text-xl font-black uppercase text-[#1f4d8b] tracking-wider leading-tight">
-                {schoolInfo.name || 'KIOMONI SECONDARY SCHOOL'}
-              </h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-black uppercase text-[#1f4d8b] tracking-wider leading-tight">
+                  {schoolInfo.name || 'KIOMONI SECONDARY SCHOOL'}
+                </h1>
+                {schoolInfo.schoolNumber && (
+                  <span className="text-[10px] bg-amber-400 text-slate-900 font-black px-1.5 py-0.5 rounded uppercase">
+                    CTR: {schoolInfo.schoolNumber}
+                  </span>
+                )}
+              </div>
               <p className="text-[11px] font-semibold text-slate-700">
-                {schoolInfo.address || 'P.O. BOX 145, TANGA, TANZANIA'} • TEL: {schoolInfo.phone || '+255 712 345 678'} • EMAIL: {schoolInfo.email || 'info@school.ac.tz'}
+                {schoolInfo.address || 'P.O. BOX 145, TANGA, TANZANIA'} • TEL: {schoolInfo.phone || '0717616343'} • EMAIL: {schoolInfo.email || 'info@school.ac.tz'}
               </p>
               <p className="text-[10px] italic text-slate-500 font-medium">
                 Motto: &ldquo;{schoolInfo.motto || 'Education for Self-Reliance & Academic Excellence'}&rdquo;
@@ -121,23 +139,37 @@ export const ReportCardDocument: React.FC<ReportCardDocumentProps> = ({
           </div>
         </div>
 
-        {/* Student Particulars Bar */}
-        <div className="bg-slate-100 border border-slate-400 p-2.5 rounded mb-3 grid grid-cols-4 gap-2 text-[11px]">
-          <div>
-            <span className="text-slate-500 font-medium block text-[9px] uppercase">Candidate Name:</span>
-            <span className="font-extrabold text-slate-900 text-xs">{student.name}</span>
+        {/* Student Particulars Bar with Passport Photo */}
+        <div className="bg-slate-100 border border-slate-400 p-2.5 rounded mb-3 flex items-center gap-3 text-[11px]">
+          {/* Candidate Passport Photo */}
+          <div className="w-12 h-14 bg-white border-2 border-slate-900 rounded shrink-0 overflow-hidden flex flex-col items-center justify-center shadow-xs">
+            {student.passportPhoto ? (
+              <img src={student.passportPhoto} alt={student.name} className="w-full h-full object-cover" />
+            ) : (
+              <div className="flex flex-col items-center justify-center text-slate-400 text-[8px] font-bold uppercase text-center leading-tight">
+                <UserCheck className="w-5 h-5 text-slate-400" />
+                <span>Photo</span>
+              </div>
+            )}
           </div>
-          <div>
-            <span className="text-slate-500 font-medium block text-[9px] uppercase">Registration No:</span>
-            <span className="font-mono font-bold text-blue-800">{student.regNo}</span>
-          </div>
-          <div>
-            <span className="text-slate-500 font-medium block text-[9px] uppercase">Class & Stream:</span>
-            <span className="font-bold text-slate-800">{student.className} - {student.stream || 'STREAM A'}</span>
-          </div>
-          <div>
-            <span className="text-slate-500 font-medium block text-[9px] uppercase">Gender / Level:</span>
-            <span className="font-bold text-slate-800">{student.gender || 'Student'} • {student.level}</span>
+
+          <div className="flex-1 grid grid-cols-4 gap-2">
+            <div>
+              <span className="text-slate-500 font-medium block text-[9px] uppercase">Candidate Name:</span>
+              <span className="font-extrabold text-slate-900 text-xs">{student.name}</span>
+            </div>
+            <div>
+              <span className="text-slate-500 font-medium block text-[9px] uppercase">Registration No:</span>
+              <span className="font-mono font-bold text-blue-800">{student.regNo}</span>
+            </div>
+            <div>
+              <span className="text-slate-500 font-medium block text-[9px] uppercase">Class & Stream:</span>
+              <span className="font-bold text-slate-800">{student.className} - {student.stream || 'STREAM A'}</span>
+            </div>
+            <div>
+              <span className="text-slate-500 font-medium block text-[9px] uppercase">Gender / Level:</span>
+              <span className="font-bold text-slate-800">{student.gender || 'Student'} • {student.level}</span>
+            </div>
           </div>
         </div>
 
@@ -260,7 +292,7 @@ export const ReportCardDocument: React.FC<ReportCardDocumentProps> = ({
                 </thead>
                 <tbody>
                   {subjectEntries.map(([sub, score]) => {
-                    const info = getSubjectGradeInfo(score);
+                    const info = isPrimary ? getPrimarySubjectGradeInfo(score) : getSubjectGradeInfo(score);
                     return (
                       <tr key={sub} className="border-b border-slate-300 hover:bg-slate-50">
                         <td className="p-1.5 border border-slate-300 font-semibold text-slate-900">{sub}</td>
@@ -298,9 +330,15 @@ export const ReportCardDocument: React.FC<ReportCardDocumentProps> = ({
                 <div className="text-[8px] text-blue-200">GPA: {perf.gpa}</div>
               </div>
               <div className="border-r border-blue-800 pr-2">
-                <div className="text-[9px] uppercase font-bold text-blue-200">Division Awarded</div>
-                <div className="text-lg font-black text-emerald-300">Div {perf.division}</div>
-                <div className="text-[8px] text-blue-200 truncate">{perf.divisionDesc.split(' ')[0]}</div>
+                <div className="text-[9px] uppercase font-bold text-blue-200">
+                  {isPrimary ? 'Overall Grade' : 'Division Awarded'}
+                </div>
+                <div className="text-lg font-black text-emerald-300">
+                  {isPrimary ? `Grade ${student.primaryGrade || primaryOverallGrade}` : `Div ${perf.division}`}
+                </div>
+                <div className="text-[8px] text-blue-200 truncate">
+                  {isPrimary ? primaryPassStatus : perf.divisionDesc.split(' ')[0]}
+                </div>
               </div>
               <div>
                 <div className="text-[9px] uppercase font-bold text-blue-200">Class Position</div>
@@ -350,16 +388,29 @@ export const ReportCardDocument: React.FC<ReportCardDocumentProps> = ({
     >
       {/* Official Header */}
       <div className="text-center border-b-2 border-slate-900 pb-3">
-        <div className="flex items-center justify-center gap-3 mb-1">
-          <div className="w-12 h-12 rounded-full bg-[#1f4d8b] text-white flex items-center justify-center font-black text-xl shadow-xs border border-slate-900">
-            <GraduationCap className="w-7 h-7" />
-          </div>
+        <div className="flex items-center justify-center gap-3.5 mb-1.5">
+          {schoolInfo.logo ? (
+            <div className="w-14 h-14 rounded-full bg-white p-1 shadow-xs border-2 border-slate-900 flex items-center justify-center shrink-0 overflow-hidden">
+              <img src={schoolInfo.logo} alt={schoolInfo.name} className="w-full h-full object-contain" />
+            </div>
+          ) : (
+            <div className="w-12 h-12 rounded-full bg-[#1f4d8b] text-white flex items-center justify-center font-black text-xl shadow-xs border border-slate-900 shrink-0">
+              <GraduationCap className="w-7 h-7" />
+            </div>
+          )}
           <div className="text-center">
-            <h1 className="text-2xl font-black text-slate-900 tracking-wide uppercase leading-tight">
-              {schoolInfo.name || 'KIOMONI SECONDARY SCHOOL'}
-            </h1>
+            <div className="flex items-center justify-center gap-2">
+              <h1 className="text-2xl font-black text-slate-900 tracking-wide uppercase leading-tight">
+                {schoolInfo.name || 'KIOMONI SECONDARY SCHOOL'}
+              </h1>
+              {schoolInfo.schoolNumber && (
+                <span className="text-[10px] bg-amber-400 text-slate-900 font-black px-2 py-0.5 rounded uppercase">
+                  CTR: {schoolInfo.schoolNumber}
+                </span>
+              )}
+            </div>
             <p className="text-[11px] font-semibold text-slate-600">
-              {schoolInfo.address || 'P.O. BOX 145, TANGA, TANZANIA'} • TEL: {schoolInfo.phone || '+255 712 345 678'} • EMAIL: {schoolInfo.email || 'info@school.ac.tz'}
+              {schoolInfo.address || 'P.O. BOX 145, TANGA, TANZANIA'} • TEL: {schoolInfo.phone || '0717616343'} • EMAIL: {schoolInfo.email || 'info@school.ac.tz'}
             </p>
           </div>
         </div>
@@ -372,28 +423,43 @@ export const ReportCardDocument: React.FC<ReportCardDocumentProps> = ({
         </p>
       </div>
 
-      {/* Student Details & Period Settings Grid */}
-      <div className="grid grid-cols-2 gap-3 text-xs bg-slate-50 border border-slate-300 p-3 rounded-lg">
-        <div className="space-y-1.5">
-          <div className="flex justify-between border-b border-slate-200 pb-0.5">
-            <span className="text-slate-500 font-semibold uppercase text-[10px]">Candidate Name:</span>
-            <span className="font-extrabold text-slate-900 text-sm">{student.name}</span>
+      {/* Student Details & Period Settings Grid with Passport Photo */}
+      <div className="grid grid-cols-12 gap-3 text-xs bg-slate-50 border border-slate-300 p-3 rounded-lg">
+        {/* Candidate Information & Passport Photo (7 cols) */}
+        <div className="col-span-7 flex gap-3 items-center">
+          <div className="w-20 h-24 bg-white border-2 border-slate-900 rounded shrink-0 overflow-hidden flex flex-col items-center justify-center shadow-xs">
+            {student.passportPhoto ? (
+              <img src={student.passportPhoto} alt={student.name} className="w-full h-full object-cover" />
+            ) : (
+              <div className="flex flex-col items-center justify-center text-slate-400 text-[8px] font-bold uppercase text-center p-1 leading-tight">
+                <UserCheck className="w-6 h-6 mb-1 text-slate-400" />
+                <span>Passport Photo</span>
+              </div>
+            )}
           </div>
-          <div className="flex justify-between border-b border-slate-200 pb-0.5">
-            <span className="text-slate-500 font-semibold uppercase text-[10px]">Registration No:</span>
-            <span className="font-mono font-bold text-blue-700">{student.regNo}</span>
-          </div>
-          <div className="flex justify-between border-b border-slate-200 pb-0.5">
-            <span className="text-slate-500 font-semibold uppercase text-[10px]">Class & Stream:</span>
-            <span className="font-bold text-slate-800">{student.className} - {student.stream || 'STREAM A'}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-slate-500 font-semibold uppercase text-[10px]">Level & Gender:</span>
-            <span className="font-bold text-slate-800">{student.level} • {student.gender || 'Student'}</span>
+
+          <div className="flex-1 space-y-1.5 min-w-0">
+            <div className="flex justify-between border-b border-slate-200 pb-0.5">
+              <span className="text-slate-500 font-semibold uppercase text-[10px]">Candidate:</span>
+              <span className="font-extrabold text-slate-900 text-sm truncate pl-1">{student.name}</span>
+            </div>
+            <div className="flex justify-between border-b border-slate-200 pb-0.5">
+              <span className="text-slate-500 font-semibold uppercase text-[10px]">Reg No:</span>
+              <span className="font-mono font-bold text-blue-700">{student.regNo}</span>
+            </div>
+            <div className="flex justify-between border-b border-slate-200 pb-0.5">
+              <span className="text-slate-500 font-semibold uppercase text-[10px]">Class & Stream:</span>
+              <span className="font-bold text-slate-800">{student.className} - {student.stream || 'STREAM A'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500 font-semibold uppercase text-[10px]">Level & Sex:</span>
+              <span className="font-bold text-slate-800">{student.level} • {student.gender || 'Student'}</span>
+            </div>
           </div>
         </div>
 
-        <div className="space-y-1.5">
+        {/* Period Settings & Attendance (5 cols) */}
+        <div className="col-span-5 space-y-1.5 border-l border-slate-200 pl-3">
           <div className="flex justify-between border-b border-slate-200 pb-0.5">
             <span className="text-slate-500 font-semibold uppercase text-[10px]">Evaluation Term:</span>
             <span className="font-bold text-blue-800">{periodSetting.termName}</span>
@@ -405,7 +471,7 @@ export const ReportCardDocument: React.FC<ReportCardDocumentProps> = ({
           <div className="flex justify-between border-b border-slate-200 pb-0.5">
             <span className="text-slate-500 font-semibold uppercase text-[10px]">Period Attendance:</span>
             <span className="font-bold text-emerald-700">
-              {periodSetting.attendedPeriods} / {periodSetting.totalPeriods} Periods ({attendanceRate}%)
+              {periodSetting.attendedPeriods} / {periodSetting.totalPeriods} ({attendanceRate}%)
             </span>
           </div>
           <div className="flex justify-between">
@@ -437,7 +503,7 @@ export const ReportCardDocument: React.FC<ReportCardDocumentProps> = ({
           </thead>
           <tbody>
             {subjectEntries.map(([sub, score]) => {
-              const info = getSubjectGradeInfo(score);
+              const info = isPrimary ? getPrimarySubjectGradeInfo(score) : getSubjectGradeInfo(score);
               return (
                 <tr key={sub} className="border-b border-slate-300 hover:bg-slate-50/70">
                   <td className="p-2 border border-slate-300 font-bold text-slate-900">{sub}</td>
@@ -477,9 +543,15 @@ export const ReportCardDocument: React.FC<ReportCardDocumentProps> = ({
           <div className="text-[9px] text-blue-200">GPA: {perf.gpa} pts</div>
         </div>
         <div className="border-r border-blue-800 pr-2">
-          <div className="text-[10px] text-blue-200 font-bold uppercase">Division Awarded</div>
-          <div className="text-2xl font-black mt-0.5 text-emerald-300">Div {perf.division}</div>
-          <div className="text-[9px] text-blue-200 truncate">{perf.divisionDesc}</div>
+          <div className="text-[10px] text-blue-200 font-bold uppercase">
+            {isPrimary ? 'Overall Grade' : 'Division Awarded'}
+          </div>
+          <div className="text-2xl font-black mt-0.5 text-emerald-300">
+            {isPrimary ? `Grade ${student.primaryGrade || primaryOverallGrade}` : `Div ${perf.division}`}
+          </div>
+          <div className="text-[9px] text-blue-200 truncate">
+            {isPrimary ? primaryPassStatus : perf.divisionDesc}
+          </div>
         </div>
         <div>
           <div className="text-[10px] text-blue-200 font-bold uppercase">Class Position</div>
@@ -572,12 +644,24 @@ export const ReportCardDocument: React.FC<ReportCardDocumentProps> = ({
       {/* Grading Legend Bar */}
       <div className="border-t border-slate-300 pt-2 flex flex-wrap items-center justify-between gap-2 text-[9px] text-slate-600">
         <div>
-          <strong className="text-slate-800 uppercase">National NECTA Grading Scale:</strong>{' '}
-          <span className="font-semibold">A (75-100% Distinction)</span> •{' '}
-          <span className="font-semibold">B (65-74% Very Good)</span> •{' '}
-          <span className="font-semibold">C (50-64% Good)</span> •{' '}
-          <span className="font-semibold">D (35-49% Satisfactory)</span> •{' '}
-          <span className="font-semibold">F (0-34% Fail)</span>
+          <strong className="text-slate-800 uppercase">{isPrimary ? 'Tanzanian Primary Grading Scale:' : 'National NECTA Grading Scale:'}</strong>{' '}
+          {isPrimary ? (
+            <>
+              <span className="font-semibold">A (81-100% Bora Sana)</span> •{' '}
+              <span className="font-semibold">B (61-80% Vizuri Sana)</span> •{' '}
+              <span className="font-semibold">C (41-60% Wastani / Pass)</span> •{' '}
+              <span className="font-semibold">D (21-40% Hafifu)</span> •{' '}
+              <span className="font-semibold">E (0-20% Hafifu Sana)</span>
+            </>
+          ) : (
+            <>
+              <span className="font-semibold">A (75-100% Distinction)</span> •{' '}
+              <span className="font-semibold">B (65-74% Very Good)</span> •{' '}
+              <span className="font-semibold">C (45-64% Good)</span> •{' '}
+              <span className="font-semibold">D (30-44% Satisfactory)</span> •{' '}
+              <span className="font-semibold">F (0-29% Fail)</span>
+            </>
+          )}
         </div>
         <div className="bg-amber-100 text-amber-900 px-2 py-0.5 rounded font-bold">
           Next Term Commences: {periodSetting.nextTermBegins || '12 January 2027'}
