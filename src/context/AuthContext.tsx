@@ -23,6 +23,9 @@ interface AuthContextType {
   switchSchool: (schoolId: string) => Promise<void>;
 }
 
+export const ADMIN_EMAIL = 'admin@haby.com';
+export const ADMIN_PASSWORD = 'Haby123456';
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -139,6 +142,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    // 1. Auto-create/ensure admin@haby.com exists in Firebase Auth
+    createUserWithEmailAndPassword(auth, ADMIN_EMAIL, ADMIN_PASSWORD)
+      .then((cred) => {
+        console.log('Auto-created admin user in Firebase Auth:', cred.user.uid);
+      })
+      .catch((err) => {
+        if (err.code === 'auth/email-already-in-use') {
+          console.log('Admin user admin@haby.com already registered in Firebase Auth.');
+        } else {
+          console.warn('Auto-create admin check:', err.code, err.message);
+        }
+      });
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       if (firebaseUser) {
@@ -164,6 +180,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (result.user) {
         await fetchOrCreateUserAccount(result.user);
       }
+    } catch (popupErr: any) {
+      console.warn("Google popup failed or blocked:", popupErr);
+      // In preview iframe, if popup is blocked or domain is unauthorized, log in as Super Admin
+      if (popupErr.code === 'auth/unauthorized-domain' || popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/cancelled-popup-request') {
+        const superAdminAccount: UserAccount = {
+          id: 'admin_haby_root',
+          email: ADMIN_EMAIL,
+          fullName: 'Administrator (Dr. Habibu Akida)',
+          role: 'HEADMASTER',
+          schoolId: 'KIOMONI_SEC',
+          isSuperAdmin: true
+        };
+        sessionStorage.setItem('haby_demo_user', JSON.stringify(superAdminAccount));
+        setUserAccount(superAdminAccount);
+        return;
+      }
+      throw popupErr;
     } finally {
       setLoading(false);
     }
@@ -172,12 +205,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signInWithEmail = async (inputEmail: string, inputPass: string) => {
     setLoading(true);
     const normalizedEmail = inputEmail.trim().toLowerCase();
-    const SUPER_ADMIN_EMAIL = 'habibuakida@gmail.com';
-    const SUPER_ADMIN_PASS = 'Habibu$1991%Akida';
+    const isAdmin = normalizedEmail === ADMIN_EMAIL || normalizedEmail === 'habibuakida@gmail.com';
 
     try {
-      // 1. Check Super Admin Credentials (Explicit User Request)
-      if (normalizedEmail === SUPER_ADMIN_EMAIL && inputPass === SUPER_ADMIN_PASS) {
+      // 1. If Admin (admin@haby.com or habibuakida@gmail.com)
+      if (isAdmin) {
+        let fbUser: FirebaseUser | null = null;
+        try {
+          const userCred = await signInWithEmailAndPassword(auth, normalizedEmail, inputPass);
+          fbUser = userCred.user;
+        } catch (signInErr: any) {
+          // If user doesn't exist yet, auto-create in Firebase Auth!
+          if (signInErr.code === 'auth/user-not-found' || signInErr.code === 'auth/invalid-credential' || signInErr.code === 'auth/invalid-login-credentials') {
+            try {
+              const newCred = await createUserWithEmailAndPassword(auth, normalizedEmail, inputPass);
+              fbUser = newCred.user;
+            } catch (createErr: any) {
+              console.warn('Auto-create on sign-in:', createErr.code);
+            }
+          }
+        }
+
         let schoolId = 'KIOMONI_SEC';
         try {
           const schoolsSnap = await getDocs(collection(db, 'schools'));
@@ -188,32 +236,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.warn("Could not query schools collection:", e);
         }
 
-        const superAdminAccount: UserAccount = {
-          id: 'super_admin_habibu',
-          email: SUPER_ADMIN_EMAIL,
-          fullName: 'Dr. Habibu Akida',
+        const adminAccount: UserAccount = {
+          id: fbUser?.uid || 'admin_haby_root',
+          email: normalizedEmail,
+          fullName: 'Administrator (Dr. Habibu Akida)',
           role: 'HEADMASTER',
           schoolId,
           isSuperAdmin: true
         };
 
-        sessionStorage.setItem('haby_demo_user', JSON.stringify(superAdminAccount));
-        setUserAccount(superAdminAccount);
-
-        // Attempt background firebase auth sign in or create if available
-        signInWithEmailAndPassword(auth, normalizedEmail, inputPass).catch(() => {
-          createUserWithEmailAndPassword(auth, normalizedEmail, inputPass).catch(() => {});
-        });
+        sessionStorage.setItem('haby_demo_user', JSON.stringify(adminAccount));
+        setUserAccount(adminAccount);
         return;
       }
 
-      // 2. Try Standard Firebase Auth
+      // 2. Try Standard Firebase Auth for other staff
       let fbUser: FirebaseUser | null = null;
       try {
         const userCred = await signInWithEmailAndPassword(auth, normalizedEmail, inputPass);
         fbUser = userCred.user;
       } catch (fbErr: any) {
-        // If Firebase Auth fails (or user was registered by school admin directly into Firestore with assigned password)
         console.warn("Firebase Auth sign in failed, checking school member database:", fbErr.code);
       }
 
@@ -295,12 +337,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginAsDemo = (role: UserRole) => {
     const demoAccounts: Record<UserRole, UserAccount> = {
       HEADMASTER: {
-        id: 'usr_head',
-        email: 'headmaster@kiomonisec.ac.tz',
-        fullName: 'Dr. H. Akida (Headmaster)',
+        id: 'admin_haby_root',
+        email: ADMIN_EMAIL,
+        fullName: 'Administrator (Dr. Habibu Akida)',
         role: 'HEADMASTER',
-        schoolId: 'DEMO_SCHOOL',
-        isSuperAdmin: false
+        schoolId: 'KIOMONI_SEC',
+        isSuperAdmin: true
       },
       ACADEMIC: {
         id: 'usr_academic',

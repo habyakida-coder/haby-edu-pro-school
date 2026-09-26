@@ -118,7 +118,7 @@ export const ExamDocumentsModal: React.FC<ExamDocumentsModalProps> = ({
   const absentCandidates = useMemo(() => {
     return candidates.filter(c => {
       if (!c.marks || Object.keys(c.marks).length === 0) return true;
-      const valid = Object.values(c.marks).filter(v => v !== undefined && v !== null && v !== '' && typeof v === 'number' && !isNaN(v));
+      const valid = Object.values(c.marks).filter(v => typeof v === 'number' && !isNaN(v));
       return valid.length === 0;
     });
   }, [candidates]);

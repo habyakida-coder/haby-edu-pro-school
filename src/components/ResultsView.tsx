@@ -34,7 +34,8 @@ import {
   AlertTriangle,
   X,
   Check,
-  RefreshCw
+  RefreshCw,
+  BarChart3
 } from 'lucide-react';
 import { Student, SchoolInfo, UserAccount, Exam } from '../types';
 import { printReportCardDocument } from '../utils/export';
@@ -260,7 +261,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
       if (hasPending) return true;
     }
     if (!student.marks) return false;
-    const validScores = Object.values(student.marks).filter(v => v !== undefined && v !== null && v !== '' && typeof v === 'number' && !isNaN(v));
+    const validScores = Object.values(student.marks).filter(v => v !== undefined && v !== null && typeof v === 'number' && !isNaN(v));
     return validScores.length > 0;
   };
 
@@ -814,6 +815,8 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
         meanScore,
         highestScore: highest >= 0 ? highest : 0,
         lowestScore: lowest <= 100 ? lowest : 0,
+        highest: highest >= 0 ? highest : 0,
+        lowest: lowest <= 100 ? lowest : 0,
         passRate: subPassRate,
         grades: subGrades
       };
@@ -984,7 +987,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
               </span>
             </div>
 
-            {currentUser?.role === 'ADMIN' && (
+            {(currentUser?.role === 'HEADMASTER' || (currentUser?.role as string) === 'ADMIN') && (
               <button
                 type="button"
                 onClick={() => {
@@ -1021,16 +1024,16 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                 const newClass = e.target.value;
                 setSelectedClass(newClass);
                 if (NURSERY_CLASSES.includes(newClass)) {
-                  const hasNursery = activeSubjectKeys.some(k => NURSERY_SUBJECT_KEYS.includes(k));
+                  const hasNursery = selectedSubjectKeys.some(k => NURSERY_SUBJECT_KEYS.includes(k));
                   if (!hasNursery) handleSaveSubjectKeys(NURSERY_SUBJECT_KEYS);
                 } else if (newClass === 'Standard 1' || newClass === 'Standard 2') {
-                  const hasLower = activeSubjectKeys.some(k => PRIMARY_LOWER_SUBJECT_KEYS.includes(k));
+                  const hasLower = selectedSubjectKeys.some(k => PRIMARY_LOWER_SUBJECT_KEYS.includes(k));
                   if (!hasLower) handleSaveSubjectKeys(PRIMARY_LOWER_SUBJECT_KEYS);
                 } else if (PRIMARY_CLASSES.includes(newClass)) {
-                  const hasUpper = activeSubjectKeys.some(k => PRIMARY_UPPER_SUBJECT_KEYS.includes(k));
+                  const hasUpper = selectedSubjectKeys.some(k => PRIMARY_UPPER_SUBJECT_KEYS.includes(k));
                   if (!hasUpper) handleSaveSubjectKeys(PRIMARY_UPPER_SUBJECT_KEYS);
                 } else if (SECONDARY_CLASSES.includes(newClass)) {
-                  const hasSecondary = activeSubjectKeys.some(k => DEFAULT_ACTIVE_SUBJECT_KEYS.includes(k));
+                  const hasSecondary = selectedSubjectKeys.some(k => DEFAULT_ACTIVE_SUBJECT_KEYS.includes(k));
                   if (!hasSecondary) handleSaveSubjectKeys(DEFAULT_ACTIVE_SUBJECT_KEYS);
                 }
               }}

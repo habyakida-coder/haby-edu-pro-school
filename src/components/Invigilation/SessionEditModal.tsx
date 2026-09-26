@@ -62,7 +62,7 @@ export const SessionEditModal: React.FC<SessionEditModalProps> = ({
   const [subject, setSubject] = useState(initialSession?.subject || SUBJECT_LIST[0]);
   const [customSubject, setCustomSubject] = useState('');
   const [isCustomSubject, setIsCustomSubject] = useState(false);
-  const [level, setLevel] = useState<'CSEE' | 'ACSEE'>(initialSession?.level || 'CSEE');
+  const [level, setLevel] = useState<'CSEE' | 'ACSEE'>(initialSession?.level === 'ACSEE' ? 'ACSEE' : 'CSEE');
   const [className, setClassName] = useState(initialSession?.className || 'Form 1');
   const [stream, setStream] = useState(initialSession?.stream || 'STREAM A');
   const [rooms, setRooms] = useState(initialSession?.rooms || 3);

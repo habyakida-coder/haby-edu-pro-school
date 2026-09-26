@@ -142,17 +142,17 @@ export function exportGradeDistributionAndPerformancePDF(data: PerformancePdfExp
 
   kpis.forEach((kpi, idx) => {
     const kx = margin + idx * (kpiBoxWidth + 3);
-    doc.setFillColor(...kpi.bg);
-    doc.setDrawColor(...borderGray);
+    doc.setFillColor(kpi.bg[0], kpi.bg[1], kpi.bg[2]);
+    doc.setDrawColor(borderGray[0], borderGray[1], borderGray[2]);
     doc.roundedRect(kx, y, kpiBoxWidth, 15, 1.5, 1.5, 'FD');
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(6.5);
-    doc.setTextColor(...slateMuted);
+    doc.setTextColor(slateMuted[0], slateMuted[1], slateMuted[2]);
     doc.text(kpi.label, kx + kpiBoxWidth / 2, y + 4.5, { align: 'center' });
 
     doc.setFontSize(12);
-    doc.setTextColor(...kpi.color);
+    doc.setTextColor(kpi.color[0], kpi.color[1], kpi.color[2]);
     doc.text(kpi.val, kx + kpiBoxWidth / 2, y + 11.5, { align: 'center' });
   });
 

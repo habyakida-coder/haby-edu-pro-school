@@ -53,6 +53,10 @@ export default function App() {
     }
 
     setDataLoading(true);
+    const safetyTimeout = setTimeout(() => {
+      setDataLoading(false);
+    }, 2000);
+
     const docRef = doc(db, 'schoolData', userAccount.schoolId);
     const schoolRef = doc(db, 'schools', userAccount.schoolId);
     const usersQuery = query(collection(db, 'users'), where('schoolId', '==', userAccount.schoolId));
@@ -106,6 +110,7 @@ export default function App() {
     }, (err) => console.warn("Users snapshot error:", err));
 
     return () => {
+      clearTimeout(safetyTimeout);
       unsubscribeData();
       unsubscribeUsers();
       unsubscribeStatus();
