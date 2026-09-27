@@ -326,6 +326,90 @@ export interface ActivityLog {
   details?: Record<string, any>;
 }
 
+export type AcademicCalendarType = 'JAN-DEC' | 'JULY-JUNE';
+export type ExamTerm = 'Term 1' | 'Term 2' | 'Term 3';
+export type RecordExamType = 'Monthly' | 'Midterm' | 'Terminal' | 'Annual';
+
+export interface ExaminationRecordSubjectInfo {
+  marks: number;
+  grade: 'A' | 'B' | 'C' | 'D' | 'F';
+  remark?: string;
+}
+
+export interface ExaminationRecord {
+  id: string; // unique key `${studentId}_${academicYear}_${term}_${examType}`
+  studentId: number;
+  studentName: string;
+  className: string;
+  academicYear: string; // e.g. "2026"
+  academicCalendarType: AcademicCalendarType;
+  term: ExamTerm;
+  examType: RecordExamType;
+  subjects: Record<string, ExaminationRecordSubjectInfo>;
+  totalMarks: number;
+  averageMarks: number;
+  overallGrade: 'A' | 'B' | 'C' | 'D' | 'F';
+  positionInClass: number;
+  totalStudents: number;
+  createdAt: string;
+}
+
+export interface PromotionHistory {
+  id: string;
+  studentId: number;
+  studentName: string;
+  fromClass: string;
+  toClass: string;
+  academicYear: string;
+  calendarType: AcademicCalendarType;
+  promotedAt: string;
+  promotedBy: string;
+  status: 'PROMOTED' | 'GRADUATED' | 'RETAINED';
+}
+
+export interface TransferHistory {
+  id: string;
+  studentId: number;
+  studentName: string;
+  fromClass: string;
+  toClass: string;
+  reason: string;
+  date: string;
+  transferredBy: string;
+}
+
+export interface InstitutionalPolicy {
+  totalPeriodsPerDay: number;
+  periodDurationMinutes: number;
+  breakAfterPeriod: number;
+  lunchAfterPeriod: number;
+  workingDays: string[];
+  maxPeriodsPerTeacherPerDay: number;
+  rules: {
+    noTeacherTwoClassesSameTime: boolean;
+    noClassTwoTeachersSameTime: boolean;
+    noSameSubjectTwiceSameDay: boolean;
+  };
+}
+
+export interface SubjectPeriodAllocation {
+  id: string;
+  level: 'NURSERY' | 'PRIMARY' | 'SECONDARY';
+  className: string;
+  stream: string;
+  subject: string;
+  periodsPerWeek: number;
+}
+
+export interface TeacherAssignment {
+  id: string;
+  teacherId: number;
+  teacherName: string;
+  level: 'NURSERY' | 'PRIMARY' | 'SECONDARY';
+  subjects: string[];
+  streams: string[];
+}
+
 export interface AppData {
   users?: UserAccount[];
   students: Student[];
@@ -348,4 +432,11 @@ export interface AppData {
   activityLogs?: ActivityLog[];
   disciplineRecords?: DisciplineRecord[];
   teacherEvaluations?: TeacherEvaluation[];
+  examinationRecords?: ExaminationRecord[];
+  promotionHistory?: PromotionHistory[];
+  transferHistory?: TransferHistory[];
+  institutionalPolicy?: InstitutionalPolicy;
+  subjectPeriodAllocations?: SubjectPeriodAllocation[];
+  teacherAssignments?: TeacherAssignment[];
 }
+

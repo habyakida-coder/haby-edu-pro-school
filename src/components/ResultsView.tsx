@@ -37,13 +37,14 @@ import {
   RefreshCw,
   BarChart3
 } from 'lucide-react';
-import { Student, SchoolInfo, UserAccount, Exam } from '../types';
+import { Student, SchoolInfo, UserAccount, Exam, ExaminationRecord } from '../types';
 import { printReportCardDocument } from '../utils/export';
 import { exportGradeDistributionAndPerformancePDF } from '../utils/performancePdfExport';
 import { ReportCardDocument } from './ReportCard/ReportCardDocument';
 import { EditReportCardModal } from './ReportCard/EditReportCardModal';
 import { StudentComparisonView } from './StudentComparisonView';
 import { ExamDocumentsModal } from './Exams/ExamDocumentsModal';
+import { buildExaminationRecord } from '../utils/examinationRecordsUtils';
 import { 
   calculatePerformanceSummary, 
   generateCharacterFromPerformance, 
@@ -70,6 +71,9 @@ interface ResultsViewProps {
   currentUser?: UserAccount | null;
   onNavigateToAttendance?: () => void;
   exams?: Exam[];
+  examinationRecords?: ExaminationRecord[];
+  onAutoSaveExaminationRecords?: (records: ExaminationRecord[]) => void;
+  onNavigateToExamRecords?: () => void;
 }
 
 // Complete list of available Tanzanian subjects across Nursery, Primary, Secondary and High School
@@ -406,8 +410,31 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
       finalStudents.forEach(s => onUpdateStudent(s));
     }
 
+    // Auto-save/upsert calculated results to Examination Records ledger
+    if (onAutoSaveExaminationRecords) {
+      const currentYear = new Date().getFullYear().toString();
+      const newExamRecords: ExaminationRecord[] = finalStudents
+        .filter(s => updatedCandidates.some(u => u.id === s.id))
+        .map(c => {
+          return buildExaminationRecord(
+            c,
+            currentYear,
+            'Term 1',
+            'Terminal',
+            updatedCandidates.length
+          );
+        });
+
+      const existing = examinationRecords || [];
+      const updatedMap = new Map<string, ExaminationRecord>();
+      existing.forEach(r => updatedMap.set(r.id, r));
+      newExamRecords.forEach(r => updatedMap.set(r.id, r));
+
+      onAutoSaveExaminationRecords(Array.from(updatedMap.values()));
+    }
+
     setPendingMarks({});
-    setSaveToast(`Calculated totals, averages, NECTA O-Level divisions (Best 7) & rankings for ${updatedCandidates.length} candidates!`);
+    setSaveToast(`Calculated totals, averages, NECTA rankings & auto-saved to Examination Records ledger for ${updatedCandidates.length} candidates!`);
     setTimeout(() => setSaveToast(null), 4000);
   };
 

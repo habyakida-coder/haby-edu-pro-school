@@ -45,6 +45,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   const fetchOrCreateUserAccount = async (fbUser: FirebaseUser) => {
+    const normEmail = fbUser.email?.toLowerCase() || '';
+    const isAdmin = normEmail === ADMIN_EMAIL || normEmail === 'habibuakida@gmail.com';
+
+    // Instant resolution for admin to avoid slow/uninitialized Firestore hanging
+    if (isAdmin) {
+      const adminAccount: UserAccount = {
+        id: fbUser.uid,
+        email: fbUser.email || ADMIN_EMAIL,
+        fullName: 'Administrator (Dr. Habibu Akida)',
+        role: 'HEADMASTER',
+        schoolId: 'KIOMONI_SEC',
+        isSuperAdmin: true
+      };
+      sessionStorage.setItem('haby_demo_user', JSON.stringify(adminAccount));
+      setUserAccount(adminAccount);
+      setLoading(false);
+      return;
+    }
+
     try {
       const userRef = doc(db, 'users', fbUser.uid);
       const userDoc = await getDoc(userRef);
@@ -226,15 +245,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
 
-        let schoolId = 'KIOMONI_SEC';
-        try {
-          const schoolsSnap = await getDocs(collection(db, 'schools'));
-          if (!schoolsSnap.empty) {
-            schoolId = schoolsSnap.docs[0].id;
-          }
-        } catch (e) {
-          console.warn("Could not query schools collection:", e);
-        }
+        const schoolId = 'KIOMONI_SEC';
 
         const adminAccount: UserAccount = {
           id: fbUser?.uid || 'admin_haby_root',

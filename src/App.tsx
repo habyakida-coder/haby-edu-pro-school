@@ -6,6 +6,7 @@ import { DashboardView } from './components/DashboardView';
 import { StudentsView } from './components/StudentsView';
 import { TeachersView } from './components/TeachersView';
 import { ResultsView } from './components/ResultsView';
+import { ExaminationRecordsView } from './components/ExaminationRecords/ExaminationRecordsView';
 import { ExamsView } from './components/ExamsView';
 import { TimetableContainer } from './components/Timetable/TimetableContainer';
 import { InvigilationContainer } from './components/InvigilationContainer';
@@ -52,10 +53,8 @@ export default function App() {
       }
     }
 
-    setDataLoading(true);
-    const safetyTimeout = setTimeout(() => {
-      setDataLoading(false);
-    }, 2000);
+    // App is ready immediately using cached/default state
+    setDataLoading(false);
 
     const docRef = doc(db, 'schoolData', userAccount.schoolId);
     const schoolRef = doc(db, 'schools', userAccount.schoolId);
@@ -110,7 +109,6 @@ export default function App() {
     }, (err) => console.warn("Users snapshot error:", err));
 
     return () => {
-      clearTimeout(safetyTimeout);
       unsubscribeData();
       unsubscribeUsers();
       unsubscribeStatus();
@@ -654,6 +652,56 @@ export default function App() {
               currentUser={userAccount}
               onNavigateToAttendance={() => setActiveView('attendance')}
               exams={data.exams}
+              examinationRecords={data.examinationRecords || []}
+              onAutoSaveExaminationRecords={examinationRecords => {
+                const activityLogs = logActivity(
+                  'EXAM_UPDATED',
+                  'results',
+                  'Auto-Saved Examination Records',
+                  `Auto-saved ${examinationRecords.length} records after result calculation`
+                );
+                updateRemoteData({ examinationRecords, activityLogs });
+              }}
+              onNavigateToExamRecords={() => setActiveView('examrecords')}
+            />
+          )}
+
+          {activeView === 'examrecords' && (
+            <ExaminationRecordsView
+              students={data.students}
+              examinationRecords={data.examinationRecords || []}
+              promotionHistory={data.promotionHistory || []}
+              transferHistory={data.transferHistory || []}
+              schoolInfo={data.schoolInfo}
+              onUpdateStudents={handleUpdateStudents}
+              onUpdateExaminationRecords={examinationRecords => {
+                const activityLogs = logActivity(
+                  'EXAM_UPDATED',
+                  'results',
+                  'Examination Records Updated',
+                  `Updated ${examinationRecords.length} student examination records`
+                );
+                updateRemoteData({ examinationRecords, activityLogs });
+              }}
+              onUpdatePromotionHistory={promotionHistory => {
+                const activityLogs = logActivity(
+                  'STUDENTS_BULK_UPDATE',
+                  'students',
+                  'Student Promotion History Updated',
+                  `Logged promotion/graduation for students`
+                );
+                updateRemoteData({ promotionHistory, activityLogs });
+              }}
+              onUpdateTransferHistory={transferHistory => {
+                const activityLogs = logActivity(
+                  'STUDENT_UPDATED',
+                  'students',
+                  'Student Class/Stream Transfer Logged',
+                  `Updated student transfer ledger`
+                );
+                updateRemoteData({ transferHistory, activityLogs });
+              }}
+              currentUserName={userAccount?.fullName || 'Academic Master'}
             />
           )}
 
@@ -715,6 +763,9 @@ export default function App() {
               classTimetableReleased={data.classTimetableReleased}
               schoolName={data.schoolInfo.name}
               dayThemes={data.dayThemes}
+              institutionalPolicy={data.institutionalPolicy}
+              subjectPeriodAllocations={data.subjectPeriodAllocations || []}
+              teacherAssignments={data.teacherAssignments || []}
               onUpdateAssignments={assignments => {
                 const activityLogs = logActivity(
                   'TIMETABLE_UPDATE',
@@ -751,6 +802,33 @@ export default function App() {
                 });
               }}
               onUpdateDayThemes={dayThemes => updateRemoteData({ dayThemes })}
+              onUpdateInstitutionalPolicy={institutionalPolicy => {
+                const activityLogs = logActivity(
+                  'TIMETABLE_UPDATE',
+                  'timetable',
+                  'Institutional Timetable Policies Updated',
+                  `Saved periods per day, duration and conflict rules`
+                );
+                updateRemoteData({ institutionalPolicy, activityLogs });
+              }}
+              onUpdateSubjectPeriodAllocations={subjectPeriodAllocations => {
+                const activityLogs = logActivity(
+                  'TIMETABLE_UPDATE',
+                  'timetable',
+                  'Subject Period Allocations Updated',
+                  `Configured periods per week across levels and streams`
+                );
+                updateRemoteData({ subjectPeriodAllocations, activityLogs });
+              }}
+              onUpdateTeacherAssignments={teacherAssignments => {
+                const activityLogs = logActivity(
+                  'TIMETABLE_UPDATE',
+                  'timetable',
+                  'Teacher Teaching Allocations Updated',
+                  `Assigned faculty to levels, subjects, and streams`
+                );
+                updateRemoteData({ teacherAssignments, activityLogs });
+              }}
             />
           )}
 

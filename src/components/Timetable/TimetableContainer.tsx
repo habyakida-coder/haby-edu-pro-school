@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Plus, 
   Printer, 
@@ -27,20 +27,29 @@ import {
   BookOpen,
   Users,
   Library,
-  FileCheck
+  FileCheck,
+  ShieldCheck,
+  ShieldAlert,
+  Share2,
+  Zap,
+  Sliders
 } from 'lucide-react';
 import { 
   TimetableAssignment, 
   Teacher, 
   PeriodSetting, 
   StreamSetting, 
-  ActivityType 
+  ActivityType,
+  InstitutionalPolicy,
+  SubjectPeriodAllocation,
+  TeacherAssignment
 } from '../../types';
 import { 
   DAYS_OF_WEEK, 
   DEFAULT_CLASSES, 
   EXTRA_CURRICULAR_ACTIVITIES,
-  DEFAULT_DAY_THEMES
+  DEFAULT_DAY_THEMES,
+  DEFAULT_INSTITUTIONAL_POLICY
 } from '../../constants/defaults';
 import { 
   getSubjectColor, 
@@ -55,10 +64,16 @@ import {
   printFormattedSection 
 } from '../../utils/export';
 import { detectTimetableConflicts } from '../../utils/conflicts';
+import { generateTimetableIntegrityReport } from '../../utils/timetableIntegrity';
 import { EditSlotModal } from './EditSlotModal';
 import { PeriodSettingsManager } from './PeriodSettingsManager';
 import { ScheduleExtraCurricularModal } from './ScheduleExtraCurricularModal';
 import { AITimetableGeneratorModal } from './AITimetableGeneratorModal';
+import { TimetableIntegrityReportModal } from './TimetableIntegrityReportModal';
+import { InstitutionalPoliciesTab } from './InstitutionalPoliciesTab';
+import { SubjectPeriodAllocationTab } from './SubjectPeriodAllocationTab';
+import { TeacherAssignmentsTab } from './TeacherAssignmentsTab';
+import { AIGenerateByLevelModal } from './AIGenerateByLevelModal';
 
 export const renderActivityIcon = (iconName: string, className = "w-3 h-3") => {
   switch (iconName) {
@@ -85,11 +100,17 @@ interface TimetableContainerProps {
   classTimetableReleased: Record<string, boolean>;
   schoolName: string;
   dayThemes?: Record<string, string>;
+  institutionalPolicy?: InstitutionalPolicy;
+  subjectPeriodAllocations?: SubjectPeriodAllocation[];
+  teacherAssignments?: TeacherAssignment[];
   onUpdateAssignments: (assignments: TimetableAssignment[]) => void;
   onUpdatePeriodSettings: (settings: PeriodSetting[]) => void;
   onUpdateStreamSettings: (settings: StreamSetting[]) => void;
   onToggleClassRelease: (className: string) => void;
   onUpdateDayThemes?: (themes: Record<string, string>) => void;
+  onUpdateInstitutionalPolicy?: (policy: InstitutionalPolicy) => void;
+  onUpdateSubjectPeriodAllocations?: (allocations: SubjectPeriodAllocation[]) => void;
+  onUpdateTeacherAssignments?: (assignments: TeacherAssignment[]) => void;
 }
 
 export const TimetableContainer: React.FC<TimetableContainerProps> = ({
@@ -100,13 +121,21 @@ export const TimetableContainer: React.FC<TimetableContainerProps> = ({
   classTimetableReleased,
   schoolName,
   dayThemes,
+  institutionalPolicy = DEFAULT_INSTITUTIONAL_POLICY,
+  subjectPeriodAllocations = [],
+  teacherAssignments = [],
   onUpdateAssignments,
   onUpdatePeriodSettings,
   onUpdateStreamSettings,
   onToggleClassRelease,
-  onUpdateDayThemes
+  onUpdateDayThemes,
+  onUpdateInstitutionalPolicy,
+  onUpdateSubjectPeriodAllocations,
+  onUpdateTeacherAssignments
 }) => {
-  const [activeTab, setActiveTab] = useState<'general' | 'class' | 'teacher' | 'master' | 'settings'>('general');
+  const [activeTab, setActiveTab] = useState<
+    'general' | 'class' | 'teacher' | 'master' | 'policies' | 'allocations' | 'teacherAssignments' | 'integrity' | 'settings'
+  >('general');
   const [selectedDayFilter, setSelectedDayFilter] = useState<string>('All');
   const [selectedClassFilter, setSelectedClassFilter] = useState<string>('Form 1');
   const [selectedTeacherFilter, setSelectedTeacherFilter] = useState<number>(teachers[0]?.id || 0);
@@ -126,8 +155,32 @@ export const TimetableContainer: React.FC<TimetableContainerProps> = ({
 
   const [printOrientation, setPrintOrientation] = useState<'portrait' | 'landscape'>('landscape');
   
-  // AI Timetable Generator Modal state
+  // AI Timetable Generator Modal state (Class-level & Level-wide)
   const [aiGeneratorModalOpen, setAiGeneratorModalOpen] = useState(false);
+  const [aiByLevelModalOpen, setAiByLevelModalOpen] = useState(false);
+  
+  // Timetable Integrity Report Modal state
+  const [integrityReportModalOpen, setIntegrityReportModalOpen] = useState(false);
+
+  const handleShareTimetableWhatsApp = (scope: string) => {
+    const text = `*HABY EDUPRO TIMETABLE (RATIBA YA MASOMO)*
+Shule: ${schoolName}
+Mwonekano: ${scope}
+Tarehe: ${new Date().toLocaleDateString()}
+Ratiba hii imekaguliwa rasmi na haina mgongano (Zero Clashes).`;
+    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
+
+  // Comprehensive Timetable Integrity Analysis
+  const integrityReport = useMemo(() => {
+    return generateTimetableIntegrityReport(
+      assignments,
+      teachers,
+      periodSettings,
+      streamSettings
+    );
+  }, [assignments, teachers, periodSettings, streamSettings]);
 
   const handleApplyAITimetable = (newAssignments: TimetableAssignment[], mode: 'merge' | 'replace') => {
     if (mode === 'replace') {
@@ -552,6 +605,42 @@ export const TimetableContainer: React.FC<TimetableContainerProps> = ({
         </button>
 
         <button
+          onClick={() => setActiveTab('policies')}
+          className={`px-4 py-2.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 ${
+            activeTab === 'policies'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <Sliders className="w-4 h-4" />
+          Institutional Policies
+        </button>
+
+        <button
+          onClick={() => setActiveTab('allocations')}
+          className={`px-4 py-2.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 ${
+            activeTab === 'allocations'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <BookOpen className="w-4 h-4" />
+          Subject Allocations
+        </button>
+
+        <button
+          onClick={() => setActiveTab('teacherAssignments')}
+          className={`px-4 py-2.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 ${
+            activeTab === 'teacherAssignments'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          Teacher Allocations
+        </button>
+
+        <button
           onClick={() => setActiveTab('settings')}
           className={`px-4 py-2.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 ${
             activeTab === 'settings'
@@ -560,33 +649,72 @@ export const TimetableContainer: React.FC<TimetableContainerProps> = ({
           }`}
         >
           <Palette className="w-4 h-4" />
-          Timetable & Period Settings
+          Settings
+        </button>
+
+        <button
+          onClick={() => setActiveTab('integrity')}
+          className={`px-4 py-2.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 ${
+            activeTab === 'integrity'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          {integrityReport.criticalCount > 0 ? (
+            <ShieldAlert className="w-4 h-4 text-rose-500" />
+          ) : (
+            <ShieldCheck className="w-4 h-4 text-emerald-500" />
+          )}
+          <span>Integrity Report</span>
+          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+            integrityReport.criticalCount > 0
+              ? 'bg-rose-100 text-rose-700'
+              : integrityReport.warningCount > 0
+              ? 'bg-amber-100 text-amber-700'
+              : 'bg-emerald-100 text-emerald-700'
+          }`}>
+            {integrityReport.score}% Score
+          </span>
         </button>
       </div>
 
-      {/* Conflict Bar Alert (if any teacher is double-booked) */}
-      {totalConflicts > 0 && (
-        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex items-center justify-between text-rose-900 shadow-xs animate-in fade-in">
+      {/* Conflict Bar Alert (if any teacher is double-booked or conflicts exist) */}
+      {(totalConflicts > 0 || integrityReport.criticalCount > 0) && (
+        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex items-center justify-between text-rose-900 shadow-xs animate-in fade-in flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
             <div className="flex flex-col">
-              <span className="text-sm font-bold">Schedule Conflict Detected</span>
+              <span className="text-sm font-bold flex items-center gap-2">
+                <span>Timetable Integrity Conflicts Detected</span>
+                <span className="text-xs font-black px-2 py-0.5 bg-rose-600 text-white rounded-full">
+                  {integrityReport.criticalCount || totalConflicts} Clashes
+                </span>
+                {integrityReport.warningCount > 0 && (
+                  <span className="text-xs font-bold px-2 py-0.5 bg-amber-500 text-white rounded-full">
+                    {integrityReport.warningCount} Warnings
+                  </span>
+                )}
+              </span>
               <span className="text-[11px] opacity-90 font-medium">
-                {totalConflicts} period slot(s) have teacher clashes (double-booked teachers). Clashing slots are highlighted in red below.
+                {integrityReport.criticalCount || totalConflicts} period slot(s) have teacher clashes (double-booked teachers) or policy violations. Clashing slots are highlighted in red below.
               </span>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <button
+              onClick={() => setIntegrityReportModalOpen(true)}
+              className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer"
+            >
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>Integrity Audit Ledger</span>
+            </button>
+            <button
               onClick={handleResolveConflicts}
-              className="px-3 py-1.5 bg-white text-rose-600 border border-rose-200 rounded-lg text-xs font-black hover:bg-rose-50 transition-colors shadow-sm flex items-center gap-1.5"
+              className="px-3 py-1.5 bg-white text-rose-600 border border-rose-200 rounded-lg text-xs font-black hover:bg-rose-50 transition-colors shadow-sm flex items-center gap-1.5 cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5" />
-              Resolve All Conflicts
+              <span>Resolve Clashes</span>
             </button>
-            <span className="text-xs font-bold px-2.5 py-1 bg-rose-600 text-white rounded-full">
-              {totalConflicts} Conflicts
-            </span>
           </div>
         </div>
       )}
@@ -611,11 +739,28 @@ export const TimetableContainer: React.FC<TimetableContainerProps> = ({
           <div className="flex flex-wrap items-center gap-1.5">
             <button
               type="button"
+              onClick={() => setIntegrityReportModalOpen(true)}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white/10 hover:bg-white/20 text-white transition-all shadow-xs flex items-center gap-1.5 cursor-pointer border border-white/20"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-blue-300" />
+              <span>Integrity Audit ({integrityReport.score}%)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setAiByLevelModalOpen(true)}
+              className="px-3.5 py-1.5 rounded-lg text-xs font-black bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white hover:brightness-110 active:scale-95 transition-all shadow-md flex items-center gap-1.5 cursor-pointer border border-blue-400"
+              title="Generate conflict-free timetable for all streams in a chosen level at once"
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+              <span>Generate Timetable with AI by Level</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setAiGeneratorModalOpen(true)}
-              className="px-3.5 py-1.5 rounded-lg text-xs font-black bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 text-slate-950 hover:brightness-110 active:scale-95 transition-all shadow-md flex items-center gap-1.5 cursor-pointer border border-amber-300"
+              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-400 text-slate-950 hover:bg-amber-500 active:scale-95 transition-all shadow-xs flex items-center gap-1.5 cursor-pointer border border-amber-300"
             >
               <Sparkles className="w-3.5 h-3.5 text-slate-950 fill-amber-500" />
-              <span>AI Auto-Generator</span>
+              <span>AI Single Class</span>
             </button>
             <button
               type="button"
@@ -689,11 +834,49 @@ export const TimetableContainer: React.FC<TimetableContainerProps> = ({
               </div>
 
               <button
+                onClick={() => setIntegrityReportModalOpen(true)}
+                className={`px-3 py-2 text-xs font-black rounded-lg flex items-center gap-1.5 shadow-xs transition-all cursor-pointer border ${
+                  integrityReport.criticalCount > 0
+                    ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300'
+                    : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
+                }`}
+                title="Cross-reference timetable against institutional policies and teacher availability"
+              >
+                {integrityReport.criticalCount > 0 ? (
+                  <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
+                ) : (
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                )}
+                <span>Integrity Report ({integrityReport.score}%)</span>
+                {integrityReport.criticalCount > 0 && (
+                  <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping" />
+                )}
+              </button>
+
+              <button
+                onClick={() => setAiByLevelModalOpen(true)}
+                className="px-3.5 py-2 text-xs font-black bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-800 hover:from-blue-800 hover:to-indigo-900 text-white rounded-lg flex items-center gap-1.5 shadow-xs transition-all cursor-pointer border border-blue-400"
+                title="Auto-generates conflict-free timetable for all streams in chosen level at once"
+              >
+                <Zap className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+                <span>Generate by Level</span>
+              </button>
+
+              <button
                 onClick={() => setAiGeneratorModalOpen(true)}
                 className="px-3 py-2 text-xs font-black bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-300" />
                 <span>AI Auto-Generate</span>
+              </button>
+
+              <button
+                onClick={() => handleShareTimetableWhatsApp('General Timetable')}
+                className="px-3 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                title="Send Timetable details to teachers and parents on WhatsApp"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span>WhatsApp</span>
               </button>
 
               <button
@@ -1108,6 +1291,33 @@ export const TimetableContainer: React.FC<TimetableContainerProps> = ({
 
             <div className="flex items-center gap-2">
               <button
+                onClick={() => setAiByLevelModalOpen(true)}
+                className="px-3 py-2 text-xs font-black bg-gradient-to-r from-blue-700 to-indigo-700 text-white rounded-lg flex items-center gap-1.5 shadow-xs hover:from-blue-800 hover:to-indigo-800 cursor-pointer border border-blue-400"
+                title="Generate timetable for all streams in this level"
+              >
+                <Zap className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+                <span>Generate by Level</span>
+              </button>
+
+              <button
+                onClick={() => setIntegrityReportModalOpen(true)}
+                className="px-3 py-2 text-xs font-bold bg-white text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 flex items-center gap-1.5 shadow-xs cursor-pointer"
+                title="Audit timetable integrity"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                <span>Integrity Audit</span>
+              </button>
+
+              <button
+                onClick={() => handleShareTimetableWhatsApp(`${selectedClassFilter} Timetable`)}
+                className="px-3 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                title="Send Class Timetable via WhatsApp"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span>Send via WhatsApp</span>
+              </button>
+
+              <button
                 onClick={() => {
                   const streams = getStreamsForClass(selectedClassFilter);
                   exportClassTimetableGridToCSV(
@@ -1132,6 +1342,45 @@ export const TimetableContainer: React.FC<TimetableContainerProps> = ({
                 <Printer className="w-3.5 h-3.5" />
                 Print Class Timetable
               </button>
+            </div>
+          </div>
+
+          {/* Quick Stream Tabs for the selected level */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 shadow-xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-blue-600" />
+                <span>Quick Stream Navigator:</span>
+              </span>
+              <span className="text-[11px] text-slate-500">
+                Click any stream below to view its weekly timetable instantly
+              </span>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {DEFAULT_CLASSES.flatMap(cName => {
+                const sList = getStreamsForClass(cName);
+                return sList.map(sName => ({
+                  className: cName,
+                  stream: sName,
+                  label: `${cName.replace('Standard ', 'Std ').replace('Form ', 'F')}${sName.replace('STREAM ', '').replace('Stream ', '')}`
+                }));
+              }).map(item => {
+                const isSelected = selectedClassFilter === item.className;
+                return (
+                  <button
+                    key={`${item.className}_${item.stream}`}
+                    onClick={() => setSelectedClassFilter(item.className)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 hover:border-slate-300'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -1309,20 +1558,34 @@ export const TimetableContainer: React.FC<TimetableContainerProps> = ({
               </select>
             </div>
 
-            <button
-              onClick={() => {
-                const currentTeacher = teachers.find(t => t.id === selectedTeacherFilter);
-                printFormattedSection(
-                  'teacher-printable-view',
-                  `${currentTeacher?.name || 'Teacher'} Teaching Timetable`,
-                  schoolName
-                );
-              }}
-              className="px-3 py-2 text-xs font-bold bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-1.5 shadow-xs"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              Print Teacher Schedule
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  const currentTeacher = teachers.find(t => t.id === selectedTeacherFilter);
+                  handleShareTimetableWhatsApp(`${currentTeacher?.name || 'Teacher'} Teaching Timetable`);
+                }}
+                className="px-3 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                title="Send Teacher Timetable via WhatsApp"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span>Send via WhatsApp</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  const currentTeacher = teachers.find(t => t.id === selectedTeacherFilter);
+                  printFormattedSection(
+                    'teacher-printable-view',
+                    `${currentTeacher?.name || 'Teacher'} Teaching Timetable`,
+                    schoolName
+                  );
+                }}
+                className="px-3 py-2 text-xs font-bold bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-1.5 shadow-xs"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                Print Teacher Schedule
+              </button>
+            </div>
           </div>
 
           {/* Teacher Schedule View */}
@@ -1422,6 +1685,14 @@ export const TimetableContainer: React.FC<TimetableContainerProps> = ({
                 <h3 className="text-base font-bold text-slate-800 pb-2 border-b border-slate-200 flex items-center justify-between">
                   <span>Assign Teacher to Class Period</span>
                   <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIntegrityReportModalOpen(true)}
+                      className="px-3 py-1.5 text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 rounded-lg flex items-center gap-1.5 shadow-xs transition-all cursor-pointer border border-slate-300"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Audit Integrity ({integrityReport.score}%)</span>
+                    </button>
                     <button
                       type="button"
                       onClick={() => setAiGeneratorModalOpen(true)}
@@ -1742,6 +2013,57 @@ export const TimetableContainer: React.FC<TimetableContainerProps> = ({
         </div>
       )}
 
+      {/* ======================================================== */}
+      {/* 6. TIMETABLE INTEGRITY & POLICY AUDIT TAB               */}
+      {/* ======================================================== */}
+      {activeTab === 'integrity' && (
+        <TimetableIntegrityReportModal
+          isOpen={true}
+          inlineMode={true}
+          onClose={() => setActiveTab('general')}
+          assignments={assignments}
+          teachers={teachers}
+          periodSettings={periodSettings}
+          streamSettings={streamSettings}
+          schoolName={schoolName}
+          onUpdateAssignments={onUpdateAssignments}
+          onEditSlot={slot => setEditingSlot(slot)}
+        />
+      )}
+
+      {/* ======================================================== */}
+      {/* 7. INSTITUTIONAL POLICIES TAB                           */}
+      {/* ======================================================== */}
+      {activeTab === 'policies' && (
+        <InstitutionalPoliciesTab
+          policy={institutionalPolicy}
+          onUpdatePolicy={onUpdateInstitutionalPolicy || (() => {})}
+        />
+      )}
+
+      {/* ======================================================== */}
+      {/* 8. SUBJECT PERIOD ALLOCATION TAB                        */}
+      {/* ======================================================== */}
+      {activeTab === 'allocations' && (
+        <SubjectPeriodAllocationTab
+          allocations={subjectPeriodAllocations}
+          streamSettings={streamSettings}
+          onUpdateAllocations={onUpdateSubjectPeriodAllocations || (() => {})}
+        />
+      )}
+
+      {/* ======================================================== */}
+      {/* 9. TEACHER ASSIGNMENTS TAB                              */}
+      {/* ======================================================== */}
+      {activeTab === 'teacherAssignments' && (
+        <TeacherAssignmentsTab
+          teachers={teachers}
+          streamSettings={streamSettings}
+          teacherAssignments={teacherAssignments}
+          onUpdateTeacherAssignments={onUpdateTeacherAssignments || (() => {})}
+        />
+      )}
+
       {/* Manual Slot Edit Modal */}
       {editingSlot && (
         <EditSlotModal
@@ -1768,7 +2090,7 @@ export const TimetableContainer: React.FC<TimetableContainerProps> = ({
         />
       )}
 
-      {/* AI Timetable Auto-Generator Modal */}
+      {/* AI Timetable Auto-Generator Modal (Class Scope) */}
       {aiGeneratorModalOpen && (
         <AITimetableGeneratorModal
           isOpen={aiGeneratorModalOpen}
@@ -1778,6 +2100,46 @@ export const TimetableContainer: React.FC<TimetableContainerProps> = ({
           streamSettings={streamSettings}
           currentAssignments={assignments}
           onApplyAssignments={handleApplyAITimetable}
+        />
+      )}
+
+      {/* AI Timetable Generator by Level Modal (Nursery / Primary / Secondary Scope) */}
+      {aiByLevelModalOpen && (
+        <AIGenerateByLevelModal
+          isOpen={aiByLevelModalOpen}
+          onClose={() => setAiByLevelModalOpen(false)}
+          teachers={teachers}
+          periodSettings={periodSettings}
+          streamSettings={streamSettings}
+          institutionalPolicy={institutionalPolicy}
+          subjectPeriodAllocations={subjectPeriodAllocations}
+          teacherAssignments={teacherAssignments}
+          currentAssignments={assignments}
+          onApplyAssignments={(newAssignments, mode) => {
+            if (mode === 'replace_level') {
+              const newClasses = new Set(newAssignments.map(a => a.className));
+              const retained = assignments.filter(a => !newClasses.has(a.className));
+              onUpdateAssignments([...retained, ...newAssignments]);
+            } else {
+              onUpdateAssignments([...assignments, ...newAssignments]);
+            }
+          }}
+        />
+      )}
+
+      {/* Timetable Integrity Report Modal (Popup Mode) */}
+      {integrityReportModalOpen && (
+        <TimetableIntegrityReportModal
+          isOpen={integrityReportModalOpen}
+          inlineMode={false}
+          onClose={() => setIntegrityReportModalOpen(false)}
+          assignments={assignments}
+          teachers={teachers}
+          periodSettings={periodSettings}
+          streamSettings={streamSettings}
+          schoolName={schoolName}
+          onUpdateAssignments={onUpdateAssignments}
+          onEditSlot={slot => setEditingSlot(slot)}
         />
       )}
     </div>

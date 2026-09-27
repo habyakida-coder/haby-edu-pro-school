@@ -32,7 +32,13 @@
         { "name": "streamSettings", "type": "array" },
         { "name": "invigilationAssignments", "type": "map" },
         { "name": "exams", "type": "array" },
-        { "name": "activityLogs", "type": "array", "description": "Audit trail entries tracking timetable, teacher, and student edits" }
+        { "name": "activityLogs", "type": "array", "description": "Audit trail entries tracking timetable, teacher, and student edits" },
+        { "name": "examinationRecords", "type": "array", "description": "Academic examination records across terms and years" },
+        { "name": "promotionHistory", "type": "array", "description": "Student promotion and graduation logs" },
+        { "name": "transferHistory", "type": "array", "description": "Student stream and class transfer logs" },
+        { "name": "institutionalPolicy", "type": "map", "description": "Institutional timetable policies, breaks, and limits" },
+        { "name": "subjectPeriodAllocations", "type": "array", "description": "Subject period allocations per level" },
+        { "name": "teacherAssignments", "type": "array", "description": "Teacher level, subject and stream assignments" }
       ]
     }
   ]

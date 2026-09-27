@@ -1,4 +1,14 @@
-import { AppData, UserAccount, Student } from '../types';
+import { 
+  AppData, 
+  UserAccount, 
+  Student, 
+  InstitutionalPolicy, 
+  SubjectPeriodAllocation, 
+  TeacherAssignment, 
+  ExaminationRecord, 
+  PromotionHistory, 
+  TransferHistory 
+} from '../types';
 
 export const DEFAULT_SCHOOL_LOGO = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200"><defs><linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%231e3a8a"/><stop offset="100%" stop-color="%230f172a"/></linearGradient><linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%23fbbf24"/><stop offset="100%" stop-color="%23d97706"/></linearGradient></defs><circle cx="100" cy="100" r="94" fill="none" stroke="%23d97706" stroke-width="4"/><circle cx="100" cy="100" r="88" fill="%23ffffff" stroke="%231e3a8a" stroke-width="2"/><path d="M 100 24 C 135 24 165 42 165 78 C 165 125 125 158 100 174 C 75 158 35 125 35 78 C 35 42 65 24 100 24 Z" fill="url(%23shieldGrad)" stroke="%23fbbf24" stroke-width="3"/><path d="M 100 42 L 100 115 M 100 48 Q 120 40 142 46 L 142 104 Q 120 98 100 108 Q 80 98 58 104 L 58 46 Q 80 40 100 48 Z" fill="%23ffffff" stroke="%23fbbf24" stroke-width="2"/><circle cx="100" cy="115" r="7" fill="%23ef4444"/><polygon points="100,126 102,132 108,132 103,136 105,142 100,138 95,142 97,136 92,132 98,132" fill="%23fbbf24"/><text x="100" y="160" font-family="Arial, sans-serif" font-weight="900" font-size="10" fill="%23fbbf24" text-anchor="middle" letter-spacing="1">EXCELLENCE</text></svg>`;
 
@@ -428,20 +438,20 @@ export const INITIAL_PERIOD_SETTINGS = [
 ];
 
 export const INITIAL_STREAM_SETTINGS = [
-  // Pre-Primary & Nursery
-  { id: 101, className: 'Baby Class', level: 'PRE_PRIMARY' as const, streams: ['STREAM A', 'STREAM B'] },
-  { id: 102, className: 'Nursery 1', level: 'PRE_PRIMARY' as const, streams: ['STREAM A', 'STREAM B'] },
-  { id: 103, className: 'Nursery 2', level: 'PRE_PRIMARY' as const, streams: ['STREAM A', 'STREAM B'] },
+  // Nursery Level (4 distinct nursery stages)
+  { id: 101, className: 'Nursery', level: 'PRE_PRIMARY' as const, streams: ['STREAM A', 'STREAM B'] },
+  { id: 102, className: 'Baby Class', level: 'PRE_PRIMARY' as const, streams: ['STREAM A', 'STREAM B'] },
+  { id: 103, className: 'Middle Class', level: 'PRE_PRIMARY' as const, streams: ['STREAM A', 'STREAM B'] },
   { id: 104, className: 'Pre-Unit', level: 'PRE_PRIMARY' as const, streams: ['STREAM A', 'STREAM B'] },
-  // Primary (Standard 1 to 7)
-  { id: 105, className: 'Standard 1', level: 'PRIMARY' as const, streams: ['STREAM A', 'STREAM B'] },
-  { id: 106, className: 'Standard 2', level: 'PRIMARY' as const, streams: ['STREAM A', 'STREAM B'] },
-  { id: 107, className: 'Standard 3', level: 'PRIMARY' as const, streams: ['STREAM A', 'STREAM B'] },
-  { id: 108, className: 'Standard 4', level: 'PRIMARY' as const, streams: ['STREAM A', 'STREAM B'] },
-  { id: 109, className: 'Standard 5', level: 'PRIMARY' as const, streams: ['STREAM A', 'STREAM B'] },
-  { id: 110, className: 'Standard 6', level: 'PRIMARY' as const, streams: ['STREAM A', 'STREAM B'] },
-  { id: 111, className: 'Standard 7', level: 'PRIMARY' as const, streams: ['STREAM A', 'STREAM B'] },
-  // Secondary (Form 1 to 6)
+  // Primary Level (Standard 1 to 7 with ABC streams)
+  { id: 105, className: 'Standard 1', level: 'PRIMARY' as const, streams: ['STREAM A', 'STREAM B', 'STREAM C'] },
+  { id: 106, className: 'Standard 2', level: 'PRIMARY' as const, streams: ['STREAM A', 'STREAM B', 'STREAM C'] },
+  { id: 107, className: 'Standard 3', level: 'PRIMARY' as const, streams: ['STREAM A', 'STREAM B', 'STREAM C'] },
+  { id: 108, className: 'Standard 4', level: 'PRIMARY' as const, streams: ['STREAM A', 'STREAM B', 'STREAM C'] },
+  { id: 109, className: 'Standard 5', level: 'PRIMARY' as const, streams: ['STREAM A', 'STREAM B', 'STREAM C'] },
+  { id: 110, className: 'Standard 6', level: 'PRIMARY' as const, streams: ['STREAM A', 'STREAM B', 'STREAM C'] },
+  { id: 111, className: 'Standard 7', level: 'PRIMARY' as const, streams: ['STREAM A', 'STREAM B', 'STREAM C'] },
+  // Secondary Level (Form 1 to 4 with AB streams, Form 5-6 with combinations)
   { id: 1, className: 'Form 1', level: 'CSEE' as const, streams: ['STREAM A', 'STREAM B'] },
   { id: 2, className: 'Form 2', level: 'CSEE' as const, streams: ['STREAM A', 'STREAM B'] },
   { id: 3, className: 'Form 3', level: 'CSEE' as const, streams: ['STREAM A', 'STREAM B'] },
@@ -853,6 +863,246 @@ export const INITIAL_SUPERVISORS = [
   { id: 2, teacherId: 104, name: 'David Mwakipesile', initial: 'DM' }
 ];
 
+export const DEFAULT_INSTITUTIONAL_POLICY: InstitutionalPolicy = {
+  totalPeriodsPerDay: 8,
+  periodDurationMinutes: 40,
+  breakAfterPeriod: 2,
+  lunchAfterPeriod: 5,
+  workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+  maxPeriodsPerTeacherPerDay: 5,
+  rules: {
+    noTeacherTwoClassesSameTime: true,
+    noClassTwoTeachersSameTime: true,
+    noSameSubjectTwiceSameDay: true
+  }
+};
+
+export const DEFAULT_SUBJECT_PERIOD_ALLOCATIONS: SubjectPeriodAllocation[] = [
+  // Nursery Level
+  { id: 'spa_nur_1', level: 'NURSERY', className: 'Baby Class', stream: 'STREAM A', subject: 'Kuhesabu na Namba (Numeracy)', periodsPerWeek: 5 },
+  { id: 'spa_nur_2', level: 'NURSERY', className: 'Baby Class', stream: 'STREAM A', subject: 'Kusoma na Kuwasiliana (Literacy)', periodsPerWeek: 5 },
+  { id: 'spa_nur_3', level: 'NURSERY', className: 'Baby Class', stream: 'STREAM A', subject: 'Lugha ya Kiingereza ya Awali (Early English)', periodsPerWeek: 4 },
+  { id: 'spa_nur_4', level: 'NURSERY', className: 'Baby Class', stream: 'STREAM A', subject: 'Afya na Mazingira ya Mtoto', periodsPerWeek: 4 },
+  { id: 'spa_nur_5', level: 'NURSERY', className: 'Baby Class', stream: 'STREAM A', subject: 'Sanaa, Muziki na Michezo ya Awali', periodsPerWeek: 4 },
+  { id: 'spa_nur_6', level: 'NURSERY', className: 'Baby Class', stream: 'STREAM A', subject: 'Maadili na Malezi Bora', periodsPerWeek: 3 },
+  // Primary Level
+  { id: 'spa_pri_1', level: 'PRIMARY', className: 'Standard 1', stream: 'STREAM A', subject: 'Mathematics (Hisabati)', periodsPerWeek: 6 },
+  { id: 'spa_pri_2', level: 'PRIMARY', className: 'Standard 1', stream: 'STREAM A', subject: 'English Language', periodsPerWeek: 6 },
+  { id: 'spa_pri_3', level: 'PRIMARY', className: 'Standard 1', stream: 'STREAM A', subject: 'Kiswahili', periodsPerWeek: 6 },
+  { id: 'spa_pri_4', level: 'PRIMARY', className: 'Standard 1', stream: 'STREAM A', subject: 'Science and Technology (Sayansi na Teknolojia)', periodsPerWeek: 5 },
+  { id: 'spa_pri_5', level: 'PRIMARY', className: 'Standard 1', stream: 'STREAM A', subject: 'Social Studies (Maarifa ya Jamii)', periodsPerWeek: 4 },
+  { id: 'spa_pri_6', level: 'PRIMARY', className: 'Standard 1', stream: 'STREAM A', subject: 'Civic and Moral Education (Uraia na Maadili)', periodsPerWeek: 3 },
+  // Secondary Level
+  { id: 'spa_sec_1', level: 'SECONDARY', className: 'Form 1', stream: 'STREAM A', subject: 'Mathematics', periodsPerWeek: 6 },
+  { id: 'spa_sec_2', level: 'SECONDARY', className: 'Form 1', stream: 'STREAM A', subject: 'English Language', periodsPerWeek: 5 },
+  { id: 'spa_sec_3', level: 'SECONDARY', className: 'Form 1', stream: 'STREAM A', subject: 'Kiswahili', periodsPerWeek: 4 },
+  { id: 'spa_sec_4', level: 'SECONDARY', className: 'Form 1', stream: 'STREAM A', subject: 'Biology', periodsPerWeek: 4 },
+  { id: 'spa_sec_5', level: 'SECONDARY', className: 'Form 1', stream: 'STREAM A', subject: 'Chemistry', periodsPerWeek: 4 },
+  { id: 'spa_sec_6', level: 'SECONDARY', className: 'Form 1', stream: 'STREAM A', subject: 'Physics', periodsPerWeek: 4 },
+  { id: 'spa_sec_7', level: 'SECONDARY', className: 'Form 1', stream: 'STREAM A', subject: 'Geography', periodsPerWeek: 3 },
+  { id: 'spa_sec_8', level: 'SECONDARY', className: 'Form 1', stream: 'STREAM A', subject: 'History', periodsPerWeek: 3 },
+  { id: 'spa_sec_9', level: 'SECONDARY', className: 'Form 1', stream: 'STREAM A', subject: 'Civics', periodsPerWeek: 3 }
+];
+
+export const DEFAULT_TEACHER_ASSIGNMENTS: TeacherAssignment[] = [
+  { id: 'ta_1', teacherId: 101, teacherName: 'Adelmarcy Mallya', level: 'SECONDARY', subjects: ['Mathematics', 'Physics'], streams: ['Form 1 - STREAM A', 'Form 1 - STREAM B', 'Form 2 - STREAM A'] },
+  { id: 'ta_2', teacherId: 102, teacherName: 'Baraka Mgimwa', level: 'SECONDARY', subjects: ['English Language', 'Literature in English'], streams: ['Form 1 - STREAM A', 'Form 1 - STREAM B', 'Form 3 - STREAM A'] },
+  { id: 'ta_3', teacherId: 103, teacherName: 'Catherine Shirima', level: 'SECONDARY', subjects: ['Biology', 'Chemistry'], streams: ['Form 1 - STREAM A', 'Form 2 - STREAM A', 'Form 4 - STREAM A'] },
+  { id: 'ta_4', teacherId: 104, teacherName: 'David Mwakipesile', level: 'SECONDARY', subjects: ['Geography', 'History'], streams: ['Form 1 - STREAM A', 'Form 1 - STREAM B', 'Form 2 - STREAM B'] },
+  { id: 'ta_5', teacherId: 105, teacherName: 'Emmanuel Tarimo', level: 'SECONDARY', subjects: ['Kiswahili', 'Civics'], streams: ['Form 1 - STREAM A', 'Form 2 - STREAM A', 'Form 3 - STREAM B'] },
+  { id: 'ta_6', teacherId: 106, teacherName: 'Faraja Lyimo', level: 'SECONDARY', subjects: ['Computer Studies', 'Mathematics'], streams: ['Form 1 - STREAM A', 'Form 3 - STREAM A'] },
+  { id: 'ta_7', teacherId: 107, teacherName: 'Grace Muro', level: 'PRIMARY', subjects: ['English Language', 'Social Studies (Maarifa ya Jamii)'], streams: ['Standard 1 - STREAM A', 'Standard 1 - STREAM B', 'Standard 2 - STREAM A'] },
+  { id: 'ta_8', teacherId: 108, teacherName: 'Hamisi Juma', level: 'NURSERY', subjects: ['Sanaa, Muziki na Michezo ya Awali', 'Afya na Mazingira ya Mtoto'], streams: ['Baby Class - STREAM A', 'Nursery - STREAM A'] }
+];
+
+export const INITIAL_EXAMINATION_RECORDS: ExaminationRecord[] = [
+  {
+    id: '1_2026_Term 1_Terminal',
+    studentId: 1,
+    studentName: 'Amina Juma Mohamed',
+    className: 'Form 1',
+    academicYear: '2026',
+    academicCalendarType: 'JAN-DEC',
+    term: 'Term 1',
+    examType: 'Terminal',
+    subjects: {
+      'Mathematics': { marks: 88, grade: 'A', remark: 'Excellent' },
+      'English Language': { marks: 82, grade: 'A', remark: 'Very Good' },
+      'Kiswahili': { marks: 90, grade: 'A', remark: 'Distinction' },
+      'Biology': { marks: 85, grade: 'A', remark: 'Excellent' },
+      'Chemistry': { marks: 78, grade: 'B', remark: 'Good' },
+      'Physics': { marks: 75, grade: 'B', remark: 'Good' },
+      'Geography': { marks: 84, grade: 'A', remark: 'Excellent' }
+    },
+    totalMarks: 582,
+    averageMarks: 83.1,
+    overallGrade: 'A',
+    positionInClass: 1,
+    totalStudents: 4,
+    createdAt: '2026-03-20T10:00:00Z'
+  },
+  {
+    id: '2_2026_Term 1_Terminal',
+    studentId: 2,
+    studentName: 'Baraka Said Ally',
+    className: 'Form 1',
+    academicYear: '2026',
+    academicCalendarType: 'JAN-DEC',
+    term: 'Term 1',
+    examType: 'Terminal',
+    subjects: {
+      'Mathematics': { marks: 72, grade: 'B', remark: 'Good' },
+      'English Language': { marks: 68, grade: 'B', remark: 'Satisfactory' },
+      'Kiswahili': { marks: 75, grade: 'B', remark: 'Good' },
+      'Biology': { marks: 65, grade: 'B', remark: 'Satisfactory' },
+      'Chemistry': { marks: 62, grade: 'B', remark: 'Satisfactory' },
+      'Physics': { marks: 58, grade: 'C', remark: 'Average' },
+      'Geography': { marks: 70, grade: 'B', remark: 'Good' }
+    },
+    totalMarks: 470,
+    averageMarks: 67.1,
+    overallGrade: 'B',
+    positionInClass: 2,
+    totalStudents: 4,
+    createdAt: '2026-03-20T10:00:00Z'
+  },
+  {
+    id: '3_2026_Term 1_Terminal',
+    studentId: 3,
+    studentName: 'Kelvin Jackson Shirima',
+    className: 'Form 1',
+    academicYear: '2026',
+    academicCalendarType: 'JAN-DEC',
+    term: 'Term 1',
+    examType: 'Terminal',
+    subjects: {
+      'Mathematics': { marks: 45, grade: 'C', remark: 'Average' },
+      'English Language': { marks: 52, grade: 'C', remark: 'Average' },
+      'Kiswahili': { marks: 50, grade: 'C', remark: 'Average' },
+      'Biology': { marks: 48, grade: 'C', remark: 'Average' },
+      'Chemistry': { marks: 44, grade: 'D', remark: 'Below Average' },
+      'Physics': { marks: 38, grade: 'D', remark: 'Below Average' },
+      'Geography': { marks: 55, grade: 'C', remark: 'Average' }
+    },
+    totalMarks: 332,
+    averageMarks: 47.4,
+    overallGrade: 'C',
+    positionInClass: 3,
+    totalStudents: 4,
+    createdAt: '2026-03-20T10:00:00Z'
+  },
+  {
+    id: '4_2026_Term 1_Terminal',
+    studentId: 4,
+    studentName: 'Fatuma Omary Mwangi',
+    className: 'Form 1',
+    academicYear: '2026',
+    academicCalendarType: 'JAN-DEC',
+    term: 'Term 1',
+    examType: 'Terminal',
+    subjects: {
+      'Mathematics': { marks: 32, grade: 'D', remark: 'Weak' },
+      'English Language': { marks: 40, grade: 'D', remark: 'Weak' },
+      'Kiswahili': { marks: 35, grade: 'D', remark: 'Weak' },
+      'Biology': { marks: 28, grade: 'F', remark: 'Fail' },
+      'Chemistry': { marks: 25, grade: 'F', remark: 'Fail' },
+      'Physics': { marks: 22, grade: 'F', remark: 'Fail' },
+      'Geography': { marks: 30, grade: 'D', remark: 'Weak' }
+    },
+    totalMarks: 212,
+    averageMarks: 30.3,
+    overallGrade: 'D',
+    positionInClass: 4,
+    totalStudents: 4,
+    createdAt: '2026-03-20T10:00:00Z'
+  },
+  {
+    id: '8_2026_Term 1_Midterm',
+    studentId: 8,
+    studentName: 'Neema David Kavishe',
+    className: 'Standard 1',
+    academicYear: '2026',
+    academicCalendarType: 'JAN-DEC',
+    term: 'Term 1',
+    examType: 'Midterm',
+    subjects: {
+      'Kuandika (Writing)': { marks: 95, grade: 'A', remark: 'Bora Sana' },
+      'Kusoma (Reading)': { marks: 92, grade: 'A', remark: 'Bora Sana' },
+      'Kuhesabu (Arithmetic)': { marks: 98, grade: 'A', remark: 'Bora Sana' },
+      'Afya na Mazingira (Health & Environment)': { marks: 90, grade: 'A', remark: 'Bora Sana' },
+      'Sanaa na Michezo (Arts & Sports)': { marks: 88, grade: 'A', remark: 'Bora Sana' }
+    },
+    totalMarks: 463,
+    averageMarks: 92.6,
+    overallGrade: 'A',
+    positionInClass: 1,
+    totalStudents: 2,
+    createdAt: '2026-02-28T09:00:00Z'
+  },
+  {
+    id: '6_2025/2026_Term 1_Terminal',
+    studentId: 6,
+    studentName: 'Zainab Hassan Bakari',
+    className: 'Form 5',
+    academicYear: '2025/2026',
+    academicCalendarType: 'JULY-JUNE',
+    term: 'Term 1',
+    examType: 'Terminal',
+    subjects: {
+      'Physics': { marks: 82, grade: 'A', remark: 'Distinction' },
+      'Chemistry': { marks: 76, grade: 'B', remark: 'Merit' },
+      'Mathematics': { marks: 85, grade: 'A', remark: 'Distinction' },
+      'General Studies': { marks: 74, grade: 'B', remark: 'Good' }
+    },
+    totalMarks: 317,
+    averageMarks: 79.3,
+    overallGrade: 'B',
+    positionInClass: 1,
+    totalStudents: 1,
+    createdAt: '2025-11-20T11:00:00Z'
+  }
+];
+
+export const INITIAL_PROMOTION_HISTORY: PromotionHistory[] = [
+  {
+    id: 'promo_1',
+    studentId: 1,
+    studentName: 'Amina Juma Mohamed',
+    fromClass: 'Standard 7',
+    toClass: 'Form 1',
+    academicYear: '2025',
+    calendarType: 'JAN-DEC',
+    promotedAt: '2025-12-31T23:59:00Z',
+    promotedBy: 'System Auto-Promotion (DEC-31)',
+    status: 'PROMOTED'
+  },
+  {
+    id: 'promo_2',
+    studentId: 6,
+    studentName: 'Zainab Hassan Bakari',
+    fromClass: 'Form 4',
+    toClass: 'Form 5',
+    academicYear: '2025',
+    calendarType: 'JULY-JUNE',
+    promotedAt: '2025-06-30T23:59:00Z',
+    promotedBy: 'Academic Board (JUNE-30)',
+    status: 'PROMOTED'
+  }
+];
+
+export const INITIAL_TRANSFER_HISTORY: TransferHistory[] = [
+  {
+    id: 'trans_1',
+    studentId: 2,
+    studentName: 'Baraka Said Ally',
+    fromClass: 'Form 1 - STREAM B',
+    toClass: 'Form 1 - STREAM A',
+    reason: 'Stream balancing requested by Class Master',
+    date: '2026-01-20',
+    transferredBy: 'David Mwakipesile'
+  }
+];
+
 export const DEFAULT_APP_DATA: AppData = {
   users: INITIAL_USERS,
   students: INITIAL_STUDENTS,
@@ -886,6 +1136,12 @@ export const DEFAULT_APP_DATA: AppData = {
     logo: DEFAULT_SCHOOL_LOGO,
     institutionalLevels: ['NURSERY', 'PRIMARY', 'SECONDARY']
   },
+  institutionalPolicy: DEFAULT_INSTITUTIONAL_POLICY,
+  subjectPeriodAllocations: DEFAULT_SUBJECT_PERIOD_ALLOCATIONS,
+  teacherAssignments: DEFAULT_TEACHER_ASSIGNMENTS,
+  examinationRecords: INITIAL_EXAMINATION_RECORDS,
+  promotionHistory: INITIAL_PROMOTION_HISTORY,
+  transferHistory: INITIAL_TRANSFER_HISTORY,
   activityLogs: [
     {
       id: 'log_init_1',
@@ -943,3 +1199,4 @@ export const DEFAULT_APP_DATA: AppData = {
     }
   ]
 };
+
