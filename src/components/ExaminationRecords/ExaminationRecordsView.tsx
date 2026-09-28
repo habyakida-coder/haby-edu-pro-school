@@ -43,6 +43,7 @@ import { StudentYearlyProfileModal } from './StudentYearlyProfileModal';
 import { StudentTransferModal } from './StudentTransferModal';
 import { AutoPromotionModal } from './AutoPromotionModal';
 import { HistoryAuditModal } from './HistoryAuditModal';
+import { BulkWhatsAppModal } from './BulkWhatsAppModal';
 
 interface ExaminationRecordsViewProps {
   students: Student[];
@@ -103,6 +104,7 @@ export const ExaminationRecordsView: React.FC<ExaminationRecordsViewProps> = ({
   const [transferModalStudent, setTransferModalStudent] = useState<Student | null>(null);
   const [isPromotionModalOpen, setIsPromotionModalOpen] = useState<boolean>(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState<boolean>(false);
+  const [isBulkWhatsAppOpen, setIsBulkWhatsAppOpen] = useState<boolean>(false);
 
   // Available Academic Years from records
   const availableYears = useMemo(() => {
@@ -174,6 +176,66 @@ export const ExaminationRecordsView: React.FC<ExaminationRecordsViewProps> = ({
     return list;
   }, [examinationRecords, selectedYear, selectedClass, selectedTerm, selectedExamType, searchQuery, gradeFilter, sortBy]);
 
+  // Gender-wise summary for Division (Form 1 - 4) and Grades (A, B, C, D, F)
+  const genderSummary = useMemo(() => {
+    const divBreakdown: Record<string, { B: number; G: number; T: number }> = {
+      'I': { B: 0, G: 0, T: 0 },
+      'II': { B: 0, G: 0, T: 0 },
+      'III': { B: 0, G: 0, T: 0 },
+      'IV': { B: 0, G: 0, T: 0 },
+      '0': { B: 0, G: 0, T: 0 }
+    };
+
+    const gradeBreakdown: Record<string, { B: number; G: number; T: number }> = {
+      'A': { B: 0, G: 0, T: 0 },
+      'B': { B: 0, G: 0, T: 0 },
+      'C': { B: 0, G: 0, T: 0 },
+      'D': { B: 0, G: 0, T: 0 },
+      'F': { B: 0, G: 0, T: 0 }
+    };
+
+    let totalBoys = 0;
+    let totalGirls = 0;
+
+    filteredRecords.forEach(rec => {
+      const matchSt = students.find(s => s.id === rec.studentId);
+      const gender = (rec.gender || matchSt?.gender || '').toLowerCase();
+      const isGirl = gender.startsWith('f') || gender.includes('female');
+      const isBoy = !isGirl;
+
+      if (isGirl) totalGirls++;
+      else totalBoys++;
+
+      // Division breakdown
+      const divRaw = (rec.division || '').replace(/^DIV\s*/i, '').trim();
+      if (divBreakdown[divRaw]) {
+        if (isGirl) divBreakdown[divRaw].G++;
+        else divBreakdown[divRaw].B++;
+        divBreakdown[divRaw].T++;
+      } else if (rec.overallGrade === 'F') {
+        if (isGirl) divBreakdown['0'].G++;
+        else divBreakdown['0'].B++;
+        divBreakdown['0'].T++;
+      }
+
+      // Grade breakdown
+      const g = rec.overallGrade || 'F';
+      if (gradeBreakdown[g]) {
+        if (isGirl) gradeBreakdown[g].G++;
+        else gradeBreakdown[g].B++;
+        gradeBreakdown[g].T++;
+      }
+    });
+
+    return {
+      divBreakdown,
+      gradeBreakdown,
+      totalBoys,
+      totalGirls,
+      total: filteredRecords.length
+    };
+  }, [filteredRecords, students]);
+
   // Aggregate subjects in current records for dynamic table headers
   const activeSubjectKeys = useMemo(() => {
     const keys = new Set<string>();
@@ -220,19 +282,28 @@ export const ExaminationRecordsView: React.FC<ExaminationRecordsViewProps> = ({
 
   // WhatsApp individual student results
   const handleWhatsAppStudent = (rec: ExaminationRecord) => {
-    const text = `*HABY EDUPRO MATOKEO YA MTIHANI*
-Shule: ${schoolInfo.name}
-Mwanafunzi: ${rec.studentName}
-Darasa: ${rec.className}
-Mwaka: ${rec.academicYear} | Muhula: ${rec.term}
-Mtihani: ${rec.examType}
-Jumla ya Alama: ${rec.totalMarks}
-Wastani: ${rec.averageMarks}% (Gredi ${rec.overallGrade})
-Nafasi Darasani: #${rec.positionInClass} kati ya wanafunzi ${rec.totalStudents}
-Tathmini: ${getGradeRemark(rec.overallGrade)}
-Kalenda: ${rec.academicCalendarType}`;
+    const pointsStr = rec.points !== undefined && rec.points !== null ? String(rec.points) : '-';
+    const divStr = rec.division || rec.overallGrade || '-';
+    const remarks = getGradeRemark(rec.overallGrade);
 
-    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    const subjectStrings: string[] = [];
+    if (rec.subjects) {
+      Object.entries(rec.subjects).forEach(([subName, info]) => {
+        subjectStrings.push(`${subName}: ${info.marks}/100 (${info.grade})`);
+      });
+    }
+    const subjectsText = subjectStrings.length > 0 ? subjectStrings.join(', ') : 'None';
+    const streamText = rec.stream ? `Stream ${rec.stream}` : '';
+
+    const text = `HABY EDUPRO - ${schoolInfo.name.toUpperCase()}
+Name: ${rec.studentName} Class: ${rec.className} ${streamText} Year: ${rec.academicYear} Term: ${rec.term} Exam: ${rec.examType}
+${subjectsText}
+Total: ${rec.totalMarks} Avg: ${rec.averageMarks}% Points: ${pointsStr} Div: ${divStr} Pos: ${rec.positionInClass}/${rec.totalStudents} Remarks: ${remarks}`;
+
+    const phoneDigits = (rec.parentPhone || '').replace(/[^0-9]/g, '');
+    const url = phoneDigits
+      ? `https://wa.me/${phoneDigits.startsWith('0') ? '255' + phoneDigits.slice(1) : phoneDigits}?text=${encodeURIComponent(text)}`
+      : `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
 
@@ -249,7 +320,7 @@ Kalenda: ${rec.academicCalendarType}`;
               <div>
                 <h1 className="text-2xl font-black tracking-tight">Examination Records & Academic Ledger</h1>
                 <p className="text-blue-200 text-xs mt-0.5">
-                  Rekodi rasmi za mitihani, madaraja (A/B/C/D/F), uhamisho na mfumo wa ukuzaji (Auto-Promotion)
+                  Official examination records, grades (A/B/C/D/F), NECTA divisions & points, transfers and automatic promotion
                 </p>
               </div>
             </div>
@@ -257,16 +328,16 @@ Kalenda: ${rec.academicCalendarType}`;
             {/* Quick Metrics Bar */}
             <div className="mt-4 flex items-center gap-4 flex-wrap text-xs">
               <div className="px-3 py-1.5 bg-white/10 rounded-xl border border-white/10 backdrop-blur-xs">
-                <span className="text-blue-200 block text-[10px]">Rekodi Zilizosajiliwa:</span>
+                <span className="text-blue-200 block text-[10px]">Registered Records:</span>
                 <strong className="text-white font-black text-sm">{examinationRecords.length}</strong>
               </div>
               <div className="px-3 py-1.5 bg-white/10 rounded-xl border border-white/10 backdrop-blur-xs">
-                <span className="text-blue-200 block text-[10px]">Kalenda ya JAN-DEC (Std 1-7, Form 1-4):</span>
-                <strong className="text-emerald-300 font-bold">{janDecStudentsCount} Wanafunzi</strong>
+                <span className="text-blue-200 block text-[10px]">JAN-DEC Calendar (Std 1-7, Form 1-4):</span>
+                <strong className="text-emerald-300 font-bold">{janDecStudentsCount} Students</strong>
               </div>
               <div className="px-3 py-1.5 bg-white/10 rounded-xl border border-white/10 backdrop-blur-xs">
-                <span className="text-blue-200 block text-[10px]">Kalenda ya JULY-JUNE (Form 5-6):</span>
-                <strong className="text-purple-300 font-bold">{julyJuneStudentsCount} Wanafunzi</strong>
+                <span className="text-blue-200 block text-[10px]">JULY-JUNE Calendar (Form 5-6):</span>
+                <strong className="text-purple-300 font-bold">{julyJuneStudentsCount} Students</strong>
               </div>
             </div>
           </div>
@@ -275,11 +346,21 @@ Kalenda: ${rec.academicCalendarType}`;
           <div className="flex items-center gap-2.5 flex-wrap">
             <button
               type="button"
+              onClick={() => setIsBulkWhatsAppOpen(true)}
+              className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white font-black rounded-xl text-xs shadow-md flex items-center gap-2 transition cursor-pointer active:scale-[0.98] border border-emerald-400"
+              title="Send results to whole class parents via WhatsApp automatically"
+            >
+              <Share2 className="w-4 h-4 text-emerald-200" />
+              <span>Send Bulk Results to WhatsApp (Whole Class)</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setIsHistoryModalOpen(true)}
               className="px-3.5 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold border border-white/20 flex items-center gap-1.5 transition cursor-pointer backdrop-blur-xs"
             >
               <History className="w-4 h-4 text-amber-300" />
-              <span>Logi za Kihistoria ({promotionHistory.length + transferHistory.length})</span>
+              <span>History Logs ({promotionHistory.length + transferHistory.length})</span>
             </button>
 
             <button
@@ -288,7 +369,7 @@ Kalenda: ${rec.academicCalendarType}`;
               className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black rounded-xl text-xs shadow-md flex items-center gap-2 transition cursor-pointer active:scale-[0.98]"
             >
               <Play className="w-4 h-4 fill-slate-950" />
-              <span>Endesha Ukuzaji (Run Promotion Now)</span>
+              <span>Run Promotion Now</span>
             </button>
           </div>
         </div>
@@ -301,16 +382,16 @@ Kalenda: ${rec.academicCalendarType}`;
           {/* Year selector */}
           <div>
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">
-              Mwaka (Year)
+              Academic Year
             </label>
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
             >
-              <option value="All">Miaka Yote (All Years)</option>
+              <option value="All">All Years</option>
               {availableYears.map(yr => (
-                <option key={yr} value={yr}>Mwaka {yr}</option>
+                <option key={yr} value={yr}>Year {yr}</option>
               ))}
             </select>
           </div>
@@ -318,14 +399,14 @@ Kalenda: ${rec.academicCalendarType}`;
           {/* Class selector */}
           <div>
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">
-              Darasa (Class Nursery - Form 6)
+              Class Level (Nursery - Form 6)
             </label>
             <select
               value={selectedClass}
               onChange={(e) => setSelectedClass(e.target.value)}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
             >
-              <option value="All">Madarasa Yote (All Classes)</option>
+              <option value="All">All Classes</option>
               <optgroup label="NURSERY LEVEL">
                 {NURSERY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
               </optgroup>
@@ -341,31 +422,31 @@ Kalenda: ${rec.academicCalendarType}`;
           {/* Term selector */}
           <div>
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">
-              Muhula (Term)
+              Academic Term
             </label>
             <select
               value={selectedTerm}
               onChange={(e) => setSelectedTerm(e.target.value)}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
             >
-              <option value="All">Mihula Yote (All Terms)</option>
-              <option value="Term 1">Term 1 (Muhula wa Kwanza)</option>
-              <option value="Term 2">Term 2 (Muhula wa Pili)</option>
-              <option value="Term 3">Term 3 (Muhula wa Tatu)</option>
+              <option value="All">All Terms</option>
+              <option value="Term 1">Term 1</option>
+              <option value="Term 2">Term 2</option>
+              <option value="Term 3">Term 3</option>
             </select>
           </div>
 
           {/* Exam Type selector */}
           <div>
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">
-              Aina ya Mtihani (Exam Type)
+              Exam Type
             </label>
             <select
               value={selectedExamType}
               onChange={(e) => setSelectedExamType(e.target.value)}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
             >
-              <option value="All">Mitihani Yote (All Types)</option>
+              <option value="All">All Exam Types</option>
               <option value="Monthly">Monthly Test</option>
               <option value="Midterm">Midterm Examination</option>
               <option value="Terminal">Terminal Examination</option>
@@ -376,7 +457,7 @@ Kalenda: ${rec.academicCalendarType}`;
           {/* Search Input */}
           <div>
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">
-              Tafuta (Search Student)
+              Search Candidate
             </label>
             <div className="relative">
               <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -384,7 +465,7 @@ Kalenda: ${rec.academicCalendarType}`;
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Jina au namba..."
+                placeholder="Name or ID..."
                 className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"
               />
             </div>
@@ -395,7 +476,7 @@ Kalenda: ${rec.academicCalendarType}`;
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
           {/* 3 Instant View Toggles */}
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-600">Onyesho (View Mode):</span>
+            <span className="text-xs font-bold text-slate-600">View Mode:</span>
             <div className="flex bg-slate-100 p-1 rounded-xl">
               <button
                 type="button"
@@ -436,38 +517,38 @@ Kalenda: ${rec.academicCalendarType}`;
           {/* Instant Sorting Dropdown */}
           <div className="flex items-center gap-2 self-end sm:self-center">
             <ArrowUpDown className="w-3.5 h-3.5 text-slate-500" />
-            <span className="text-xs font-bold text-slate-600">Panga (Sort):</span>
+            <span className="text-xs font-bold text-slate-600">Sort By:</span>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
               className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
             >
-              <option value="rank_asc">Nafasi (Rank: 1 → Mwisho)</option>
-              <option value="rank_desc">Nafasi (Rank: Mwisho → 1)</option>
-              <option value="name_asc">Jina la Mwanafunzi (A - Z)</option>
-              <option value="name_desc">Jina la Mwanafunzi (Z - A)</option>
-              <option value="avg_desc">Wastani (High - Low)</option>
-              <option value="avg_asc">Wastani (Low - High)</option>
-              <option value="total_desc">Jumla ya Alama (High - Low)</option>
-              <option value="total_asc">Jumla ya Alama (Low - High)</option>
+              <option value="rank_asc">Rank (1 → Last)</option>
+              <option value="rank_desc">Rank (Last → 1)</option>
+              <option value="name_asc">Candidate Name (A - Z)</option>
+              <option value="name_desc">Candidate Name (Z - A)</option>
+              <option value="avg_desc">Average (High - Low)</option>
+              <option value="avg_asc">Average (Low - High)</option>
+              <option value="total_desc">Total Marks (High - Low)</option>
+              <option value="total_asc">Total Marks (Low - High)</option>
             </select>
           </div>
         </div>
 
         {/* Quick Filter Chips: Grade A, B, C, D, F, Top10, Bottom10, Failed */}
         <div className="flex items-center gap-1.5 flex-wrap pt-2">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Vichungi vya Haraka:</span>
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Quick Filters:</span>
           {(
             [
-              { id: 'ALL', label: 'Wote (All)' },
+              { id: 'ALL', label: 'All Candidates' },
               { id: 'A', label: 'Grade A (80-100)', color: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
               { id: 'B', label: 'Grade B (60-79)', color: 'text-blue-700 bg-blue-50 border-blue-200' },
               { id: 'C', label: 'Grade C (45-59)', color: 'text-amber-700 bg-amber-50 border-amber-200' },
               { id: 'D', label: 'Grade D (30-44)', color: 'text-orange-700 bg-orange-50 border-orange-200' },
               { id: 'F', label: 'Grade F (0-29)', color: 'text-rose-700 bg-rose-50 border-rose-200' },
-              { id: 'TOP_10', label: 'Top 10 Bora', color: 'text-purple-700 bg-purple-50 border-purple-200' },
-              { id: 'BOTTOM_10', label: 'Bottom 10', color: 'text-slate-700 bg-slate-100 border-slate-300' },
-              { id: 'FAILED', label: 'Hajafaulu (Failed)', color: 'text-rose-800 bg-rose-100 border-rose-300' }
+              { id: 'TOP_10', label: 'Top 10 Ranked', color: 'text-purple-700 bg-purple-50 border-purple-200' },
+              { id: 'BOTTOM_10', label: 'Bottom 10 Ranked', color: 'text-slate-700 bg-slate-100 border-slate-300' },
+              { id: 'FAILED', label: 'Failed (Grade F)', color: 'text-rose-800 bg-rose-100 border-rose-300' }
             ] as const
           ).map(chip => (
             <button
@@ -486,22 +567,103 @@ Kalenda: ${rec.academicCalendarType}`;
         </div>
       </div>
 
+      {/* Gender-wise Summary Breakdown Card (Item 6) */}
+      <div className="bg-white rounded-2xl p-5 shadow-xs border border-slate-200 space-y-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <div>
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <Award className="w-4 h-4 text-blue-600" />
+              <span>Gender-Wise Performance Summary ({selectedClass !== 'All' ? selectedClass : 'All Levels'})</span>
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Breakdown filled gender-wise per level and stream for NECTA divisions and grade scale
+            </p>
+          </div>
+          <div className="flex items-center gap-3 text-xs font-bold bg-slate-50 border border-slate-200 px-3.5 py-1.5 rounded-xl text-slate-700">
+            <Users className="w-4 h-4 text-blue-600" />
+            <span>Boys: <strong className="text-blue-700">{genderSummary.totalBoys}</strong></span>
+            <span>•</span>
+            <span>Girls: <strong className="text-rose-700">{genderSummary.totalGirls}</strong></span>
+            <span>•</span>
+            <span>Total: <strong className="text-slate-900">{genderSummary.total}</strong></span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* NECTA Division Gender Breakdown */}
+          <div className="p-3.5 rounded-xl border border-blue-200 bg-blue-50/50">
+            <h4 className="text-xs font-black text-[#1f4d8b] uppercase tracking-wider mb-2.5 flex items-center justify-between">
+              <span>NECTA Division by Gender (Secondary)</span>
+              <span className="text-[10px] font-bold text-blue-600">Div I (7-17) → Div 0 (34-35)</span>
+            </h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {(['I', 'II', 'III', 'IV', '0'] as const).map(div => {
+                const item = genderSummary.divBreakdown[div] || { B: 0, G: 0, T: 0 };
+                return (
+                  <div key={div} className="bg-white p-2.5 rounded-xl border border-blue-100 shadow-2xs">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-black text-xs text-blue-900">DIV {div}</span>
+                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-blue-100 text-blue-800">
+                        T={item.T}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] font-bold text-slate-600">
+                      <span className="text-blue-700">B = {item.B}</span>
+                      <span className="text-rose-600">G = {item.G}</span>
+                      <span className="text-slate-900">T = {item.T}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Grade Scale Gender Breakdown */}
+          <div className="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/50">
+            <h4 className="text-xs font-black text-emerald-900 uppercase tracking-wider mb-2.5 flex items-center justify-between">
+              <span>Grade Distribution by Gender (All Levels)</span>
+              <span className="text-[10px] font-bold text-emerald-700">A (80-100) → F (0-29)</span>
+            </h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {(['A', 'B', 'C', 'D', 'F'] as const).map(gr => {
+                const item = genderSummary.gradeBreakdown[gr] || { B: 0, G: 0, T: 0 };
+                return (
+                  <div key={gr} className="bg-white p-2.5 rounded-xl border border-emerald-100 shadow-2xs">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-black text-xs text-emerald-900">GRADE {gr}</span>
+                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800">
+                        T={item.T}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] font-bold text-slate-600">
+                      <span className="text-blue-700">B = {item.B}</span>
+                      <span className="text-rose-600">G = {item.G}</span>
+                      <span className="text-slate-900">T = {item.T}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Main Examination Records Table */}
       <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
         <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <span className="font-black text-slate-800 text-sm">
-              Rekodi za Mitihani ({filteredRecords.length})
+              Examination Records ({filteredRecords.length})
             </span>
             <span className="text-xs text-slate-500">
-              {selectedYear !== 'All' ? `Mwaka ${selectedYear}` : ''} 
+              {selectedYear !== 'All' ? `Year ${selectedYear}` : ''} 
               {selectedClass !== 'All' ? ` • ${selectedClass}` : ''}
               {selectedTerm !== 'All' ? ` • ${selectedTerm}` : ''}
             </span>
           </div>
 
           <div className="text-xs text-slate-500 flex items-center gap-2">
-            <span>Kipimo:</span>
+            <span>Grade Scale:</span>
             <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-bold">A: 80-100</span>
             <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-bold">B: 60-79</span>
             <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded font-bold">C: 45-59</span>
@@ -513,9 +675,9 @@ Kalenda: ${rec.academicCalendarType}`;
         {filteredRecords.length === 0 ? (
           <div className="text-center py-16 text-slate-400">
             <FileSpreadsheet className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-            <p className="text-sm font-bold text-slate-600">Hakuna rekodi zilizopatikana kwa vigezo hivi.</p>
+            <p className="text-sm font-bold text-slate-600">No examination records found matching current filters.</p>
             <p className="text-xs text-slate-400 mt-1">
-              Rekodi zitaingizwa kiotomatiki mara mwalimu au ofisi ya taaluma anapobofya 'Calculate' katika Academic Results.
+              Records are added automatically when academic staff calculate and click 'Release Results to Examination Records'.
             </p>
           </div>
         ) : (
@@ -523,20 +685,20 @@ Kalenda: ${rec.academicCalendarType}`;
             <table className="w-full text-left text-xs border-collapse">
               <thead className="bg-[#1f4d8b] text-white uppercase text-[10px] tracking-wider sticky top-0">
                 <tr>
-                  <th className="p-3 w-12 text-center">Nafasi</th>
-                  <th className="p-3">Mwanafunzi</th>
-                  <th className="p-3">Darasa & Kalenda</th>
-                  <th className="p-3">Muhula & Mtihani</th>
+                  <th className="p-3 w-12 text-center">Rank</th>
+                  <th className="p-3">Student Name</th>
+                  <th className="p-3">Class & Stream</th>
+                  <th className="p-3">Term & Exam</th>
                   {/* Subject headers */}
                   {activeSubjectKeys.slice(0, 6).map(sub => (
                     <th key={sub} className="p-3 text-center truncate max-w-[120px]" title={sub}>
                       {sub.split(' ')[0]}
                     </th>
                   ))}
-                  <th className="p-3 text-center">Jumla</th>
-                  <th className="p-3 text-center">Wastani</th>
-                  <th className="p-3 text-center">Gredi</th>
-                  <th className="p-3 text-center">Vitendo (Actions)</th>
+                  <th className="p-3 text-center">Total</th>
+                  <th className="p-3 text-center">Average</th>
+                  <th className="p-3 text-center">Grade & Division</th>
+                  <th className="p-3 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
@@ -578,7 +740,9 @@ Kalenda: ${rec.academicCalendarType}`;
 
                       {/* Class & Calendar */}
                       <td className="p-3">
-                        <span className="font-bold text-slate-800 block">{rec.className}</span>
+                        <span className="font-bold text-slate-800 block">
+                          {rec.className} {rec.stream ? `(${rec.stream})` : ''}
+                        </span>
                         <span className={`inline-block px-1.5 py-0.2 rounded text-[9px] font-bold ${
                           rec.academicCalendarType === 'JULY-JUNE'
                             ? 'bg-purple-100 text-purple-800'
@@ -637,11 +801,16 @@ Kalenda: ${rec.academicCalendarType}`;
                         </span>
                       </td>
 
-                      {/* Overall Grade */}
+                      {/* Overall Grade & Division */}
                       <td className="p-3 text-center">
-                        <span className={`px-2.5 py-1 rounded-lg font-black text-xs ${gradeStyle.bg}`}>
-                          Gredi {rec.overallGrade}
+                        <span className={`inline-block px-2.5 py-0.5 rounded-lg font-black text-xs ${gradeStyle.bg}`}>
+                          Grade {rec.overallGrade}
                         </span>
+                        {rec.division && (
+                          <span className="block text-[10px] text-blue-700 font-bold mt-0.5">
+                            Div {rec.division} {rec.points !== undefined && rec.points !== null ? `(${rec.points} pts)` : ''}
+                          </span>
+                        )}
                       </td>
 
                       {/* Action buttons */}
@@ -650,29 +819,29 @@ Kalenda: ${rec.academicCalendarType}`;
                           {/* View Report */}
                           <button
                             type="button"
-                            title="Tazama Wasifu wa Mwaka / View Yearly Report"
+                            title="View Yearly Student Profile & Report"
                             onClick={() => setProfileModalStudent(matchingStudent)}
                             className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
                           >
                             <Eye className="w-3.5 h-3.5" />
-                            <span className="hidden md:inline">Ripoti</span>
+                            <span className="hidden md:inline">Report</span>
                           </button>
 
                           {/* Transfer */}
                           <button
                             type="button"
-                            title="Hamisha Mwanafunzi / Transfer Class"
+                            title="Transfer Student to Another Class or Stream"
                             onClick={() => setTransferModalStudent(matchingStudent)}
                             className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
                           >
                             <ArrowRightLeft className="w-3.5 h-3.5" />
-                            <span className="hidden md:inline">Hamisha</span>
+                            <span className="hidden md:inline">Transfer</span>
                           </button>
 
                           {/* WhatsApp */}
                           <button
                             type="button"
-                            title="Tuma Matokeo kwa Mzazi WhatsApp"
+                            title="Send Results to Parent via WhatsApp"
                             onClick={() => handleWhatsAppStudent(rec)}
                             className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition cursor-pointer"
                           >
@@ -688,6 +857,17 @@ Kalenda: ${rec.academicCalendarType}`;
           </div>
         )}
       </div>
+
+      {/* Bulk WhatsApp Modal */}
+      {isBulkWhatsAppOpen && (
+        <BulkWhatsAppModal
+          isOpen={isBulkWhatsAppOpen}
+          onClose={() => setIsBulkWhatsAppOpen(false)}
+          records={filteredRecords}
+          students={students}
+          schoolInfo={schoolInfo}
+        />
+      )}
 
       {/* Modals */}
       {profileModalStudent && (

@@ -1,51 +1,57 @@
 import React, { useState } from 'react';
 import { 
-  ShieldCheck, 
+  Sliders, 
   Clock, 
   Coffee, 
   Utensils, 
   Calendar, 
   CheckCircle2, 
   Save, 
-  Sliders, 
-  AlertCircle,
-  HelpCircle
+  ShieldCheck, 
+  AlertTriangle 
 } from 'lucide-react';
 import { InstitutionalPolicy } from '../../types';
 
 interface InstitutionalPoliciesTabProps {
-  policy: InstitutionalPolicy;
+  policy?: InstitutionalPolicy;
   onUpdatePolicy: (policy: InstitutionalPolicy) => void;
 }
+
+const DEFAULT_POLICY: InstitutionalPolicy = {
+  totalPeriodsPerDay: 8,
+  periodDurationMinutes: 40,
+  breakAfterPeriod: 3,
+  lunchAfterPeriod: 6,
+  workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+  maxPeriodsPerTeacherPerDay: 4,
+  rules: {
+    noTeacherTwoClassesSameTime: true,
+    noClassTwoTeachersSameTime: true,
+    noSameSubjectTwiceSameDay: true,
+  }
+};
 
 export const InstitutionalPoliciesTab: React.FC<InstitutionalPoliciesTabProps> = ({
   policy,
   onUpdatePolicy
 }) => {
-  const [formData, setFormData] = useState<InstitutionalPolicy>({
-    totalPeriodsPerDay: policy.totalPeriodsPerDay || 8,
-    periodDurationMinutes: policy.periodDurationMinutes || 40,
-    breakAfterPeriod: policy.breakAfterPeriod || 2,
-    lunchAfterPeriod: policy.lunchAfterPeriod || 5,
-    workingDays: policy.workingDays || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-    maxPeriodsPerTeacherPerDay: policy.maxPeriodsPerTeacherPerDay || 5,
-    rules: {
-      noTeacherTwoClassesSameTime: policy.rules?.noTeacherTwoClassesSameTime ?? true,
-      noClassTwoTeachersSameTime: policy.rules?.noClassTwoTeachersSameTime ?? true,
-      noSameSubjectTwiceSameDay: policy.rules?.noSameSubjectTwiceSameDay ?? true
-    }
-  });
-
+  const [formData, setFormData] = useState<InstitutionalPolicy>(policy || DEFAULT_POLICY);
   const [savedToast, setSavedToast] = useState(false);
 
   const handleWorkingDaysToggle = (day: string) => {
-    setFormData(prev => {
-      const exists = prev.workingDays.includes(day);
-      const updated = exists 
-        ? prev.workingDays.filter(d => d !== day) 
-        : [...prev.workingDays, day];
-      return { ...prev, workingDays: updated };
-    });
+    if (formData.workingDays.includes(day)) {
+      if (formData.workingDays.length > 1) {
+        setFormData({
+          ...formData,
+          workingDays: formData.workingDays.filter(d => d !== day)
+        });
+      }
+    } else {
+      setFormData({
+        ...formData,
+        workingDays: [...formData.workingDays, day]
+      });
+    }
   };
 
   const handleSave = (e: React.FormEvent) => {
@@ -58,30 +64,30 @@ export const InstitutionalPoliciesTab: React.FC<InstitutionalPoliciesTabProps> =
   return (
     <form onSubmit={handleSave} className="space-y-6">
       {/* Banner */}
-      <div className="bg-gradient-to-r from-[#1f4d8b] to-blue-900 text-white p-5 rounded-2xl flex items-center justify-between shadow-xs">
+      <div className="bg-gradient-to-r from-[#1f4d8b] to-blue-900 text-white p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
             <Sliders className="w-5 h-5 text-amber-300" />
           </div>
           <div>
-            <h2 className="text-base font-black tracking-tight">Sera za Ratiba ya Shule (Institutional Policies)</h2>
-            <p className="text-xs text-blue-200">Weka vigezo vya vipindi, muda wa chai na chakula cha mchana, na sheria za kuzuia migongano</p>
+            <h2 className="text-base font-black tracking-tight">Institutional Timetable Policies</h2>
+            <p className="text-xs text-blue-200">Configure daily periods, break durations, working days, and timetable integrity rules</p>
           </div>
         </div>
 
         <button
           type="submit"
-          className="px-4 py-2.5 bg-amber-400 hover:bg-amber-500 text-slate-950 font-black rounded-xl text-xs shadow-md flex items-center gap-2 transition cursor-pointer active:scale-[0.98]"
+          className="px-4 py-2.5 bg-amber-400 hover:bg-amber-500 text-slate-950 font-black rounded-xl text-xs shadow-md flex items-center gap-2 transition cursor-pointer active:scale-[0.98] w-fit"
         >
           <Save className="w-4 h-4" />
-          <span>Hifadhi Sera (Save Policies)</span>
+          <span>Save Policies</span>
         </button>
       </div>
 
       {savedToast && (
         <div className="p-3.5 bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs rounded-xl flex items-center gap-2 animate-in fade-in">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span className="font-bold">Sera za ratiba ya shule zimehifadhiwa kikamilifu na kuwekwa kwenye injini ya AI!</span>
+          <span className="font-bold">Institutional policies successfully saved and applied to timetable engine!</span>
         </div>
       )}
 
@@ -92,14 +98,14 @@ export const InstitutionalPoliciesTab: React.FC<InstitutionalPoliciesTabProps> =
           <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
             <Clock className="w-4 h-4 text-blue-600" />
             <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-              Mpangilio wa Vipindi kwa Siku (Periods Configuration)
+              Daily Period Configuration
             </h3>
           </div>
 
           <div className="space-y-4">
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1">
-                Jumla ya Vipindi kwa Siku (Total Periods per Day)
+                Total Periods per Day
               </label>
               <div className="flex items-center gap-3">
                 <input
@@ -110,13 +116,13 @@ export const InstitutionalPoliciesTab: React.FC<InstitutionalPoliciesTabProps> =
                   onChange={(e) => setFormData({ ...formData, totalPeriodsPerDay: Number(e.target.value) })}
                   className="w-24 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
                 />
-                <span className="text-xs text-slate-500">Vipindi vya masomo kwa siku (kawaida 8)</span>
+                <span className="text-xs text-slate-500">Periods scheduled per working day (standard 8)</span>
               </div>
             </div>
 
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1">
-                Muda wa Kipindi Kimoja (Period Duration in Minutes)
+                Single Period Duration (Minutes)
               </label>
               <div className="flex items-center gap-3">
                 <input
@@ -127,7 +133,7 @@ export const InstitutionalPoliciesTab: React.FC<InstitutionalPoliciesTabProps> =
                   onChange={(e) => setFormData({ ...formData, periodDurationMinutes: Number(e.target.value) })}
                   className="w-24 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
                 />
-                <span className="text-xs text-slate-500">Dakika (kawaida dakika 40 kwa mtaala wa Tanzania)</span>
+                <span className="text-xs text-slate-500">Minutes per period (standard 40 min)</span>
               </div>
             </div>
 
@@ -135,10 +141,10 @@ export const InstitutionalPoliciesTab: React.FC<InstitutionalPoliciesTabProps> =
               <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-xl">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900 mb-1">
                   <Coffee className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Mapumziko ya Chai (Tea Break)</span>
+                  <span>Morning Tea Break</span>
                 </div>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-slate-600">Baada ya Kipindi:</span>
+                  <span className="text-xs text-slate-600">After Period:</span>
                   <input
                     type="number"
                     min={1}
@@ -153,10 +159,10 @@ export const InstitutionalPoliciesTab: React.FC<InstitutionalPoliciesTabProps> =
               <div className="p-3 bg-orange-50/60 border border-orange-200 rounded-xl">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-orange-900 mb-1">
                   <Utensils className="w-3.5 h-3.5 text-orange-600" />
-                  <span>Mchana (Lunch Break)</span>
+                  <span>Lunch Break</span>
                 </div>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-slate-600">Baada ya Kipindi:</span>
+                  <span className="text-xs text-slate-600">After Period:</span>
                   <input
                     type="number"
                     min={formData.breakAfterPeriod + 1}
@@ -171,7 +177,7 @@ export const InstitutionalPoliciesTab: React.FC<InstitutionalPoliciesTabProps> =
 
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1">
-                Kiwango cha Juu cha Vipindi kwa Mwalimu kwa Siku (Max Periods/Teacher/Day)
+                Maximum Periods per Teacher per Day
               </label>
               <div className="flex items-center gap-3">
                 <input
@@ -182,7 +188,7 @@ export const InstitutionalPoliciesTab: React.FC<InstitutionalPoliciesTabProps> =
                   onChange={(e) => setFormData({ ...formData, maxPeriodsPerTeacherPerDay: Number(e.target.value) })}
                   className="w-24 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
                 />
-                <span className="text-xs text-slate-500">Kuzuia mwalimu kuchoka na kudumisha ubora wa ufundishaji</span>
+                <span className="text-xs text-slate-500">Limits teacher daily load to prevent fatigue</span>
               </div>
             </div>
           </div>
@@ -193,14 +199,14 @@ export const InstitutionalPoliciesTab: React.FC<InstitutionalPoliciesTabProps> =
           <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
             <Calendar className="w-4 h-4 text-emerald-600" />
             <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-              Siku za Kazi na Sheria za AI (Working Days & Conflict Rules)
+              Working Days & Conflict Rules
             </h3>
           </div>
 
           {/* Working Days */}
           <div>
             <label className="text-xs font-bold text-slate-700 block mb-2">
-              Siku za Masomo kwa Wiki (Working Days):
+              Teaching Days per Week:
             </label>
             <div className="grid grid-cols-3 gap-2">
               {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(day => {
@@ -227,17 +233,17 @@ export const InstitutionalPoliciesTab: React.FC<InstitutionalPoliciesTabProps> =
           {/* Mandatory Institutional Rules Toggles */}
           <div className="space-y-3 pt-2">
             <label className="text-xs font-bold text-slate-700 block">
-              Sheria za Lazima za Kuzuia Migongano (Conflict Prevention Rules):
+              Conflict Prevention Rules:
             </label>
 
             {/* Rule 1 */}
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-start justify-between gap-3">
               <div>
                 <span className="font-bold text-xs text-slate-900 block">
-                  1. Hakuna mwalimu anayefundisha madarasa 2 kwa wakati mmoja
+                  1. Teacher Double-Booking Prevention
                 </span>
                 <span className="text-[11px] text-slate-500">
-                  (No teacher teaches 2 classes at the same period)
+                  No teacher is scheduled to teach 2 classes during the same period.
                 </span>
               </div>
               <input
@@ -255,10 +261,10 @@ export const InstitutionalPoliciesTab: React.FC<InstitutionalPoliciesTabProps> =
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-start justify-between gap-3">
               <div>
                 <span className="font-bold text-xs text-slate-900 block">
-                  2. Hakuna darasa lenye walimu 2 kwa wakati mmoja
+                  2. Classroom Collision Prevention
                 </span>
                 <span className="text-[11px] text-slate-500">
-                  (No class has 2 teachers or subjects at the same period)
+                  No classroom stream has 2 teachers or subjects assigned at the same period.
                 </span>
               </div>
               <input
@@ -276,10 +282,10 @@ export const InstitutionalPoliciesTab: React.FC<InstitutionalPoliciesTabProps> =
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-start justify-between gap-3">
               <div>
                 <span className="font-bold text-xs text-slate-900 block">
-                  3. Somo moja halifundishwi mara mbili siku moja katika darasa moja
+                  3. Subject Daily Spread Rule
                 </span>
                 <span className="text-[11px] text-slate-500">
-                  (Same subject not scheduled twice in the same day unless double period)
+                  The same subject is not scheduled twice on the same day unless booked as a double period.
                 </span>
               </div>
               <input

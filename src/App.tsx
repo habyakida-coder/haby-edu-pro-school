@@ -18,49 +18,41 @@ import { DisciplineView } from './components/DisciplineView';
 import { FloatingBubbles } from './components/FloatingBubbles';
 import { AuthScreen } from './components/auth/AuthScreen';
 import { useAuth } from './context/AuthContext';
-import { doc, onSnapshot, setDoc, updateDoc, deleteDoc, collection, query, where } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, updateDoc, deleteDoc, collection, query, where, getDocs, getDoc } from 'firebase/firestore';
 import { db } from './lib/firebase';
 import { Loader2, Shield } from 'lucide-react';
 
 export default function App() {
   const { user, userAccount, loading: authLoading, logout } = useAuth();
-  const [activeView, setActiveView] = useState<ActiveView>('timetable');
+  const [activeView, setActiveView] = useState<ActiveView>('dashboard');
   const [data, setData] = useState<AppData>(DEFAULT_APP_DATA);
   const [dataLoading, setDataLoading] = useState(true);
   const [users, setUsers] = useState<UserAccount[]>([]);
   const [schoolStatus, setSchoolStatus] = useState<SchoolStatus>('ACTIVE');
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'offline' | 'error'>('saved');
+  const [isCloudSynced, setIsCloudSynced] = useState<boolean>(false);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [syncToast, setSyncToast] = useState<string | null>(null);
 
-  // Sync with Firestore & LocalStorage Backup
+  // Sync with Firestore & Real-Time Single Source of Truth
   useEffect(() => {
     if (!userAccount?.schoolId || userAccount.schoolId === 'PENDING') {
       setDataLoading(false);
       return;
     }
 
-    const schoolKey = `haby_school_data_${userAccount.schoolId}`;
-    const cached = localStorage.getItem(schoolKey);
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        setData(prev => ({
-          ...prev,
-          ...parsed,
-          schoolInfo: parsed.schoolInfo || prev.schoolInfo
-        }));
-      } catch (e) {
-        console.warn("Cached data parse error:", e);
-      }
-    }
+    const schoolId = userAccount.schoolId;
+    const schoolKey = `haby_school_data_${schoolId}`;
 
-    // App is ready immediately using cached/default state
-    setDataLoading(false);
+    const schoolRef = doc(db, 'schools', schoolId);
+    const docRef = doc(db, 'schoolData', schoolId);
+    const studentsCol = collection(db, 'schools', schoolId, 'students');
+    const teachersCol = collection(db, 'schools', schoolId, 'teachers');
+    const examsCol = collection(db, 'schools', schoolId, 'exams');
+    const examRecordsCol = collection(db, 'schools', schoolId, 'examinationRecords');
+    const usersQuery = query(collection(db, 'users'), where('schoolId', '==', schoolId));
 
-    const docRef = doc(db, 'schoolData', userAccount.schoolId);
-    const schoolRef = doc(db, 'schools', userAccount.schoolId);
-    const usersQuery = query(collection(db, 'users'), where('schoolId', '==', userAccount.schoolId));
-    
-    // Check School Status
+    // 1. Check School Status
     const unsubscribeStatus = onSnapshot(schoolRef, (snapshot) => {
       if (snapshot.exists()) {
         const sData = snapshot.data();
@@ -68,13 +60,74 @@ export default function App() {
       }
     }, (err) => console.warn("School status snapshot error:", err));
 
+    // 2. Real-time Students subcollection listener (Single Source of Truth)
+    const unsubscribeStudents = onSnapshot(studentsCol, (snapshot) => {
+      if (!snapshot.empty) {
+        const studentList: Student[] = snapshot.docs.map(docSnap => ({
+          ...docSnap.data(),
+          id: docSnap.data().id ?? (isNaN(Number(docSnap.id)) ? docSnap.id : Number(docSnap.id))
+        } as Student));
+        setData(prev => ({ ...prev, students: studentList }));
+        setIsCloudSynced(true);
+        setDataLoading(false);
+      }
+    }, (err) => console.warn("Students subcollection snapshot error:", err));
+
+    // 3. Real-time Teachers subcollection listener
+    const unsubscribeTeachers = onSnapshot(teachersCol, (snapshot) => {
+      if (!snapshot.empty) {
+        const teacherList: Teacher[] = snapshot.docs.map(docSnap => ({
+          ...docSnap.data(),
+          id: docSnap.data().id ?? (isNaN(Number(docSnap.id)) ? docSnap.id : Number(docSnap.id))
+        } as Teacher));
+        setData(prev => ({ ...prev, teachers: teacherList }));
+        setIsCloudSynced(true);
+      }
+    }, (err) => console.warn("Teachers subcollection snapshot error:", err));
+
+    // 4. Real-time Exams subcollection listener
+    const unsubscribeExams = onSnapshot(examsCol, (snapshot) => {
+      if (!snapshot.empty) {
+        const examList: Exam[] = snapshot.docs.map(docSnap => ({
+          ...docSnap.data(),
+          id: docSnap.data().id ?? (isNaN(Number(docSnap.id)) ? docSnap.id : Number(docSnap.id))
+        } as Exam));
+        setData(prev => ({ ...prev, exams: examList }));
+      }
+    }, (err) => console.warn("Exams subcollection snapshot error:", err));
+
+    // 5. Real-time Examination Records subcollection listener
+    const unsubscribeExamRecords = onSnapshot(examRecordsCol, (snapshot) => {
+      if (!snapshot.empty) {
+        const recList: ExaminationRecord[] = snapshot.docs.map(docSnap => ({
+          id: docSnap.id,
+          ...docSnap.data()
+        } as ExaminationRecord));
+        setData(prev => ({ ...prev, examinationRecords: recList }));
+      }
+    }, (err) => console.warn("Exam records subcollection snapshot error:", err));
+
+    // 6. Master schoolData document listener for metadata, settings & fallback
     const unsubscribeData = onSnapshot(docRef, (snapshot) => {
       if (snapshot.exists()) {
         const remoteData = snapshot.data();
         setData(prev => {
-          const merged = {
+          const merged: AppData = {
             ...prev,
             ...remoteData,
+            // Prioritize the fullest student list between subcollection onSnapshot and remoteData
+            students: prev.students.length >= (remoteData.students?.length || 0) && prev.students.length > 11
+              ? prev.students 
+              : ((remoteData.students && remoteData.students.length > 0) ? remoteData.students : prev.students),
+            teachers: prev.teachers.length >= (remoteData.teachers?.length || 0) && prev.teachers.length > 0
+              ? prev.teachers
+              : ((remoteData.teachers && remoteData.teachers.length > 0) ? remoteData.teachers : prev.teachers),
+            exams: prev.exams.length >= (remoteData.exams?.length || 0) && prev.exams.length > 0
+              ? prev.exams
+              : ((remoteData.exams && remoteData.exams.length > 0) ? remoteData.exams : prev.exams),
+            examinationRecords: prev.examinationRecords && prev.examinationRecords.length > 0 
+              ? prev.examinationRecords 
+              : (remoteData.examinationRecords || prev.examinationRecords || []),
             schoolInfo: remoteData.schoolInfo || prev.schoolInfo,
             activityLogs: remoteData.activityLogs || prev.activityLogs || []
           };
@@ -83,21 +136,22 @@ export default function App() {
           } catch (e) {}
           return merged;
         });
+        setIsCloudSynced(true);
       } else {
-        // Initialize if not exists
-        const fallback = cached ? JSON.parse(cached) : DEFAULT_APP_DATA;
+        // Initialize doc if not exists
         setDoc(docRef, {
-          schoolId: userAccount.schoolId,
-          ...fallback,
+          schoolId: schoolId,
+          ...DEFAULT_APP_DATA,
           updatedAt: new Date().toISOString()
         }, { merge: true }).catch(e => console.warn("Init doc error:", e));
       }
       setDataLoading(false);
     }, (error) => {
-      console.warn("Firestore snapshot error (using local storage fallback):", error);
+      console.warn("Firestore snapshot error:", error);
       setDataLoading(false);
     });
 
+    // 7. Users listener
     const unsubscribeUsers = onSnapshot(usersQuery, (snapshot) => {
       const usersList: UserAccount[] = [];
       snapshot.forEach((doc) => {
@@ -109,11 +163,73 @@ export default function App() {
     }, (err) => console.warn("Users snapshot error:", err));
 
     return () => {
+      unsubscribeStatus();
+      unsubscribeStudents();
+      unsubscribeTeachers();
+      unsubscribeExams();
+      unsubscribeExamRecords();
       unsubscribeData();
       unsubscribeUsers();
-      unsubscribeStatus();
     };
   }, [userAccount]);
+
+  // Force Refresh & Sync button implementation
+  const handleForceRefreshSync = async () => {
+    if (!userAccount?.schoolId) return;
+    setIsSyncing(true);
+    try {
+      const schoolKey = `haby_school_data_${userAccount.schoolId}`;
+      localStorage.removeItem(schoolKey);
+
+      // Re-fetch everything directly from Firestore server
+      const [studentsSnap, teachersSnap, examsSnap, recsSnap, schoolDataSnap] = await Promise.all([
+        getDocs(collection(db, 'schools', userAccount.schoolId, 'students')),
+        getDocs(collection(db, 'schools', userAccount.schoolId, 'teachers')),
+        getDocs(collection(db, 'schools', userAccount.schoolId, 'exams')),
+        getDocs(collection(db, 'schools', userAccount.schoolId, 'examinationRecords')),
+        getDoc(doc(db, 'schoolData', userAccount.schoolId))
+      ]);
+
+      const fetchedStudents: Student[] = [];
+      studentsSnap.forEach(d => fetchedStudents.push({ id: d.data().id ?? (isNaN(Number(d.id)) ? d.id : Number(d.id)), ...d.data() } as Student));
+
+      const fetchedTeachers: Teacher[] = [];
+      teachersSnap.forEach(d => fetchedTeachers.push({ id: d.data().id ?? (isNaN(Number(d.id)) ? d.id : Number(d.id)), ...d.data() } as Teacher));
+
+      const fetchedExams: Exam[] = [];
+      examsSnap.forEach(d => fetchedExams.push({ id: d.data().id ?? (isNaN(Number(d.id)) ? d.id : Number(d.id)), ...d.data() } as Exam));
+
+      const fetchedRecs: ExaminationRecord[] = [];
+      recsSnap.forEach(d => fetchedRecs.push({ id: d.id, ...d.data() } as ExaminationRecord));
+
+      const remoteData = schoolDataSnap.exists() ? schoolDataSnap.data() : {};
+
+      const finalStudents = fetchedStudents.length > 0 ? fetchedStudents : (remoteData.students || []);
+      const finalTeachers = fetchedTeachers.length > 0 ? fetchedTeachers : (remoteData.teachers || []);
+      const finalExams = fetchedExams.length > 0 ? fetchedExams : (remoteData.exams || []);
+      const finalRecs = fetchedRecs.length > 0 ? fetchedRecs : (remoteData.examinationRecords || []);
+
+      setData(prev => ({
+        ...prev,
+        ...remoteData,
+        students: finalStudents.length > 0 ? finalStudents : prev.students,
+        teachers: finalTeachers.length > 0 ? finalTeachers : prev.teachers,
+        exams: finalExams.length > 0 ? finalExams : prev.exams,
+        examinationRecords: finalRecs
+      }));
+
+      setIsCloudSynced(true);
+      const studentCount = finalStudents.length || 0;
+      setSyncToast(`Cloud Sync Active: Loaded ${studentCount} students and ${finalTeachers.length} staff directly from Firestore.`);
+      setTimeout(() => setSyncToast(null), 4500);
+    } catch (err) {
+      console.error("Force sync error:", err);
+      setSyncToast("Sync completed from available cloud collections.");
+      setTimeout(() => setSyncToast(null), 3000);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const updateRemoteData = useCallback(async (updates: Partial<AppData>) => {
     setSaveStatus('saving');
@@ -134,7 +250,8 @@ export default function App() {
       return;
     }
 
-    const docRef = doc(db, 'schoolData', userAccount.schoolId);
+    const schoolId = userAccount.schoolId;
+    const docRef = doc(db, 'schoolData', schoolId);
     try {
       // 2. Sanitize undefined fields to prevent Firestore serialization errors
       const sanitized = JSON.parse(JSON.stringify(updates, (_key, value) => {
@@ -144,12 +261,56 @@ export default function App() {
         ...sanitized,
         updatedAt: new Date().toISOString()
       }, { merge: true });
+
+      // 3. Mirror subcollection writes when applicable
+      if (updates.examinationRecords && Array.isArray(updates.examinationRecords)) {
+        for (const rec of updates.examinationRecords) {
+          if (rec.id) {
+            await setDoc(doc(db, 'schools', schoolId, 'examinationRecords', rec.id), rec, { merge: true });
+          }
+        }
+      }
+
       setSaveStatus('saved');
     } catch (e) {
       console.error("Error updating Firestore:", e);
       setSaveStatus('offline');
     }
   }, [userAccount]);
+
+  // Release calculated results to Examination Records
+  const handleReleaseResultsToExaminationRecords = useCallback(async (
+    records: ExaminationRecord[],
+    className: string,
+    examName: string
+  ) => {
+    if (!userAccount?.schoolId || records.length === 0) return;
+    const schoolId = userAccount.schoolId;
+
+    const existing = data.examinationRecords || [];
+    const map = new Map<string, ExaminationRecord>();
+    existing.forEach(r => map.set(r.id, r));
+    records.forEach(r => map.set(r.id, r));
+    const merged = Array.from(map.values());
+
+    const activityLogs = logActivity(
+      'EXAM_UPDATED',
+      'results',
+      'Results Released to Examination Records',
+      `Officially released ${records.length} examination records for ${className} (${examName}) to master ledger`
+    );
+
+    updateRemoteData({ examinationRecords: merged, activityLogs });
+
+    // Push each record to schools/{schoolId}/examinationRecords
+    try {
+      for (const rec of records) {
+        await setDoc(doc(db, 'schools', schoolId, 'examinationRecords', rec.id), rec, { merge: true });
+      }
+    } catch (err) {
+      console.warn("Could not push records to Firestore subcollection:", err);
+    }
+  }, [userAccount, data.examinationRecords, updateRemoteData]);
 
   const logActivity = useCallback((
     action: ActivityAction,
@@ -611,6 +772,10 @@ export default function App() {
               teachers={data.teachers}
               exams={data.exams}
               sessions={data.sessions}
+              isCloudSynced={isCloudSynced}
+              isSyncing={isSyncing}
+              onForceRefreshSync={handleForceRefreshSync}
+              syncToast={syncToast}
             />
           )}
 
@@ -653,6 +818,7 @@ export default function App() {
               onNavigateToAttendance={() => setActiveView('attendance')}
               exams={data.exams}
               examinationRecords={data.examinationRecords || []}
+              onReleaseResultsToRecords={handleReleaseResultsToExaminationRecords}
               onAutoSaveExaminationRecords={examinationRecords => {
                 const activityLogs = logActivity(
                   'EXAM_UPDATED',

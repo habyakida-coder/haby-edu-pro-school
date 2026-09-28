@@ -341,6 +341,9 @@ export interface ExaminationRecord {
   studentId: number;
   studentName: string;
   className: string;
+  stream?: string;
+  gender?: string;
+  parentPhone?: string;
   academicYear: string; // e.g. "2026"
   academicCalendarType: AcademicCalendarType;
   term: ExamTerm;
@@ -349,6 +352,8 @@ export interface ExaminationRecord {
   totalMarks: number;
   averageMarks: number;
   overallGrade: 'A' | 'B' | 'C' | 'D' | 'F';
+  division?: string;
+  points?: number | null;
   positionInClass: number;
   totalStudents: number;
   createdAt: string;

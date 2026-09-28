@@ -253,27 +253,27 @@ export const AIGenerateByLevelModal: React.FC<AIGenerateByLevelModalProps> = ({
           {/* Level Selector */}
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-              1. Chagua Ngazi ya Shule ya Kutengeneza Ratiba (Select Level):
+              1. Select Academic Level to Generate Timetable:
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
                 { 
                   id: 'NURSERY', 
                   label: 'NURSERY LEVEL', 
-                  desc: 'Awali & Nursery', 
+                  desc: 'Pre-Primary & Nursery', 
                   streams: 'Nursery, Baby Class, Middle, Pre-Unit' 
                 },
                 { 
                   id: 'PRIMARY', 
                   label: 'PRIMARY LEVEL', 
-                  desc: 'Standard 1 hadi 7', 
-                  streams: 'Standard 1-7 (Mikondo A, B, C)' 
+                  desc: 'Standard 1 to 7', 
+                  streams: 'Standard 1-7 (Streams A, B, C)' 
                 },
                 { 
                   id: 'SECONDARY', 
                   label: 'SECONDARY LEVEL', 
-                  desc: 'Form 1 hadi 6', 
-                  streams: 'Form 1-4 (Mikondo A, B) & High School' 
+                  desc: 'Form 1 to 6', 
+                  streams: 'Form 1-4 (Streams A, B) & High School' 
                 }
               ].map(lvl => (
                 <button
@@ -304,24 +304,24 @@ export const AIGenerateByLevelModal: React.FC<AIGenerateByLevelModalProps> = ({
           <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
             <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              Sera na Vigezo vya AI vitakavyozingatiwa:
+              Applied AI Policies and Constraints:
             </span>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
               <div className="p-2.5 bg-white rounded-xl border border-slate-200">
-                <span className="text-[10px] text-slate-400 block font-bold">Mikondo ya Ngazi Hii:</span>
-                <span className="font-black text-slate-900 text-sm">{levelStreamList.length} Mikondo</span>
+                <span className="text-[10px] text-slate-400 block font-bold">Level Streams:</span>
+                <span className="font-black text-slate-900 text-sm">{levelStreamList.length} Streams</span>
               </div>
               <div className="p-2.5 bg-white rounded-xl border border-slate-200">
-                <span className="text-[10px] text-slate-400 block font-bold">Vipindi kwa Siku:</span>
-                <span className="font-black text-slate-900 text-sm">{totalPeriods} Vipindi (dak 40)</span>
+                <span className="text-[10px] text-slate-400 block font-bold">Periods per Day:</span>
+                <span className="font-black text-slate-900 text-sm">{totalPeriods} Periods (40 min)</span>
               </div>
               <div className="p-2.5 bg-white rounded-xl border border-slate-200">
-                <span className="text-[10px] text-slate-400 block font-bold">Siku za Kazi:</span>
-                <span className="font-black text-slate-900 text-sm">{workingDays.length} Siku</span>
+                <span className="text-[10px] text-slate-400 block font-bold">Working Days:</span>
+                <span className="font-black text-slate-900 text-sm">{workingDays.length} Days</span>
               </div>
               <div className="p-2.5 bg-white rounded-xl border border-slate-200">
-                <span className="text-[10px] text-slate-400 block font-bold">Kiwango cha Mwalimu:</span>
-                <span className="font-black text-slate-900 text-sm">Max {maxTeacherDaily}/siku</span>
+                <span className="text-[10px] text-slate-400 block font-bold">Teacher Daily Limit:</span>
+                <span className="font-black text-slate-900 text-sm">Max {maxTeacherDaily}/day</span>
               </div>
             </div>
           </div>

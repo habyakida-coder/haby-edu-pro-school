@@ -47,116 +47,78 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const fetchOrCreateUserAccount = async (fbUser: FirebaseUser) => {
     const normEmail = fbUser.email?.toLowerCase() || '';
     const isAdmin = normEmail === ADMIN_EMAIL || normEmail === 'habibuakida@gmail.com';
-
-    // Instant resolution for admin to avoid slow/uninitialized Firestore hanging
-    if (isAdmin) {
-      const adminAccount: UserAccount = {
-        id: fbUser.uid,
-        email: fbUser.email || ADMIN_EMAIL,
-        fullName: 'Administrator (Dr. Habibu Akida)',
-        role: 'HEADMASTER',
-        schoolId: 'KIOMONI_SEC',
-        isSuperAdmin: true
-      };
-      sessionStorage.setItem('haby_demo_user', JSON.stringify(adminAccount));
-      setUserAccount(adminAccount);
-      setLoading(false);
-      return;
-    }
+    const isSuperAdmin = isAdmin || normEmail === 'habibuakida@gmail.com';
 
     try {
+      // 1. Check users doc by UID first
       const userRef = doc(db, 'users', fbUser.uid);
-      const userDoc = await getDoc(userRef);
+      let userDoc = await getDoc(userRef);
 
-      const SUPER_ADMIN_EMAIL = 'habibuakida@gmail.com';
-      const isSuperAdmin = fbUser.email?.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
+      // 2. If not found by UID, check if user exists by email
+      if (!userDoc.exists() && normEmail) {
+        const usersByEmail = await getDocs(query(collection(db, 'users'), where('email', '==', normEmail)));
+        if (!usersByEmail.empty) {
+          userDoc = usersByEmail.docs[0];
+        }
+      }
 
       if (userDoc.exists()) {
         const data = userDoc.data();
+        const resolvedSchoolId = data.schoolId || (isAdmin ? 'DEMO_SCHOOL' : 'DEFAULT_SCHOOL');
         const account: UserAccount = {
           id: fbUser.uid,
-          email: fbUser.email || '',
-          fullName: data.fullName || fbUser.displayName || 'Authorized User',
+          email: fbUser.email || normEmail,
+          fullName: data.fullName || fbUser.displayName || (isAdmin ? 'Administrator (Dr. Habibu Akida)' : 'Authorized User'),
           role: data.role || (isSuperAdmin ? 'HEADMASTER' : 'ACADEMIC'),
-          schoolId: data.schoolId || 'DEFAULT_SCHOOL',
+          schoolId: resolvedSchoolId,
           isSuperAdmin: data.isSuperAdmin ?? isSuperAdmin
         };
+
+        // Update user record with current UID & last login timestamp
+        await setDoc(userRef, {
+          ...account,
+          schoolId: resolvedSchoolId,
+          lastLoginAt: serverTimestamp()
+        }, { merge: true });
+
+        sessionStorage.setItem('haby_demo_user', JSON.stringify(account));
         setUserAccount(account);
-      } else {
-        // Auto-bootstrap profile
-        let schoolId = '';
-        try {
-          const schoolsSnap = await getDocs(collection(db, 'schools'));
-          if (!schoolsSnap.empty) {
-            schoolId = schoolsSnap.docs[0].id;
-          } else {
-            const schoolRef = await addDoc(collection(db, 'schools'), {
-              name: 'KIOMONI SECONDARY SCHOOL',
-              createdAt: serverTimestamp(),
-              adminUid: fbUser.uid,
-              status: 'ACTIVE'
-            });
-            schoolId = schoolRef.id;
-
-            await setDoc(doc(db, 'schoolData', schoolId), {
-              schoolId,
-              schoolInfo: {
-                name: 'KIOMONI SECONDARY SCHOOL',
-                address: 'P.O. Box 1234, Tanga, Tanzania',
-                phone: '+255 754 000 111',
-                email: 'info@kiomonisec.ac.tz',
-                motto: 'Education for Development & Integrity',
-                principal: 'Dr. H. Akida'
-              },
-              teachers: [],
-              students: [],
-              timetableAssignments: [],
-              periodSettings: [],
-              streamSettings: [],
-              invigilationAssignments: {},
-              sessions: [],
-              supervisors: [],
-              selectedInvigilators: [],
-              activityLogs: [],
-              updatedAt: serverTimestamp()
-            });
-          }
-        } catch (e) {
-          console.warn("Could not query/create schools in Firestore:", e);
-          schoolId = 'KIOMONI_SEC';
-        }
-
-        const newAccount: UserAccount = {
-          id: fbUser.uid,
-          email: fbUser.email || '',
-          fullName: fbUser.displayName || (isSuperAdmin ? 'Dr. Habibu Akida' : 'Academic Master'),
-          role: isSuperAdmin ? 'HEADMASTER' : 'ACADEMIC',
-          schoolId: schoolId || 'DEFAULT_SCHOOL',
-          isSuperAdmin: isSuperAdmin
-        };
-
-        try {
-          await setDoc(userRef, {
-            ...newAccount,
-            createdAt: serverTimestamp()
-          });
-        } catch (e) {
-          console.warn("Could not write users doc:", e);
-        }
-
-        setUserAccount(newAccount);
+        setLoading(false);
+        return;
       }
+
+      // If user doc doesn't exist yet, bootstrap with DEMO_SCHOOL where candidate records exist
+      const schoolId = 'DEMO_SCHOOL';
+      const newAccount: UserAccount = {
+        id: fbUser.uid,
+        email: fbUser.email || normEmail,
+        fullName: fbUser.displayName || (isAdmin ? 'Administrator (Dr. Habibu Akida)' : 'Academic Master'),
+        role: isSuperAdmin ? 'HEADMASTER' : 'ACADEMIC',
+        schoolId,
+        isSuperAdmin
+      };
+
+      await setDoc(userRef, {
+        ...newAccount,
+        createdAt: serverTimestamp()
+      }, { merge: true });
+
+      sessionStorage.setItem('haby_demo_user', JSON.stringify(newAccount));
+      setUserAccount(newAccount);
     } catch (error) {
       console.error("Error fetching or creating user account:", error);
-      // Fallback user account
-      setUserAccount({
+      const fallbackAccount: UserAccount = {
         id: fbUser.uid,
-        email: fbUser.email || '',
-        fullName: fbUser.displayName || 'Authorized User',
-        role: fbUser.email?.toLowerCase() === 'habibuakida@gmail.com' ? 'HEADMASTER' : 'ACADEMIC',
-        schoolId: 'DEFAULT_SCHOOL',
-        isSuperAdmin: fbUser.email?.toLowerCase() === 'habibuakida@gmail.com'
-      });
+        email: fbUser.email || normEmail,
+        fullName: fbUser.displayName || (isAdmin ? 'Administrator (Dr. Habibu Akida)' : 'Authorized User'),
+        role: isSuperAdmin ? 'HEADMASTER' : 'ACADEMIC',
+        schoolId: 'DEMO_SCHOOL',
+        isSuperAdmin
+      };
+      sessionStorage.setItem('haby_demo_user', JSON.stringify(fallbackAccount));
+      setUserAccount(fallbackAccount);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -208,7 +170,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           email: ADMIN_EMAIL,
           fullName: 'Administrator (Dr. Habibu Akida)',
           role: 'HEADMASTER',
-          schoolId: 'KIOMONI_SEC',
+          schoolId: 'DEMO_SCHOOL',
           isSuperAdmin: true
         };
         sessionStorage.setItem('haby_demo_user', JSON.stringify(superAdminAccount));
@@ -245,7 +207,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
 
-        const schoolId = 'KIOMONI_SEC';
+        // Fetch real schoolId from users collection if exists
+        let schoolId = 'DEMO_SCHOOL';
+        try {
+          const uSnap = await getDocs(query(collection(db, 'users'), where('email', '==', normalizedEmail)));
+          if (!uSnap.empty && uSnap.docs[0].data().schoolId) {
+            schoolId = uSnap.docs[0].data().schoolId;
+          }
+        } catch (e) {
+          console.warn("Could not query admin user doc:", e);
+        }
 
         const adminAccount: UserAccount = {
           id: fbUser?.uid || 'admin_haby_root',
@@ -343,6 +314,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     sessionStorage.setItem('haby_demo_user', JSON.stringify(updated));
     setUserAccount(updated);
+
+    try {
+      if (userAccount.id && userAccount.id !== 'admin_haby_root') {
+        await setDoc(doc(db, 'users', userAccount.id), { schoolId }, { merge: true });
+      }
+    } catch (e) {
+      console.warn("Could not sync schoolId to Firestore user doc:", e);
+    }
   };
 
   const loginAsDemo = (role: UserRole) => {
@@ -352,7 +331,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: ADMIN_EMAIL,
         fullName: 'Administrator (Dr. Habibu Akida)',
         role: 'HEADMASTER',
-        schoolId: 'KIOMONI_SEC',
+        schoolId: 'DEMO_SCHOOL',
         isSuperAdmin: true
       },
       ACADEMIC: {

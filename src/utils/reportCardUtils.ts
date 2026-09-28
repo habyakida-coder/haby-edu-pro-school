@@ -99,7 +99,7 @@ export function getPrimarySubjectGradeInfo(score: number): PrimaryGradeInfo {
       grade: 'C',
       points: 3,
       remark: 'Average / Pass',
-      swahiliRemark: 'Wastani (Amefaulu)',
+      swahiliRemark: 'Average (Pass)',
       color: '#0369a1', // sky-700
       bg: '#e0f2fe',
       border: '#7dd3fc'
@@ -111,7 +111,7 @@ export function getPrimarySubjectGradeInfo(score: number): PrimaryGradeInfo {
       grade: 'D',
       points: 4,
       remark: 'Weak / Below Average',
-      swahiliRemark: 'Hafifu (Chini ya Wastani)',
+      swahiliRemark: 'Below Average',
       color: '#b45309', // amber-700
       bg: '#fef3c7',
       border: '#fcd34d'
@@ -122,7 +122,7 @@ export function getPrimarySubjectGradeInfo(score: number): PrimaryGradeInfo {
     grade: 'E',
     points: 5,
     remark: 'Fail',
-    swahiliRemark: 'Hafifu Sana (Amefeli)',
+    swahiliRemark: 'Fail',
     color: '#b91c1c', // red-700
     bg: '#fee2e2',
     border: '#fca5a5'
@@ -157,12 +157,12 @@ export function calculatePrimaryScoreResult(marks: Record<string, number | undef
       maxPossibleTotal: 0,
       average: 0,
       overallGrade: 'E',
-      gradeLabel: 'DARAJA -',
+      gradeLabel: 'GRADE -',
       passStatus: 'HAJAFAULU',
-      passStatusLabel: 'HAKUNA MATOKEO',
+      passStatusLabel: 'NO RESULTS',
       gpa: 0,
       scoredSubjectsCount: 0,
-      description: 'Hakuna alama zilizorekodiwa'
+      description: 'No scores recorded'
     };
   }
 
@@ -172,28 +172,28 @@ export function calculatePrimaryScoreResult(marks: Record<string, number | undef
 
   let overallGrade: 'A' | 'B' | 'C' | 'D' | 'E' = 'E';
   let passStatus: 'AMEFAULU' | 'HAJAFAULU' = 'HAJAFAULU';
-  let passStatusLabel = 'HAJAFAULU (FAILED)';
+  let passStatusLabel = 'FAILED';
 
   if (average >= 81) {
     overallGrade = 'A';
     passStatus = 'AMEFAULU';
-    passStatusLabel = 'AMEFAULU (DISTINCTION)';
+    passStatusLabel = 'PASSED (DISTINCTION)';
   } else if (average >= 61) {
     overallGrade = 'B';
     passStatus = 'AMEFAULU';
-    passStatusLabel = 'AMEFAULU (VERY GOOD)';
+    passStatusLabel = 'PASSED (VERY GOOD)';
   } else if (average >= 41) {
     overallGrade = 'C';
     passStatus = 'AMEFAULU';
-    passStatusLabel = 'AMEFAULU (PASS)';
+    passStatusLabel = 'PASSED';
   } else if (average >= 21) {
     overallGrade = 'D';
     passStatus = 'HAJAFAULU';
-    passStatusLabel = 'HAJAFAULU (WEAK)';
+    passStatusLabel = 'FAILED (WEAK)';
   } else {
     overallGrade = 'E';
     passStatus = 'HAJAFAULU';
-    passStatusLabel = 'HAJAFAULU (FAIL)';
+    passStatusLabel = 'FAILED';
   }
 
   const totalPoints = validEntries.reduce((sum, item) => sum + getPrimarySubjectGradeInfo(item.score).points, 0);
@@ -204,12 +204,12 @@ export function calculatePrimaryScoreResult(marks: Record<string, number | undef
     maxPossibleTotal,
     average,
     overallGrade,
-    gradeLabel: `DARAJA ${overallGrade}`,
+    gradeLabel: `GRADE ${overallGrade}`,
     passStatus,
     passStatusLabel,
     gpa,
     scoredSubjectsCount: count,
-    description: `Jumla: ${total}/${maxPossibleTotal} • Wastani: ${average}% (${overallGrade}) • ${passStatus}`
+    description: `Total: ${total}/${maxPossibleTotal} • Average: ${average}% (${overallGrade}) • ${passStatus === 'AMEFAULU' ? 'PASS' : 'FAIL'}`
   };
 }
 
@@ -316,13 +316,13 @@ export function calculateOLevelDivision(marks: Record<string, number | undefined
 
   const scoredSubjectsCount = validScores.length;
 
-  if (scoredSubjectsCount < 7) {
+  if (scoredSubjectsCount === 0) {
     return {
       division: 'INCOMPLETE',
-      divisionLabel: 'INCOMPLETE',
+      divisionLabel: '-',
       points: null,
-      scoredSubjectsCount,
-      description: `Incomplete Result (${scoredSubjectsCount} of 7 required subjects entered)`
+      scoredSubjectsCount: 0,
+      description: 'No scores recorded'
     };
   }
 
@@ -331,8 +331,14 @@ export function calculateOLevelDivision(marks: Record<string, number | undefined
   // Sort ascending: lowest points first = best performance
   pointsList.sort((a, b) => a - b);
 
+  // If fewer than 7 subjects scored, fill missing subjects up to 7 with Grade F (5 points) per standard NECTA regulations
+  const paddedList = [...pointsList];
+  while (paddedList.length < 7) {
+    paddedList.push(5);
+  }
+
   // Take the Best 7 subjects
-  const best7 = pointsList.slice(0, 7);
+  const best7 = paddedList.slice(0, 7);
   const best7Points = best7.reduce((sum, p) => sum + p, 0);
 
   let division: 'I' | 'II' | 'III' | 'IV' | '0' = '0';

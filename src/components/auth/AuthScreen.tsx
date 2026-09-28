@@ -29,7 +29,7 @@ export const AuthScreen: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password) {
-      setError('Tafadhali jaza barua pepe na nenosiri lako.');
+      setError('Please enter your email and password.');
       return;
     }
 
@@ -49,7 +49,7 @@ export const AuthScreen: React.FC = () => {
       } else if (norm.includes('teacher')) {
         loginAsDemo('TEACHER');
       } else {
-        setError(err.message || 'Taarifa za kuingia si sahihi. Tafadhali hakiki barua pepe na nenosiri lako.');
+        setError(err.message || 'Invalid login credentials. Please verify your email and password.');
       }
     } finally {
       setLoading(false);
@@ -90,12 +90,12 @@ export const AuthScreen: React.FC = () => {
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
               </svg>
             )}
-            <span>Ingia kwa Google</span>
+            <span>Sign in with Google</span>
           </button>
 
           <div className="relative flex py-1 items-center">
             <div className="flex-grow border-t border-slate-200"></div>
-            <span className="flex-shrink mx-3 text-slate-400 text-[11px] uppercase font-bold tracking-wider">Au Ingia kwa Barua Pepe</span>
+            <span className="flex-shrink mx-3 text-slate-400 text-[11px] uppercase font-bold tracking-wider">Or Sign In with Email</span>
             <div className="flex-grow border-t border-slate-200"></div>
           </div>
 
@@ -103,7 +103,7 @@ export const AuthScreen: React.FC = () => {
             <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl flex items-start gap-2.5">
               <ShieldAlert className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="font-semibold text-rose-900">Taarifa ya Kuingia</p>
+                <p className="font-semibold text-rose-900">Sign-In Notice</p>
                 <p className="mt-0.5 text-rose-700 leading-relaxed">{error}</p>
               </div>
             </div>
@@ -112,7 +112,7 @@ export const AuthScreen: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-1.5">
-                Barua Pepe (Email)
+                Email Address
               </label>
               <div className="relative">
                 <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -122,7 +122,7 @@ export const AuthScreen: React.FC = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none font-medium text-slate-800"
-                  placeholder="mfano: mwalimu@shule.ac.tz"
+                  placeholder="e.g. teacher@school.ac.tz"
                   autoComplete="email"
                 />
               </div>
@@ -130,7 +130,7 @@ export const AuthScreen: React.FC = () => {
 
             <div>
               <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-1.5">
-                Nenosiri (Password)
+                Password
               </label>
               <div className="relative">
                 <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -163,7 +163,7 @@ export const AuthScreen: React.FC = () => {
               ) : (
                 <>
                   <LogIn className="w-4 h-4" />
-                  <span>Ingia Kwenye Mfumo</span>
+                  <span>Sign In to System</span>
                 </>
               )}
             </button>
@@ -173,9 +173,9 @@ export const AuthScreen: React.FC = () => {
           <div className="p-3.5 bg-blue-50/60 border border-blue-100 rounded-xl text-[11px] text-slate-600 flex items-start gap-2.5">
             <Shield className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
             <div>
-              <span className="font-bold text-blue-950">Usalama na Usimamizi:</span>
+              <span className="font-bold text-blue-950">Security & Access:</span>
               <p className="mt-0.5 leading-relaxed text-slate-600">
-                Akaunti za walimu na watumiaji wa mfumo zinasimamiwa na uongozi wa shule kupitia dashibodi ya usimamizi.
+                Staff accounts and access permissions are managed by the school administration via the administration dashboard.
               </p>
             </div>
           </div>

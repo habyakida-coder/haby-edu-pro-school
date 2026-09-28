@@ -6,9 +6,10 @@ import {
   RecordExamType, 
   Student 
 } from '../types';
+import { calculateOLevelDivision, calculatePrimaryScoreResult, isPrimaryOrNursery } from './reportCardUtils';
 
 /**
- * Standard Grading scale as requested:
+ * Standard Grading scale:
  * A: 80 - 100
  * B: 60 - 79
  * C: 45 - 59
@@ -25,12 +26,12 @@ export function calculateExamGrade(score: number): 'A' | 'B' | 'C' | 'D' | 'F' {
 
 export function getGradeRemark(grade: 'A' | 'B' | 'C' | 'D' | 'F'): string {
   switch (grade) {
-    case 'A': return 'Bora Sana / Excellent';
-    case 'B': return 'Vizuri Sana / Very Good';
-    case 'C': return 'Wastani / Average';
-    case 'D': return 'Inaridhisha / Pass';
-    case 'F': return 'Hajafikia Kiwango / Fail';
-    default: return 'Wastani';
+    case 'A': return 'Excellent';
+    case 'B': return 'Very Good';
+    case 'C': return 'Average';
+    case 'D': return 'Pass';
+    case 'F': return 'Fail';
+    default: return 'Satisfactory';
   }
 }
 
@@ -148,6 +149,21 @@ export function buildExaminationRecord(
   const averageMarks = subjectCount > 0 ? Number((totalMarks / subjectCount).toFixed(1)) : 0;
   const overallGrade = calculateExamGrade(averageMarks);
 
+  let division = student.division;
+  let points: number | null = null;
+
+  const isPrimary = isPrimaryOrNursery(student.level, student.className);
+  if (isPrimary) {
+    const pRes = calculatePrimaryScoreResult(rawMarks);
+    division = pRes.overallGrade;
+  } else {
+    // Official NECTA O-Level Division & Points:
+    // Best 7 subjects: Div I (7-17), Div II (18-21), Div III (22-25), Div IV (26-33), Div 0 (34-35)
+    const olevel = calculateOLevelDivision(rawMarks);
+    division = olevel.division;
+    points = olevel.points;
+  }
+
   const compositeId = `${student.id}_${academicYear}_${term}_${examType}`.replace(/\s+/g, '_');
 
   return {
@@ -155,6 +171,9 @@ export function buildExaminationRecord(
     studentId: student.id,
     studentName: student.name,
     className: student.className,
+    stream: student.stream || 'A',
+    gender: student.gender || 'Unknown',
+    parentPhone: student.parentPhone || student.phone || '',
     academicYear,
     academicCalendarType: calendarType,
     term,
@@ -163,6 +182,8 @@ export function buildExaminationRecord(
     totalMarks,
     averageMarks,
     overallGrade,
+    division: division || overallGrade,
+    points,
     positionInClass: student.reportCardData?.positionInClass || 1,
     totalStudents: totalStudentsInClass || 1,
     createdAt: new Date().toISOString()

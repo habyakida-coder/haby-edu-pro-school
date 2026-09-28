@@ -73,6 +73,7 @@ interface ResultsViewProps {
   exams?: Exam[];
   examinationRecords?: ExaminationRecord[];
   onAutoSaveExaminationRecords?: (records: ExaminationRecord[]) => void;
+  onReleaseResultsToRecords?: (records: ExaminationRecord[], className: string, examName: string) => Promise<void> | void;
   onNavigateToExamRecords?: () => void;
 }
 
@@ -175,18 +176,33 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
   const [reportOrientation, setReportOrientation] = useState<'portrait' | 'landscape'>('portrait');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [saveToast, setSaveToast] = useState<string | null>(null);
+  const [isReleasing, setIsReleasing] = useState(false);
 
-  // Dynamic streams collected from all registered students
+  // Dynamic streams collected from all registered classes and streams
   const availableStreams = useMemo(() => {
     const set = new Set<string>();
+    // 1. Collect from students
     students.forEach(s => {
       if (s.stream && s.stream.trim()) {
         const clean = s.stream.trim().replace(/^STREAM\s+/i, '');
         if (clean) set.add(clean.toUpperCase());
       }
     });
+    // 2. Pre-Primary & Nursery registered streams
+    ['Baby Class A', 'Baby Class B', 'Middle Class A', 'Middle Class B', 'Pre-Unit A', 'Pre-Unit B'].forEach(st => set.add(st));
+    // 3. Primary Std 1A - 7C registered streams
+    for (let std = 1; std <= 7; std++) {
+      ['A', 'B', 'C'].forEach(letter => set.add(`Std ${std}${letter}`));
+    }
+    // 4. Secondary Form 1A - 4B registered streams
+    for (let f = 1; f <= 4; f++) {
+      ['A', 'B'].forEach(letter => set.add(`Form ${f}${letter}`));
+    }
+    // 5. High School combinations
+    ['PCM', 'PCB', 'HGE', 'HKL', 'EGM', 'CBG'].forEach(c => set.add(c));
+    // 6. Generic single letter stream options
     ['A', 'B', 'C', 'D', 'E'].forEach(st => set.add(st));
-    return Array.from(set).sort();
+    return Array.from(set);
   }, [students]);
 
   // Selected custom subject keys for the ledger
@@ -440,6 +456,62 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
 
   const handleSaveMarks = () => {
     handleCalculateAll();
+  };
+
+  const handleInitiateRelease = () => {
+    const streamTag = selectedStream !== 'All' ? selectedStream.replace(/^STREAM\s+/i, '') : '';
+    const classStreamStr = `${selectedClass}${streamTag ? ` ${streamTag}` : ''}`;
+    const examYear = '2026';
+    const examTerm = 'Term 1';
+    const examName = selectedExam || 'Terminal';
+
+    const confirmMsg = `Are you sure to release ${classStreamStr} ${examYear} ${examTerm} ${examName} to records?`;
+    if (window.confirm(confirmMsg)) {
+      handleExecuteRelease(classStreamStr, examYear, examTerm, examName);
+    }
+  };
+
+  const handleExecuteRelease = async (classStreamStr: string, examYear: string, examTerm: string, examName: string) => {
+    setIsReleasing(true);
+    try {
+      // 1. Recompute latest marks to ensure calculations are fresh
+      handleCalculateAll();
+
+      // 2. Build complete ExaminationRecords for all candidates in this class/stream
+      const currentYear = examYear;
+      const termName = examTerm as ExamTerm;
+      const typeName = examName as RecordExamType;
+      
+      const recordsToRelease: ExaminationRecord[] = classCandidates.map(c => {
+        return buildExaminationRecord(
+          c,
+          currentYear,
+          termName,
+          typeName,
+          classCandidates.length
+        );
+      });
+
+      // 3. Push/copy to Examination Records collection
+      if (onReleaseResultsToRecords) {
+        await onReleaseResultsToRecords(recordsToRelease, selectedClass, examName);
+      } else if (onAutoSaveExaminationRecords) {
+        onAutoSaveExaminationRecords(recordsToRelease);
+      }
+
+      setSaveToast(`Results successfully released! ${recordsToRelease.length} examination records for ${classStreamStr} transferred to Examination Records.`);
+      setTimeout(() => {
+        setSaveToast(null);
+        if (onNavigateToExamRecords) {
+          onNavigateToExamRecords();
+        }
+      }, 1500);
+    } catch (e) {
+      console.error("Error releasing results:", e);
+      setSaveToast("Error releasing results to records. Please try again.");
+    } finally {
+      setIsReleasing(false);
+    }
   };
 
   // CSV Template Export (with clean or pre-filled marks)
@@ -1066,10 +1138,10 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
               }}
               className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 font-bold text-slate-800 focus:ring-2 focus:ring-blue-500"
             >
-              <optgroup label="Pre-Primary / Nursery (Elimu ya Awali)">
+              <optgroup label="Pre-Primary / Nursery Level">
                 {NURSERY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
               </optgroup>
-              <optgroup label="Primary School (Elimu ya Msingi: Std 1 - 7)">
+              <optgroup label="Primary School (Standard 1 - 7)">
                 {PRIMARY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
               </optgroup>
               <optgroup label="Secondary School (Form 1 - 6)">
@@ -1310,10 +1382,25 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
               <button
                 type="button"
                 onClick={handleSaveMarks}
-                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <Save className="w-3.5 h-3.5" />
                 <span>Save Marks</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleInitiateRelease}
+                disabled={isReleasing || classCandidates.length === 0}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-black flex items-center gap-2 cursor-pointer shadow-md transition-all active:scale-95 animate-in fade-in"
+                title="Release and push all calculated results (with marks, total, average, points, division, grade, position) to Examination Records collection"
+              >
+                {isReleasing ? (
+                  <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                ) : (
+                  <CheckCircle className="w-4 h-4 text-emerald-200" />
+                )}
+                <span>RELEASE RESULTS TO EXAMINATION RECORDS</span>
               </button>
             </div>
           </div>
@@ -1680,7 +1767,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                 </h3>
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                Official {isClassPrimary ? 'Tanzanian Primary Education (Msingi)' : 'NECTA Secondary Education'} Grade Distribution and Examination Insights
+                Official {isClassPrimary ? 'Primary Education' : 'NECTA Secondary Education'} Grade Distribution and Examination Insights
               </p>
             </div>
 
@@ -1796,7 +1883,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-center">
                 <div className="text-xs font-black text-amber-800 uppercase tracking-wider">GRADE C</div>
                 <div className="text-[10px] text-amber-600 font-semibold mt-0.5">
-                  {isClassPrimary ? '41-60% (Wastani / Pass)' : '45-64% (Good)'}
+                  {isClassPrimary ? '41-60% (Average / Pass)' : '45-64% (Good)'}
                 </div>
                 <div className="text-3xl font-black text-amber-700 mt-2">
                   {dashboardMetrics.gradeDistribution.C}
@@ -2285,7 +2372,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                   onClick={() => handleSaveSubjectKeys(NURSERY_SUBJECT_KEYS)}
                   className="px-2.5 py-1 text-xs font-bold rounded-md bg-amber-50 border border-amber-300 hover:bg-amber-100 text-amber-800 cursor-pointer"
                 >
-                  Nursery / Awali (6 Areas)
+                  Nursery Level (6 Areas)
                 </button>
                 <button
                   type="button"

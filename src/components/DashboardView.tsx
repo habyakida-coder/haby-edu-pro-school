@@ -7,7 +7,10 @@ import {
   Calendar, 
   TrendingUp, 
   CheckCircle, 
-  Activity 
+  Activity,
+  RefreshCw,
+  CloudCheck,
+  CheckCircle2
 } from 'lucide-react';
 import { Student, Teacher, Exam, InvigilationSession } from '../types';
 
@@ -16,13 +19,21 @@ interface DashboardViewProps {
   teachers: Teacher[];
   exams: Exam[];
   sessions: InvigilationSession[];
+  isCloudSynced?: boolean;
+  isSyncing?: boolean;
+  onForceRefreshSync?: () => void;
+  syncToast?: string | null;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   students,
   teachers,
   exams,
-  sessions
+  sessions,
+  isCloudSynced = false,
+  isSyncing = false,
+  onForceRefreshSync,
+  syncToast = null
 }) => {
   const cseeStudents = students.filter(s => s.level === 'CSEE').length;
   const acseeStudents = students.filter(s => s.level === 'ACSEE').length;
@@ -48,11 +59,46 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   return (
     <div className="space-y-6">
+      {syncToast && (
+        <div className="p-3.5 bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs rounded-xl flex items-center justify-between shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="font-bold">{syncToast}</span>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs">
-        <h2 className="text-xl font-bold text-[#1f4d8b]">School Academic Dashboard</h2>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Real-time summary of student enrolment, staff readiness, examinations, and invigilation sessions
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-bold text-[#1f4d8b]">School Academic Dashboard</h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Real-time summary of student enrolment, staff readiness, examinations, and invigilation sessions
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            {isCloudSynced && (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-300 rounded-lg text-[11px] text-emerald-800 font-extrabold shadow-2xs">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Cloud Synced</span>
+              </div>
+            )}
+
+            {onForceRefreshSync && (
+              <button
+                type="button"
+                onClick={onForceRefreshSync}
+                disabled={isSyncing}
+                className="px-3.5 py-1.5 bg-[#1f4d8b] hover:bg-[#163765] disabled:opacity-50 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
+                title="Clear local cache and re-fetch real-time data from Firestore"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                <span>{isSyncing ? 'Syncing...' : 'Refresh / Force Sync'}</span>
+              </button>
+            )}
+          </div>
+        </div>
 
         {/* Key Metrics */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
