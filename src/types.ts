@@ -53,6 +53,8 @@ export interface Student {
   reportCardData?: StudentReportCardData;
   passportPhoto?: string; // base64 / URL for passport size photo
   registeredAt?: string;
+  phone?: string;
+  parentPhone?: string;
 }
 
 export type SchoolStaffRole =
@@ -287,6 +289,39 @@ export interface TeacherEvaluation {
   academicMasterRemarks: string;
 }
 
+export interface UsalCandidateRecord {
+  studentId: number;
+  regNo: string;
+  studentName: string;
+  gender: string;
+  stream?: string;
+  caMarks: number;    // Continuous Assessment (0-30)
+  examMarks: number;  // Final Examination (0-70)
+  totalMarks: number; // 0-100
+  grade: 'A' | 'B' | 'C' | 'D' | 'F' | 'E';
+  points: number;
+  remarks: string;
+}
+
+export interface UsalRecord {
+  id: string; // e.g. `usal_${examId}_${subject}_${className}_${stream}`
+  examId: number;
+  examName: string;
+  academicYear: string;
+  term: string;
+  className: string;
+  stream: string;
+  subject: string;
+  assignedTeacherId?: number;
+  assignedTeacherName?: string;
+  isSealed: boolean;
+  sealedAt?: string;
+  sealedBy?: string;
+  candidates: UsalCandidateRecord[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type ActivityAction = 
   | 'TIMETABLE_UPDATE'
   | 'PERIOD_SETTINGS_UPDATE'
@@ -301,6 +336,10 @@ export type ActivityAction =
   | 'EXAM_ADDED'
   | 'EXAM_UPDATED'
   | 'EXAM_DELETED'
+  | 'USAL_CREATED'
+  | 'USAL_SEALED'
+  | 'USAL_UPDATED'
+  | 'CUTOFF_UPDATED'
   | 'INVIGILATION_UPDATE'
   | 'SCHOOL_INFO_UPDATE'
   | 'DISCIPLINE_RECORD_ADDED'
@@ -403,6 +442,7 @@ export interface SubjectPeriodAllocation {
   className: string;
   stream: string;
   subject: string;
+  subjectName?: string;
   periodsPerWeek: number;
 }
 
@@ -443,5 +483,7 @@ export interface AppData {
   institutionalPolicy?: InstitutionalPolicy;
   subjectPeriodAllocations?: SubjectPeriodAllocation[];
   teacherAssignments?: TeacherAssignment[];
+  usalRecords?: UsalRecord[];
+  gradeCutoffs?: Record<string, any>;
 }
 

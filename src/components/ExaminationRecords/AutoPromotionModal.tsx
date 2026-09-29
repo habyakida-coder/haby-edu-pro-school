@@ -24,8 +24,10 @@ interface AutoPromotionModalProps {
   isOpen: boolean;
   onClose: () => void;
   students: Student[];
-  onPromoteStudents: (history: PromotionHistory[]) => void;
+  onPromoteStudents?: (history: PromotionHistory[]) => void;
+  onExecutePromotion?: (promotedStudents: Student[], historyLogs: PromotionHistory[]) => void;
   currentUserName?: string;
+  academicYear?: string;
 }
 
 export const AutoPromotionModal: React.FC<AutoPromotionModalProps> = ({
@@ -33,6 +35,7 @@ export const AutoPromotionModal: React.FC<AutoPromotionModalProps> = ({
   onClose,
   students,
   onPromoteStudents,
+  onExecutePromotion,
   currentUserName = 'Academic Master'
 }) => {
   const [targetGroup, setTargetGroup] = useState<'ALL' | 'JAN-DEC' | 'JULY-JUNE'>('ALL');
@@ -80,7 +83,23 @@ export const AutoPromotionModal: React.FC<AutoPromotionModalProps> = ({
       };
     });
 
-    onPromoteStudents(createdHistory);
+    const updatedStudents = students.map(st => {
+      const match = eligibleStudents.find(e => e.id === st.id);
+      if (match) {
+        const { nextClass } = getNextProgressionClass(st.className);
+        return {
+          ...st,
+          className: nextClass
+        };
+      }
+      return st;
+    });
+
+    if (onExecutePromotion) {
+      onExecutePromotion(updatedStudents, createdHistory);
+    } else if (onPromoteStudents) {
+      onPromoteStudents(createdHistory);
+    }
     onClose();
   };
 

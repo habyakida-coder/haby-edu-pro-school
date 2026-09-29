@@ -16,7 +16,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { Teacher, TeacherAssignment, StreamSetting } from '../../types';
-import { SUBJECT_LIST } from '../../constants/defaults';
+import { SUBJECT_LIST, NURSERY_SUBJECTS, PRIMARY_SUBJECTS, SECONDARY_SUBJECTS } from '../../constants/defaults';
 
 interface TeacherAssignmentsTabProps {
   teachers: Teacher[];
@@ -53,7 +53,11 @@ export const TeacherAssignmentsTab: React.FC<TeacherAssignmentsTabProps> = ({
 
   // Subject options for current level & teacher
   const teacherSubjects = currentTeacher?.subjects || [];
-  const levelSubjects = SUBJECT_LIST[selectedLevel] || [];
+  const levelSubjects = selectedLevel === 'NURSERY' 
+    ? NURSERY_SUBJECTS 
+    : selectedLevel === 'PRIMARY' 
+    ? PRIMARY_SUBJECTS 
+    : SECONDARY_SUBJECTS;
   // Merge teacher's preferred subjects first, then all level subjects
   const availableSubjectOptions = Array.from(new Set([...teacherSubjects, ...levelSubjects]));
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { AppData, Student, Teacher, Exam, InvigilationSession, PeriodSetting, StreamSetting, TimetableAssignment, Supervisor, SchoolInfo, UserAccount, SchoolStatus, ActivityLog, ActivityAction, ActivityCategory, DisciplineRecord, TeacherEvaluation } from './types';
+import { AppData, Student, Teacher, Exam, InvigilationSession, PeriodSetting, StreamSetting, TimetableAssignment, Supervisor, SchoolInfo, UserAccount, SchoolStatus, ActivityLog, ActivityAction, ActivityCategory, DisciplineRecord, TeacherEvaluation, UsalRecord, ExaminationRecord } from './types';
 import { DEFAULT_APP_DATA } from './constants/defaults';
+import { generateUsalRecordsForExam, ensureUsalRecordsForAllExams } from './utils/usalUtils';
 import { Navigation, ActiveView } from './components/Navigation';
 import { DashboardView } from './components/DashboardView';
 import { StudentsView } from './components/StudentsView';
@@ -50,6 +51,7 @@ export default function App() {
     const teachersCol = collection(db, 'schools', schoolId, 'teachers');
     const examsCol = collection(db, 'schools', schoolId, 'exams');
     const examRecordsCol = collection(db, 'schools', schoolId, 'examinationRecords');
+    const usalRecordsCol = collection(db, 'schools', schoolId, 'usalRecords');
     const usersQuery = query(collection(db, 'users'), where('schoolId', '==', schoolId));
 
     // 1. Check School Status
@@ -107,7 +109,18 @@ export default function App() {
       }
     }, (err) => console.warn("Exam records subcollection snapshot error:", err));
 
-    // 6. Master schoolData document listener for metadata, settings & fallback
+    // 6. Real-time USAL subcollection listener
+    const unsubscribeUsals = onSnapshot(usalRecordsCol, (snapshot) => {
+      if (!snapshot.empty) {
+        const usalList: UsalRecord[] = snapshot.docs.map(docSnap => ({
+          ...docSnap.data(),
+          id: docSnap.id
+        } as UsalRecord));
+        setData(prev => ({ ...prev, usalRecords: usalList }));
+      }
+    }, (err) => console.warn("USAL subcollection snapshot error:", err));
+
+    // 7. Master schoolData document listener for metadata, settings & fallback
     const unsubscribeData = onSnapshot(docRef, (snapshot) => {
       if (snapshot.exists()) {
         const remoteData = snapshot.data();
@@ -128,6 +141,9 @@ export default function App() {
             examinationRecords: prev.examinationRecords && prev.examinationRecords.length > 0 
               ? prev.examinationRecords 
               : (remoteData.examinationRecords || prev.examinationRecords || []),
+            usalRecords: prev.usalRecords && prev.usalRecords.length > 0
+              ? prev.usalRecords
+              : (remoteData.usalRecords || prev.usalRecords || []),
             schoolInfo: remoteData.schoolInfo || prev.schoolInfo,
             activityLogs: remoteData.activityLogs || prev.activityLogs || []
           };
@@ -151,7 +167,7 @@ export default function App() {
       setDataLoading(false);
     });
 
-    // 7. Users listener
+    // 8. Users listener
     const unsubscribeUsers = onSnapshot(usersQuery, (snapshot) => {
       const usersList: UserAccount[] = [];
       snapshot.forEach((doc) => {
@@ -168,6 +184,7 @@ export default function App() {
       unsubscribeTeachers();
       unsubscribeExams();
       unsubscribeExamRecords();
+      unsubscribeUsals();
       unsubscribeData();
       unsubscribeUsers();
     };
@@ -182,11 +199,12 @@ export default function App() {
       localStorage.removeItem(schoolKey);
 
       // Re-fetch everything directly from Firestore server
-      const [studentsSnap, teachersSnap, examsSnap, recsSnap, schoolDataSnap] = await Promise.all([
+      const [studentsSnap, teachersSnap, examsSnap, recsSnap, usalsSnap, schoolDataSnap] = await Promise.all([
         getDocs(collection(db, 'schools', userAccount.schoolId, 'students')),
         getDocs(collection(db, 'schools', userAccount.schoolId, 'teachers')),
         getDocs(collection(db, 'schools', userAccount.schoolId, 'exams')),
         getDocs(collection(db, 'schools', userAccount.schoolId, 'examinationRecords')),
+        getDocs(collection(db, 'schools', userAccount.schoolId, 'usalRecords')),
         getDoc(doc(db, 'schoolData', userAccount.schoolId))
       ]);
 
@@ -202,12 +220,16 @@ export default function App() {
       const fetchedRecs: ExaminationRecord[] = [];
       recsSnap.forEach(d => fetchedRecs.push({ id: d.id, ...d.data() } as ExaminationRecord));
 
+      const fetchedUsals: UsalRecord[] = [];
+      usalsSnap.forEach(d => fetchedUsals.push({ id: d.id, ...d.data() } as UsalRecord));
+
       const remoteData = schoolDataSnap.exists() ? schoolDataSnap.data() : {};
 
       const finalStudents = fetchedStudents.length > 0 ? fetchedStudents : (remoteData.students || []);
       const finalTeachers = fetchedTeachers.length > 0 ? fetchedTeachers : (remoteData.teachers || []);
       const finalExams = fetchedExams.length > 0 ? fetchedExams : (remoteData.exams || []);
       const finalRecs = fetchedRecs.length > 0 ? fetchedRecs : (remoteData.examinationRecords || []);
+      const finalUsals = fetchedUsals.length > 0 ? fetchedUsals : (remoteData.usalRecords || []);
 
       setData(prev => ({
         ...prev,
@@ -215,7 +237,8 @@ export default function App() {
         students: finalStudents.length > 0 ? finalStudents : prev.students,
         teachers: finalTeachers.length > 0 ? finalTeachers : prev.teachers,
         exams: finalExams.length > 0 ? finalExams : prev.exams,
-        examinationRecords: finalRecs
+        examinationRecords: finalRecs,
+        usalRecords: finalUsals
       }));
 
       setIsCloudSynced(true);
@@ -271,12 +294,33 @@ export default function App() {
         }
       }
 
+      if (updates.usalRecords && Array.isArray(updates.usalRecords)) {
+        for (const rec of updates.usalRecords) {
+          if (rec.id) {
+            await setDoc(doc(db, 'schools', schoolId, 'usalRecords', rec.id), rec, { merge: true });
+          }
+        }
+      }
+
       setSaveStatus('saved');
     } catch (e) {
       console.error("Error updating Firestore:", e);
       setSaveStatus('offline');
     }
   }, [userAccount]);
+
+  // Auto-ensure USAL records exist for all registered exams
+  useEffect(() => {
+    if (data.exams && data.exams.length > 0 && data.students && data.students.length > 0) {
+      const ensured = ensureUsalRecordsForAllExams(data.exams, data.students, data.teachers, data.usalRecords || []);
+      if (ensured.length > (data.usalRecords || []).length) {
+        setData(prev => ({ ...prev, usalRecords: ensured }));
+        if (userAccount?.schoolId) {
+          updateRemoteData({ usalRecords: ensured });
+        }
+      }
+    }
+  }, [data.exams, data.students.length, data.teachers.length]);
 
   // Release calculated results to Examination Records
   const handleReleaseResultsToExaminationRecords = useCallback(async (
@@ -565,11 +609,29 @@ export default function App() {
       'Examination Scheduled',
       `Scheduled ${exam.name} for ${exam.className} on ${exam.date}`
     );
+    // Auto-create USAL for each subject of registered exam
+    const newUsals = generateUsalRecordsForExam(exam, data.students, data.teachers, data.usalRecords || []);
+    const updatedUsals = [...(data.usalRecords || []), ...newUsals];
+
     updateRemoteData({
       exams: [...data.exams, exam],
       sessions: [...data.sessions, session],
+      usalRecords: updatedUsals,
       activityLogs
     });
+  };
+
+  const handleSaveUsalRecord = (record: UsalRecord) => {
+    const current = data.usalRecords || [];
+    const exists = current.some(r => r.id === record.id);
+    const updated = exists ? current.map(r => r.id === record.id ? record : r) : [...current, record];
+    const activityLogs = logActivity(
+      'EXAM_UPDATED',
+      'results',
+      'USAL Record Saved',
+      `Saved USAL marksheet for ${record.subject} (${record.className} ${record.stream})`
+    );
+    updateRemoteData({ usalRecords: updated, activityLogs });
   };
 
   const handleDeleteExam = (id: number) => {
@@ -801,6 +863,9 @@ export default function App() {
               onSaveEvaluation={handleSaveEvaluation}
               onDeleteEvaluation={handleDeleteEvaluation}
               streamSettings={data.streamSettings || []}
+              timetableAssignments={data.timetableAssignments || []}
+              onUpdateTimetableAssignments={assignments => updateRemoteData({ timetableAssignments: assignments })}
+              periodSettings={data.periodSettings || []}
               schoolInfo={data.schoolInfo}
               currentUser={userAccount}
             />
@@ -829,6 +894,12 @@ export default function App() {
                 updateRemoteData({ examinationRecords, activityLogs });
               }}
               onNavigateToExamRecords={() => setActiveView('examrecords')}
+              usalRecords={data.usalRecords || []}
+              onSaveUsalRecord={handleSaveUsalRecord}
+              onNavigateToMarkEntry={(examName, className) => {
+                setActiveView('markentry');
+              }}
+              teachers={data.teachers}
             />
           )}
 
@@ -904,7 +975,15 @@ export default function App() {
               students={data.students}
               teachers={data.teachers}
               exams={data.exams}
+              timetableAssignments={data.timetableAssignments || []}
+              invigilationSessions={data.sessions || []}
+              invigilationAssignments={data.invigilationAssignments || {}}
+              periodSettings={data.periodSettings || []}
+              streamSettings={data.streamSettings || []}
+              usalRecords={data.usalRecords || []}
+              onSaveUsalRecord={handleSaveUsalRecord}
               currentUser={userAccount}
+              schoolInfo={data.schoolInfo}
               onUpdateStudents={handleUpdateStudents}
             />
           )}

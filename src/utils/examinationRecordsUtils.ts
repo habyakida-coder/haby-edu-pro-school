@@ -7,6 +7,7 @@ import {
   Student 
 } from '../types';
 import { calculateOLevelDivision, calculatePrimaryScoreResult, isPrimaryOrNursery } from './reportCardUtils';
+import { calculateNectaLevelResults } from './nectaRules';
 
 /**
  * Standard Grading scale:
@@ -147,22 +148,12 @@ export function buildExaminationRecord(
   });
 
   const averageMarks = subjectCount > 0 ? Number((totalMarks / subjectCount).toFixed(1)) : 0;
-  const overallGrade = calculateExamGrade(averageMarks);
-
-  let division = student.division;
-  let points: number | null = null;
-
-  const isPrimary = isPrimaryOrNursery(student.level, student.className);
-  if (isPrimary) {
-    const pRes = calculatePrimaryScoreResult(rawMarks);
-    division = pRes.overallGrade;
-  } else {
-    // Official NECTA O-Level Division & Points:
-    // Best 7 subjects: Div I (7-17), Div II (18-21), Div III (22-25), Div IV (26-33), Div 0 (34-35)
-    const olevel = calculateOLevelDivision(rawMarks);
-    division = olevel.division;
-    points = olevel.points;
-  }
+  
+  // Calculate NECTA level-specific evaluation (Std IV, Std VII, Form II, Form IV, Form VI)
+  const nectaRes = calculateNectaLevelResults(rawMarks, student.className);
+  const overallGrade = (nectaRes.overallGrade || calculateExamGrade(averageMarks)) as any;
+  const division = nectaRes.division || student.division || overallGrade;
+  const points = nectaRes.points;
 
   const compositeId = `${student.id}_${academicYear}_${term}_${examType}`.replace(/\s+/g, '_');
 

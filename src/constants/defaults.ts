@@ -109,6 +109,28 @@ export const NURSERY_SUBJECTS = NURSERY_SUBJECTS_LIST;
 export const LOWER_PRIMARY_SUBJECTS = LOWER_PRIMARY_SUBJECTS_LIST;
 export const UPPER_PRIMARY_SUBJECTS = UPPER_PRIMARY_SUBJECTS_LIST;
 export const PRIMARY_SUBJECTS = PRIMARY_SUBJECTS_LIST;
+export const SECONDARY_SUBJECTS = [
+  'English Language',
+  'Kiswahili',
+  'Basic Mathematics',
+  'Physics',
+  'Chemistry',
+  'Biology',
+  'Civics',
+  'Geography',
+  'History',
+  'Commerce',
+  'Book Keeping',
+  'Literature in English',
+  'Agriculture',
+  'Computer Studies',
+  'Fine Art',
+  'Physical Education',
+  'French',
+  'Arabic',
+  'Bible Knowledge',
+  'Islamic Knowledge'
+];
 
 export const SUBJECT_LIST = [
   // Primary & Pre-Primary Subjects (Tanzanian Curriculum)
@@ -1140,6 +1162,7 @@ export const DEFAULT_APP_DATA: AppData = {
   subjectPeriodAllocations: DEFAULT_SUBJECT_PERIOD_ALLOCATIONS,
   teacherAssignments: DEFAULT_TEACHER_ASSIGNMENTS,
   examinationRecords: INITIAL_EXAMINATION_RECORDS,
+  usalRecords: [],
   promotionHistory: INITIAL_PROMOTION_HISTORY,
   transferHistory: INITIAL_TRANSFER_HISTORY,
   activityLogs: [

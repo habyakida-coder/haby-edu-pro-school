@@ -9,7 +9,7 @@ import {
   Filter,
   GraduationCap
 } from 'lucide-react';
-import { SubjectPeriodAllocation } from '../../types';
+import { SubjectPeriodAllocation, StreamSetting } from '../../types';
 import { 
   NURSERY_CLASSES, 
   PRIMARY_CLASSES, 
@@ -18,11 +18,13 @@ import {
 
 interface SubjectPeriodAllocationTabProps {
   allocations: SubjectPeriodAllocation[];
+  streamSettings?: StreamSetting[];
   onUpdateAllocations: (allocations: SubjectPeriodAllocation[]) => void;
 }
 
 export const SubjectPeriodAllocationTab: React.FC<SubjectPeriodAllocationTabProps> = ({
   allocations,
+  streamSettings,
   onUpdateAllocations
 }) => {
   const [localAllocations, setLocalAllocations] = useState<SubjectPeriodAllocation[]>(allocations);
@@ -55,6 +57,7 @@ export const SubjectPeriodAllocationTab: React.FC<SubjectPeriodAllocationTabProp
       level: activeLevel,
       className: newClass,
       stream: newStream,
+      subject: newSubject.trim(),
       subjectName: newSubject.trim(),
       periodsPerWeek: Number(newPeriods)
     };

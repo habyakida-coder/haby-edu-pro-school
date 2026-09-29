@@ -90,9 +90,14 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   const [streamFilter, setStreamFilter] = useState('ALL');
   const [sortBy, setSortBy] = useState<'regNo_asc' | 'regNo_desc' | 'name_asc'>('regNo_asc');
 
-  // Multiple Student Selection for Bulk Delete
+  // Multiple Student Selection for Bulk Actions
   const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [showBulkEnrollModal, setShowBulkEnrollModal] = useState(false);
+  const [showBulkRemoveSubjectModal, setShowBulkRemoveSubjectModal] = useState(false);
+  const [bulkEnrollSubjects, setBulkEnrollSubjects] = useState<string[]>([]);
+  const [bulkRemoveSubjects, setBulkRemoveSubjects] = useState<string[]>([]);
+  const [studentCreatedNotice, setStudentCreatedNotice] = useState<string | null>(null);
 
   // Edit and View Modals
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
@@ -245,7 +250,10 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
     onAddStudent(newStudent);
     setName('');
     setPassportPhoto('');
-    alert(`Student ${name} registered successfully with Reg Token: ${regNo}`);
+    // After Student Create, show all students in Student button list immediately
+    setActiveTab('register_list');
+    setStudentCreatedNotice(`Student ${newStudent.name} (${newStudent.regNo}) registered successfully! Showing in student list below.`);
+    setTimeout(() => setStudentCreatedNotice(null), 6000);
   };
 
   const exportTemplate = () => {
@@ -407,6 +415,51 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
     }
     setSelectedStudentIds([]);
     setShowBulkDeleteModal(false);
+  };
+
+  const handleConfirmBulkEnroll = () => {
+    if (selectedStudentIds.length === 0 || bulkEnrollSubjects.length === 0) return;
+    const targetSet = new Set(selectedStudentIds);
+    const updated = students.map(s => {
+      if (targetSet.has(s.id)) {
+        const mergedSubs = Array.from(new Set([...(s.subjects || []), ...bulkEnrollSubjects]));
+        return { ...s, subjects: mergedSubs };
+      }
+      return s;
+    });
+
+    if (onBulkAddStudents) {
+      // update collection
+    }
+    updated.filter(s => targetSet.has(s.id)).forEach(s => onUpdateStudent(s));
+    setStudentCreatedNotice(`Successfully enrolled ${selectedStudentIds.length} students into: ${bulkEnrollSubjects.join(', ')}`);
+    setTimeout(() => setStudentCreatedNotice(null), 5000);
+    setBulkEnrollSubjects([]);
+    setSelectedStudentIds([]);
+    setShowBulkEnrollModal(false);
+  };
+
+  const handleConfirmBulkRemoveSubjects = () => {
+    if (selectedStudentIds.length === 0 || bulkRemoveSubjects.length === 0) return;
+    const targetSet = new Set(selectedStudentIds);
+    const removeSet = new Set(bulkRemoveSubjects);
+
+    const updated = students.map(s => {
+      if (targetSet.has(s.id)) {
+        const remainingSubs = (s.subjects || []).filter(sub => !removeSet.has(sub));
+        const updatedMarks = { ...(s.marks || {}) };
+        bulkRemoveSubjects.forEach(sub => delete updatedMarks[sub]);
+        return { ...s, subjects: remainingSubs, marks: updatedMarks };
+      }
+      return s;
+    });
+
+    updated.filter(s => targetSet.has(s.id)).forEach(s => onUpdateStudent(s));
+    setStudentCreatedNotice(`Successfully removed ${bulkRemoveSubjects.join(', ')} from ${selectedStudentIds.length} students.`);
+    setTimeout(() => setStudentCreatedNotice(null), 5000);
+    setBulkRemoveSubjects([]);
+    setSelectedStudentIds([]);
+    setShowBulkRemoveSubjectModal(false);
   };
 
   const selectedStudentsList = useMemo(() => {
@@ -885,14 +938,41 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setBulkEnrollSubjects([]);
+                  setShowBulkEnrollModal(true);
+                }}
+                className="px-3 py-1.5 text-xs font-bold text-blue-700 bg-white hover:bg-blue-50 border border-blue-300 rounded-lg shadow-2xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                title="Enroll selected students into multiple subjects"
+              >
+                <BookOpen className="w-3.5 h-3.5 text-blue-600" />
+                <span>Multiple Subject Enrollment</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setBulkRemoveSubjects([]);
+                  setShowBulkRemoveSubjectModal(true);
+                }}
+                className="px-3 py-1.5 text-xs font-bold text-amber-800 bg-white hover:bg-amber-50 border border-amber-300 rounded-lg shadow-2xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                title="Delete or remove multiple subjects from selected students"
+              >
+                <X className="w-3.5 h-3.5 text-amber-600" />
+                <span>Multiple Subject Delete</span>
+              </button>
+
               <button
                 type="button"
                 onClick={handleClearSelection}
                 className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors shadow-2xs"
               >
-                Clear Selection
+                Clear
               </button>
+
               <button
                 type="button"
                 onClick={() => setShowBulkDeleteModal(true)}
@@ -903,6 +983,23 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                 <span>Delete Selected ({selectedStudentIds.length})</span>
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Student Created Notification Notice */}
+        {studentCreatedNotice && (
+          <div className="bg-emerald-50 border border-emerald-300 text-emerald-900 px-4 py-3 rounded-xl flex items-center justify-between gap-3 text-xs font-bold shadow-xs animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{studentCreatedNotice}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setStudentCreatedNotice(null)}
+              className="text-emerald-700 hover:text-emerald-900 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
         )}
 
@@ -1224,6 +1321,198 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                 className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg cursor-pointer"
               >
                 Close Record
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Multiple Subject Enrollment Modal */}
+      {showBulkEnrollModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full p-6 space-y-4 border border-blue-100 animate-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3.5">
+              <div className="w-11 h-11 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 border border-blue-200">
+                <BookOpen className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-extrabold text-slate-900">
+                  Multiple Subject Enrollment ({selectedStudentIds.length} Students)
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Select subjects to enroll all {selectedStudentIds.length} selected candidates. Existing enrollments are preserved.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBulkEnrollModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Quick Core Buttons */}
+            <div className="space-y-1.5">
+              <div className="text-[11px] font-bold text-slate-500 uppercase">Quick Add Core Curriculum:</div>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  'Basic Mathematics', 'English Language', 'Kiswahili', 'Biology', 
+                  'Chemistry', 'Physics', 'Geography', 'History', 'Civics', 
+                  'ICT / TEHAMA', 'Commerce', 'Book Keeping'
+                ].map(sub => {
+                  const isChecked = bulkEnrollSubjects.includes(sub);
+                  return (
+                    <button
+                      key={sub}
+                      type="button"
+                      onClick={() => {
+                        setBulkEnrollSubjects(prev => 
+                          prev.includes(sub) ? prev.filter(s => s !== sub) : [...prev, sub]
+                        );
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                        isChecked 
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-2xs' 
+                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {isChecked ? `✓ ${sub}` : `+ ${sub}`}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Selected Subjects Badges */}
+            <div className="p-3 bg-blue-50/50 rounded-xl border border-blue-200 space-y-1.5">
+              <div className="text-[11px] font-bold text-blue-900 uppercase">
+                Subjects to Enroll ({bulkEnrollSubjects.length} selected):
+              </div>
+              <div className="flex flex-wrap gap-1.5 min-h-[30px]">
+                {bulkEnrollSubjects.length === 0 ? (
+                  <span className="text-xs text-slate-400 italic">No subjects selected yet. Click from above or search below.</span>
+                ) : (
+                  bulkEnrollSubjects.map(sub => (
+                    <span
+                      key={sub}
+                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-blue-100 text-blue-900 border border-blue-300"
+                    >
+                      <span>{sub}</span>
+                      <button
+                        type="button"
+                        onClick={() => setBulkEnrollSubjects(prev => prev.filter(s => s !== sub))}
+                        className="hover:text-rose-700"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowBulkEnrollModal(false)}
+                className="px-4 py-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmBulkEnroll}
+                disabled={bulkEnrollSubjects.length === 0}
+                className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <Check className="w-4 h-4" />
+                <span>Confirm Enrollment for {selectedStudentIds.length} Students</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Multiple Subject Deletion / Unenroll Modal */}
+      {showBulkRemoveSubjectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full p-6 space-y-4 border border-amber-100 animate-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3.5">
+              <div className="w-11 h-11 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 border border-amber-200">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-extrabold text-slate-900">
+                  Multiple Subject Delete ({selectedStudentIds.length} Students)
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Select subjects to permanently unenroll/delete from the {selectedStudentIds.length} selected candidates.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBulkRemoveSubjectModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Common enrolled subjects across selected students */}
+            <div className="space-y-1.5">
+              <div className="text-[11px] font-bold text-slate-500 uppercase">Select Subjects to Remove:</div>
+              <div className="max-h-48 overflow-y-auto p-2 bg-slate-50 border border-slate-200 rounded-xl flex flex-wrap gap-1.5">
+                {Array.from(new Set(selectedStudentsList.flatMap(s => s.subjects || []))).map(sub => {
+                  const isChecked = bulkRemoveSubjects.includes(sub);
+                  return (
+                    <button
+                      key={sub}
+                      type="button"
+                      onClick={() => {
+                        setBulkRemoveSubjects(prev => 
+                          prev.includes(sub) ? prev.filter(s => s !== sub) : [...prev, sub]
+                        );
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                        isChecked 
+                          ? 'bg-rose-600 text-white border-rose-600 shadow-2xs' 
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {isChecked ? `✓ Remove ${sub}` : sub}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Warning */}
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+              <span>
+                Removing a subject unenrolls the candidate from that subject ledger and removes any stored score for that subject.
+              </span>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowBulkRemoveSubjectModal(false)}
+                className="px-4 py-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmBulkRemoveSubjects}
+                disabled={bulkRemoveSubjects.length === 0}
+                className="px-5 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Remove ({bulkRemoveSubjects.length}) Subjects</span>
               </button>
             </div>
           </div>

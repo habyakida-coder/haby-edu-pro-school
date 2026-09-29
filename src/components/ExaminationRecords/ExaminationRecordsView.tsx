@@ -703,11 +703,13 @@ Total: ${rec.totalMarks} Avg: ${rec.averageMarks}% Points: ${pointsStr} Div: ${d
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                 {filteredRecords.map((rec) => {
-                  const matchingStudent = students.find(s => s.id === rec.studentId) || {
+                  const matchingStudent: Student = students.find(s => s.id === rec.studentId) || {
                     id: rec.studentId,
                     name: rec.studentName,
+                    gender: (rec.gender as any) || 'Male',
                     regNo: `REG${rec.studentId}`,
                     className: rec.className,
+                    stream: rec.stream,
                     level: 'PRIMARY' as any,
                     dob: '2015-01-01',
                     subjects: Object.keys(rec.subjects || {})

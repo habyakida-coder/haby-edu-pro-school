@@ -37,13 +37,16 @@ import {
   RefreshCw,
   BarChart3
 } from 'lucide-react';
-import { Student, SchoolInfo, UserAccount, Exam, ExaminationRecord } from '../types';
+import { Student, SchoolInfo, UserAccount, Exam, ExaminationRecord, Teacher, UsalRecord, ExamTerm, RecordExamType } from '../types';
 import { printReportCardDocument } from '../utils/export';
 import { exportGradeDistributionAndPerformancePDF } from '../utils/performancePdfExport';
 import { ReportCardDocument } from './ReportCard/ReportCardDocument';
 import { EditReportCardModal } from './ReportCard/EditReportCardModal';
 import { StudentComparisonView } from './StudentComparisonView';
 import { ExamDocumentsModal } from './Exams/ExamDocumentsModal';
+import { GradeCutoffModal } from './Exams/GradeCutoffModal';
+import { USALModal } from './USAL/USALModal';
+import { calculateNectaLevelResults } from '../utils/nectaRules';
 import { buildExaminationRecord } from '../utils/examinationRecordsUtils';
 import { 
   calculatePerformanceSummary, 
@@ -75,6 +78,10 @@ interface ResultsViewProps {
   onAutoSaveExaminationRecords?: (records: ExaminationRecord[]) => void;
   onReleaseResultsToRecords?: (records: ExaminationRecord[], className: string, examName: string) => Promise<void> | void;
   onNavigateToExamRecords?: () => void;
+  usalRecords?: UsalRecord[];
+  onSaveUsalRecord?: (record: UsalRecord) => void;
+  onNavigateToMarkEntry?: (examName?: string, className?: string) => void;
+  teachers?: Teacher[];
 }
 
 // Complete list of available Tanzanian subjects across Nursery, Primary, Secondary and High School
@@ -159,7 +166,15 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
   onToggleResultsStatus,
   currentUser,
   onNavigateToAttendance,
-  exams = []
+  exams = [],
+  examinationRecords = [],
+  onAutoSaveExaminationRecords,
+  onReleaseResultsToRecords,
+  onNavigateToExamRecords,
+  usalRecords = [],
+  onSaveUsalRecord,
+  onNavigateToMarkEntry,
+  teachers = []
 }) => {
   const [activeTab, setActiveTab] = useState<'ledger' | 'dashboard' | 'reportcard' | 'comparison'>('ledger');
   const [selectedClass, setSelectedClass] = useState<string>('Form 1');
@@ -170,6 +185,44 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'SAT' | 'NO_SUBJECT'>('ALL');
   const [isDocModalOpen, setIsDocModalOpen] = useState(false);
   const [docModalExamId, setDocModalExamId] = useState<number | undefined>(undefined);
+  const [isCutoffModalOpen, setIsCutoffModalOpen] = useState(false);
+  const [isUsalModalOpen, setIsUsalModalOpen] = useState(false);
+
+  // Dynamic list of exams: exam created in Exams tab appears in Academic tab!
+  const allAvailableExams = useMemo(() => {
+    const list: { name: string; isRegistered?: boolean; level?: string }[] = [];
+    const seen = new Set<string>();
+
+    // 1. Registered exams created in Exams tab
+    exams.forEach(e => {
+      if (e.name && !seen.has(e.name)) {
+        seen.add(e.name);
+        list.push({ name: e.name, isRegistered: true, level: e.level });
+      }
+    });
+
+    // 2. Default academic examination sessions
+    const defaults = [
+      'Midterm I',
+      'Terminal',
+      'Annual',
+      'Midterm II',
+      'Pre-Mock',
+      'Mock',
+      'SFNA Final (Std IV)',
+      'PSLE Final (Std VII)',
+      'FTNA Final (Form II)',
+      'NECTA Final (Form IV CSEE)',
+      'ACSEE Final (Form VI)'
+    ];
+    defaults.forEach(d => {
+      if (!seen.has(d)) {
+        seen.add(d);
+        list.push({ name: d, isRegistered: false });
+      }
+    });
+    return list;
+  }, [exams]);
 
   // Selected student for Report Card tab
   const [selectedStudentReg, setSelectedStudentReg] = useState<string>(students[0]?.regNo || '');
@@ -366,36 +419,19 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
       });
 
       const scores = Object.values(newMarks).filter(v => typeof v === 'number' && !isNaN(v as number)) as number[];
-      const total = scores.reduce((a, b) => a + b, 0);
-      const avgNum = scores.length > 0 ? Number((total / scores.length).toFixed(1)) : 0;
       
-      const isStudentPrimary = isPrimaryOrNursery(s.level, s.className || selectedClass);
+      // Official NECTA National Evaluation Rules according to class level (Std IV, Std VII, Form II, Form IV, Form VI)
+      const nectaRes = calculateNectaLevelResults(newMarks, s.className || selectedClass);
 
-      if (isStudentPrimary) {
-        const primaryRes = calculatePrimaryScoreResult(newMarks);
-        return {
-          ...s,
-          marks: newMarks,
-          total,
-          average: scores.length > 0 ? String(avgNum) : undefined,
-          primaryGrade: primaryRes.overallGrade,
-          passStatus: primaryRes.passStatus,
-          division: primaryRes.overallGrade
-        };
-      } else {
-        // Official NECTA O-Level Division Calculation:
-        // Best 7 subjects: Div I (7-17), Div II (18-21), Div III (22-25), Div IV (26-33), Div 0 (34-35).
-        const olevel = calculateOLevelDivision(newMarks);
-        const division = scores.length > 0 ? olevel.division : undefined;
-
-        return {
-          ...s,
-          marks: newMarks,
-          total,
-          average: scores.length > 0 ? String(avgNum) : undefined,
-          division
-        };
-      }
+      return {
+        ...s,
+        marks: newMarks,
+        total: nectaRes.total,
+        average: scores.length > 0 ? String(nectaRes.average) : undefined,
+        primaryGrade: nectaRes.isPrimary ? (nectaRes.overallGrade as any) : undefined,
+        passStatus: nectaRes.remarks,
+        division: nectaRes.division
+      };
     });
 
     // Rank candidates
@@ -465,10 +501,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
     const examTerm = 'Term 1';
     const examName = selectedExam || 'Terminal';
 
-    const confirmMsg = `Are you sure to release ${classStreamStr} ${examYear} ${examTerm} ${examName} to records?`;
-    if (window.confirm(confirmMsg)) {
-      handleExecuteRelease(classStreamStr, examYear, examTerm, examName);
-    }
+    handleExecuteRelease(classStreamStr, examYear, examTerm, examName);
   };
 
   const handleExecuteRelease = async (classStreamStr: string, examYear: string, examTerm: string, examName: string) => {
@@ -1171,16 +1204,48 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
               onChange={e => setSelectedExam(e.target.value)}
               className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 font-bold text-slate-800 focus:ring-2 focus:ring-blue-500"
             >
-              <option value="Midterm I">Midterm I</option>
-              <option value="Terminal">Terminal</option>
-              <option value="Annual">Annual</option>
-              <option value="Midterm II">Midterm II</option>
-              <option value="Pre-Mock">Pre-Mock</option>
-              <option value="Mock">Mock Exam</option>
-              <option value="PSLE Final">PSLE Final (Primary)</option>
-              <option value="NECTA Final">NECTA Final (CSEE)</option>
+              {allAvailableExams.map(ex => (
+                <option key={ex.name} value={ex.name}>
+                  {ex.isRegistered ? `★ ${ex.name} (Registered)` : ex.name}
+                </option>
+              ))}
             </select>
           </div>
+
+          {/* Quick Cutoff / Grade Settings */}
+          <button
+            type="button"
+            onClick={() => setIsCutoffModalOpen(true)}
+            className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer border border-slate-300"
+            title="Configure Cutoff / Grade Settings for this exam"
+          >
+            <Sliders className="w-3.5 h-3.5 text-blue-600" />
+            <span>Cutoffs & Settings</span>
+          </button>
+
+          {/* USAL (Sealed Marksheet) Button */}
+          <button
+            type="button"
+            onClick={() => setIsUsalModalOpen(true)}
+            className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+            title="Open USAL (Sealed Marksheet) & CSEE/CPS Records"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-amber-600" />
+            <span>USAL (Sealed)</span>
+          </button>
+
+          {/* Teacher Marks Entry Quick Access */}
+          {onNavigateToMarkEntry && (
+            <button
+              type="button"
+              onClick={() => onNavigateToMarkEntry(selectedExam, selectedClass)}
+              className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-300 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+              title="Go to Marks Entry page"
+            >
+              <Edit3 className="w-3.5 h-3.5 text-blue-600" />
+              <span>Marks Entry</span>
+            </button>
+          )}
         </div>
 
         {/* Search */}
@@ -1393,14 +1458,14 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                 onClick={handleInitiateRelease}
                 disabled={isReleasing || classCandidates.length === 0}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-black flex items-center gap-2 cursor-pointer shadow-md transition-all active:scale-95 animate-in fade-in"
-                title="Release and push all calculated results (with marks, total, average, points, division, grade, position) to Examination Records collection"
+                title="Save and roll all calculated results (with marks, total, average, points, division, grade, position) to Examination Records"
               >
                 {isReleasing ? (
                   <RefreshCw className="w-4 h-4 animate-spin text-white" />
                 ) : (
                   <CheckCircle className="w-4 h-4 text-emerald-200" />
                 )}
-                <span>RELEASE RESULTS TO EXAMINATION RECORDS</span>
+                <span>SAVE &amp; ROLL TO RESULTS</span>
               </button>
             </div>
           </div>
@@ -2793,6 +2858,37 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
         initialClass={selectedClass}
         initialStream={selectedStream}
       />
+
+      {/* Grade Cutoff & NECTA Criteria Modal */}
+      {isCutoffModalOpen && (
+        <GradeCutoffModal
+          isOpen={isCutoffModalOpen}
+          onClose={() => setIsCutoffModalOpen(false)}
+          selectedExamName={selectedExam}
+          selectedClassName={selectedClass}
+          onSaveCutoffs={(policy) => {
+            setSaveToast(`Cutoffs updated for ${selectedClass} (${policy.title})`);
+            setTimeout(() => setSaveToast(null), 3000);
+          }}
+        />
+      )}
+
+      {/* USAL (Sealed Marksheet) & CSEE / CPS Modal */}
+      {isUsalModalOpen && (
+        <USALModal
+          isOpen={isUsalModalOpen}
+          onClose={() => setIsUsalModalOpen(false)}
+          usalRecords={usalRecords}
+          onSaveUsalRecord={(rec) => {
+            if (onSaveUsalRecord) onSaveUsalRecord(rec);
+          }}
+          students={students}
+          teachers={teachers}
+          schoolInfo={schoolInfo}
+          currentUser={currentUser}
+          selectedExamName={selectedExam}
+        />
+      )}
     </div>
   );
 };
