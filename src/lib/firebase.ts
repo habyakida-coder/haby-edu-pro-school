@@ -16,7 +16,9 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app, defaultAppletConfig.firestoreDatabaseId);
+export const db = (defaultAppletConfig.firestoreDatabaseId && defaultAppletConfig.firestoreDatabaseId !== '(default)') 
+  ? getFirestore(app, defaultAppletConfig.firestoreDatabaseId) 
+  : getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
 
 export enum OperationType {

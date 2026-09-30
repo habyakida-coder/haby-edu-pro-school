@@ -96,8 +96,17 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
   const [customRole, setCustomRole] = useState('');
   const [isCustomRole, setIsCustomRole] = useState(false);
   
-  // MULTIPLE TEACHING SUBJECTS (not limited to 2)
-  const [subjects, setSubjects] = useState<string[]>(['Basic Mathematics', 'English Language']);
+  // MULTIPLE TEACHING SUBJECTS WITH STREAM ID (One after another)
+  const [subjects, setSubjects] = useState<string[]>([
+    'Physics Form 3A',
+    'Physics Form 3B',
+    'Physics Form 3D'
+  ]);
+  const [allocSubject, setAllocSubject] = useState<string>('Physics');
+  const [allocClass, setAllocClass] = useState<string>('Form 3');
+  const [allocStreams, setAllocStreams] = useState<string[]>(['A', 'B', 'D']);
+  const [customSubjectText, setCustomSubjectText] = useState<string>('');
+  const [manualSubjectStreamInput, setManualSubjectStreamInput] = useState<string>('');
   const [subjectSearch, setSubjectSearch] = useState('');
 
   const [excludeInvigilation, setExcludeInvigilation] = useState(false);
@@ -109,6 +118,73 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
   // Teaching streams allocation
   const [teachingStreams, setTeachingStreams] = useState<string[]>([]);
   const [maxPeriodsPerWeek, setMaxPeriodsPerWeek] = useState<number>(20);
+
+  // Available stream IDs for selected allocation class
+  const availableStreamIdsForClass = useMemo(() => {
+    const found = streamSettings.find(s => s.className === allocClass);
+    if (found?.streams && found.streams.length > 0) {
+      return found.streams.map(st => st.replace(/^stream\s*/i, '').trim().toUpperCase());
+    }
+    return ['A', 'B', 'C', 'D'];
+  }, [allocClass, streamSettings]);
+
+  const formatSubjectStream = (sub: string, cName: string, strId: string) => {
+    const cleanStream = strId.replace(/^stream\s*/i, '').trim().toUpperCase();
+    return `${sub.trim()} ${cName}${cleanStream}`;
+  };
+
+  const handleRegisterSubjectStreams = () => {
+    const sub = customSubjectText.trim() || allocSubject.trim();
+    if (!sub) {
+      alert('Please select or enter a teaching subject.');
+      return;
+    }
+    if (allocStreams.length === 0) {
+      alert('Please select at least one stream ID.');
+      return;
+    }
+
+    const newEntries: string[] = [];
+    allocStreams.forEach(str => {
+      const formatted = formatSubjectStream(sub, allocClass, str);
+      if (!subjects.includes(formatted)) {
+        newEntries.push(formatted);
+      }
+    });
+
+    if (newEntries.length === 0) {
+      alert('All selected subject streams are already registered for this teacher.');
+      return;
+    }
+
+    setSubjects(prev => [...prev, ...newEntries]);
+    
+    // Auto-sync teaching streams
+    const streamNames = allocStreams.map(str => `${allocClass} - Stream ${str.toUpperCase()}`);
+    setTeachingStreams(prev => Array.from(new Set([...prev, ...streamNames])));
+    setCustomSubjectText('');
+  };
+
+  const handleToggleAllocStream = (str: string) => {
+    setAllocStreams(prev => 
+      prev.includes(str) ? prev.filter(s => s !== str) : [...prev, str]
+    );
+  };
+
+  const handleRemoveSubjectEntry = (entry: string) => {
+    setSubjects(prev => prev.filter(s => s !== entry));
+  };
+
+  const handleAddManualSubjectStream = () => {
+    const trimmed = manualSubjectStreamInput.trim();
+    if (!trimmed) return;
+    if (subjects.includes(trimmed)) {
+      alert(`"${trimmed}" is already in the registered subjects list.`);
+      return;
+    }
+    setSubjects(prev => [...prev, trimmed]);
+    setManualSubjectStreamInput('');
+  };
 
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
   const [searchFilter, setSearchFilter] = useState('');
@@ -276,7 +352,7 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
     setSchoolRole('Subject Teacher');
     setIsCustomRole(false);
     setCustomRole('');
-    setSubjects(['Basic Mathematics', 'English Language']);
+    setSubjects(['Physics Form 3A', 'Physics Form 3B', 'Physics Form 3D']);
     setSubjectSearch('');
     setExcludeInvigilation(false);
     setCustomColor(INVIGILATOR_COLORS[0].hex);
@@ -285,6 +361,11 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
     setPassportPhoto('');
     setTeachingStreams([]);
     setMaxPeriodsPerWeek(20);
+    setAllocSubject('Physics');
+    setAllocClass('Form 3');
+    setAllocStreams(['A', 'B', 'D']);
+    setCustomSubjectText('');
+    setManualSubjectStreamInput('');
   };
 
   const handleEdit = (teacher: Teacher) => {
@@ -303,7 +384,7 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
       setIsCustomRole(false);
     }
 
-    setSubjects(teacher.subjects && teacher.subjects.length > 0 ? teacher.subjects : [SUBJECT_LIST[0]]);
+    setSubjects(teacher.subjects && teacher.subjects.length > 0 ? teacher.subjects : ['Physics Form 3A', 'Physics Form 3B']);
     setExcludeInvigilation(teacher.excludeInvigilation);
     setCustomColor(teacher.color || INVIGILATOR_COLORS[0].hex);
     setPhone(teacher.phone || '');
@@ -320,7 +401,7 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
     setSchoolRole('Subject Teacher');
     setIsCustomRole(false);
     setCustomRole('');
-    setSubjects(['Basic Mathematics', 'English Language']);
+    setSubjects(['Physics Form 3A', 'Physics Form 3B', 'Physics Form 3D']);
     setSubjectSearch('');
     setExcludeInvigilation(false);
     setCustomColor(INVIGILATOR_COLORS[0].hex);
@@ -329,6 +410,11 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
     setPassportPhoto('');
     setTeachingStreams([]);
     setMaxPeriodsPerWeek(20);
+    setAllocSubject('Physics');
+    setAllocClass('Form 3');
+    setAllocStreams(['A', 'B', 'D']);
+    setCustomSubjectText('');
+    setManualSubjectStreamInput('');
   };
 
   // Filter teachers by search and role
@@ -768,144 +854,226 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
                     </div>
                   </div>
 
-                  {/* MULTIPLE TEACHING SUBJECTS REGISTRATION (Not limited to 2) */}
-                  <div className="p-4 bg-blue-50/50 border border-blue-200 rounded-2xl space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <BookOpen className="w-4 h-4 text-blue-700" />
-                        <span className="text-xs font-bold text-blue-900 uppercase">
-                          Teaching Subjects ({subjects.length} selected - no limit)
-                        </span>
+                  {/* SUBJECT REGISTRATION WITH STREAM ID (One after another, not combined) */}
+                  <div className="p-5 bg-gradient-to-br from-blue-50/70 via-indigo-50/40 to-slate-50 border-2 border-blue-200 rounded-2xl space-y-4 shadow-2xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-blue-200/80 pb-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <BookOpen className="w-5 h-5 text-blue-700" />
+                          <h4 className="text-sm font-black text-blue-950 uppercase tracking-wide">
+                            Subject Registration with Stream ({subjects.length} Allocated)
+                          </h4>
+                        </div>
+                        <p className="text-xs text-blue-800/80 mt-0.5 font-medium">
+                          Each subject is registered with its Stream ID one after another, not combined (e.g. <strong>Physics Form 3A</strong>, <strong>Physics Form 3B</strong>, <strong>Physics Form 3D</strong>).
+                        </p>
                       </div>
-                      <span className="text-[11px] text-blue-700">
-                        Select multiple subjects registered for this teacher
-                      </span>
+                      <div className="text-[11px] font-bold px-2.5 py-1 bg-blue-100 text-blue-900 rounded-full border border-blue-300">
+                        Multi-stream enabled
+                      </div>
                     </div>
 
-                    {/* Selected subjects badges with remove button */}
-                    <div className="flex flex-wrap gap-1.5 min-h-[36px] p-2 bg-white rounded-xl border border-blue-200">
-                      {subjects.length === 0 ? (
-                        <span className="text-xs text-slate-400 italic">No subjects selected yet. Click from list below.</span>
-                      ) : (
-                        subjects.map(sub => (
-                          <span
-                            key={sub}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-100 text-blue-900 border border-blue-300 shadow-2xs"
+                    {/* Interactive Stream-by-Stream Subject Builder */}
+                    <div className="p-4 bg-white rounded-xl border border-blue-200 space-y-3 shadow-2xs">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {/* 1. Subject selector */}
+                        <div>
+                          <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider block mb-1">
+                            1. Select Subject
+                          </label>
+                          <select
+                            value={allocSubject}
+                            onChange={e => {
+                              setAllocSubject(e.target.value);
+                              setCustomSubjectText('');
+                            }}
+                            className="w-full px-3 py-2 text-xs font-bold border border-slate-300 rounded-xl bg-slate-50 focus:ring-2 focus:ring-blue-500 text-slate-800"
                           >
-                            <span>{sub}</span>
-                            <button
-                              type="button"
-                              onClick={() => handleToggleSubject(sub)}
-                              className="text-blue-700 hover:text-rose-700 hover:bg-blue-200 rounded-full p-0.5"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </span>
-                        ))
-                      )}
-                    </div>
-
-                    {/* Quick Add Popular Subjects */}
-                    <div className="space-y-1.5">
-                      <div className="text-[11px] font-bold text-slate-500 uppercase">Quick Add Curriculum Subjects:</div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {POPULAR_SUBJECTS.map(ps => {
-                          const isSelected = subjects.includes(ps);
-                          return (
-                            <button
-                              key={ps}
-                              type="button"
-                              onClick={() => handleToggleSubject(ps)}
-                              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer border ${
-                                isSelected
-                                  ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
-                                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
-                              }`}
-                            >
-                              {isSelected ? `✓ ${ps}` : `+ ${ps}`}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Search & All Subjects Picker */}
-                    <div className="space-y-1.5 pt-1">
-                      <div className="flex items-center gap-2">
-                        <div className="relative flex-1">
-                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                            {POPULAR_SUBJECTS.map(ps => (
+                              <option key={ps} value={ps}>{ps}</option>
+                            ))}
+                          </select>
                           <input
                             type="text"
-                            placeholder="Filter or search all school subjects..."
-                            value={subjectSearch}
-                            onChange={e => setSubjectSearch(e.target.value)}
-                            className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-xl bg-white"
+                            placeholder="Or specify custom subject name..."
+                            value={customSubjectText}
+                            onChange={e => setCustomSubjectText(e.target.value)}
+                            className="mt-1.5 w-full px-2.5 py-1 text-xs border border-slate-200 rounded-lg bg-white placeholder-slate-400"
                           />
                         </div>
-                        {subjectSearch && (
+
+                        {/* 2. Class Level selector */}
+                        <div>
+                          <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider block mb-1">
+                            2. Class Level
+                          </label>
+                          <select
+                            value={allocClass}
+                            onChange={e => setAllocClass(e.target.value)}
+                            className="w-full px-3 py-2 text-xs font-bold border border-slate-300 rounded-xl bg-slate-50 focus:ring-2 focus:ring-blue-500 text-slate-800"
+                          >
+                            <optgroup label="SECONDARY SCHOOL (Form 1 - 6)">
+                              {['Form 1', 'Form 2', 'Form 3', 'Form 4', 'Form 5', 'Form 6'].map(c => (
+                                <option key={c} value={c}>{c}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="PRIMARY SCHOOL (Standard 1 - 7)">
+                              {['Standard 1', 'Standard 2', 'Standard 3', 'Standard 4', 'Standard 5', 'Standard 6', 'Standard 7'].map(c => (
+                                <option key={c} value={c}>{c}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="PRE-PRIMARY / NURSERY">
+                              {['Baby Class', 'Middle Class', 'Pre-Unit'].map(c => (
+                                <option key={c} value={c}>{c}</option>
+                              ))}
+                            </optgroup>
+                          </select>
+                          <span className="text-[10px] text-slate-400 block mt-1">
+                            Target level for stream allocations
+                          </span>
+                        </div>
+
+                        {/* 3. Multi-Select Streams */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider block">
+                              3. Multi-Select Streams ({allocStreams.length})
+                            </label>
+                            <div className="flex items-center gap-1.5 text-[10px]">
+                              <button
+                                type="button"
+                                onClick={() => setAllocStreams([...availableStreamIdsForClass])}
+                                className="text-blue-600 hover:underline font-bold cursor-pointer"
+                              >
+                                All
+                              </button>
+                              <span className="text-slate-300">|</span>
+                              <button
+                                type="button"
+                                onClick={() => setAllocStreams([])}
+                                className="text-slate-500 hover:underline font-medium cursor-pointer"
+                              >
+                                Clear
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-xl">
+                            {availableStreamIdsForClass.map(streamId => {
+                              const isChecked = allocStreams.includes(streamId);
+                              return (
+                                <button
+                                  key={streamId}
+                                  type="button"
+                                  onClick={() => handleToggleAllocStream(streamId)}
+                                  className={`px-3 py-1 rounded-lg text-xs font-black transition cursor-pointer border ${
+                                    isChecked
+                                      ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                                      : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                                  }`}
+                                >
+                                  {isChecked ? `✓ Stream ${streamId}` : `+ Stream ${streamId}`}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Add Button & Preview */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                        <div className="text-xs text-slate-600">
+                          <span className="font-bold text-slate-700">Preview: </span>
+                          {allocStreams.length > 0 ? (
+                            <span className="font-mono text-blue-900 font-bold">
+                              {allocStreams.map(s => formatSubjectStream(customSubjectText || allocSubject, allocClass, s)).join(', ')}
+                            </span>
+                          ) : (
+                            <span className="italic text-slate-400">Select at least one stream above to generate entries</span>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleRegisterSubjectStreams}
+                          disabled={allocStreams.length === 0}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl text-xs font-black shadow-md flex items-center justify-center gap-1.5 cursor-pointer transition active:scale-95 shrink-0"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>Add {customSubjectText || allocSubject} to {allocStreams.length} Stream{allocStreams.length !== 1 ? 's' : ''} (One After Another)</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Registered Subjects List (One after another) */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                          Registered Teaching Subjects ({subjects.length} entries registered individually):
+                        </span>
+                        {subjects.length > 0 && (
                           <button
                             type="button"
-                            onClick={() => setSubjectSearch('')}
-                            className="text-xs text-slate-500 hover:text-slate-800"
+                            onClick={() => setSubjects([])}
+                            className="text-[11px] text-rose-600 hover:underline font-bold cursor-pointer"
                           >
-                            Clear
+                            Clear All Subjects
                           </button>
                         )}
                       </div>
 
-                      {subjectSearch && (
-                        <div className="max-h-36 overflow-y-auto p-2 bg-white border border-slate-200 rounded-xl flex flex-wrap gap-1.5">
-                          {searchedSubjects.map(sub => (
-                            <button
-                              key={sub}
-                              type="button"
-                              onClick={() => handleToggleSubject(sub)}
-                              className={`px-2 py-0.5 rounded text-xs font-medium cursor-pointer border ${
-                                subjects.includes(sub)
-                                  ? 'bg-blue-600 text-white border-blue-600'
-                                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                              }`}
+                      <div className="flex flex-wrap gap-2 p-3 bg-white rounded-xl border border-blue-200 min-h-[50px] items-center">
+                        {subjects.length === 0 ? (
+                          <span className="text-xs text-slate-400 italic">
+                            No subjects registered yet. Use the builder above to register subjects with stream IDs.
+                          </span>
+                        ) : (
+                          subjects.map((sub, idx) => (
+                            <span
+                              key={`${sub}_${idx}`}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-100/90 text-blue-950 border border-blue-300 shadow-2xs hover:bg-blue-200 transition"
                             >
-                              {subjects.includes(sub) ? `✓ ${sub}` : `+ ${sub}`}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* TEACHING STREAM & CLASS ALLOCATION */}
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <Layers className="w-4 h-4 text-emerald-700" />
-                        <span className="text-xs font-bold text-slate-800 uppercase">
-                          Teaching Stream / Class Timetable Allocation ({teachingStreams.length} allocated)
-                        </span>
+                              <BookOpen className="w-3.5 h-3.5 text-blue-700 shrink-0" />
+                              <span className="font-mono tracking-tight">{sub}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveSubjectEntry(sub)}
+                                className="text-blue-700 hover:text-rose-700 hover:bg-rose-100 rounded-full p-0.5 transition cursor-pointer"
+                                title={`Remove ${sub}`}
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </span>
+                          ))
+                        )}
                       </div>
-                      <span className="text-[11px] text-slate-500">
-                        Streams where this teacher conducts lessons
-                      </span>
                     </div>
 
-                    <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 bg-white border border-slate-200 rounded-xl">
-                      {allAvailableStreams.map(st => {
-                        const isSelected = teachingStreams.includes(st);
-                        return (
-                          <button
-                            key={st}
-                            type="button"
-                            onClick={() => handleToggleStream(st)}
-                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
-                              isSelected
-                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
-                                : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
-                            }`}
-                          >
-                            {isSelected ? `✓ ${st}` : `+ ${st}`}
-                          </button>
-                        );
-                      })}
+                    {/* Manual Single Entry Input */}
+                    <div className="flex items-center gap-2 pt-1">
+                      <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">
+                        Or add custom stream entry manually:
+                      </span>
+                      <input
+                        type="text"
+                        placeholder="e.g. Physics Form 3C"
+                        value={manualSubjectStreamInput}
+                        onChange={e => setManualSubjectStreamInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddManualSubjectStream();
+                          }
+                        }}
+                        className="px-3 py-1 text-xs border border-slate-300 rounded-lg bg-white flex-1 max-w-xs font-medium"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddManualSubjectStream}
+                        className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-bold border border-slate-300 cursor-pointer"
+                      >
+                        + Add Entry
+                      </button>
                     </div>
                   </div>
                 </div>

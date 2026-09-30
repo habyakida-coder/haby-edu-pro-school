@@ -23,8 +23,10 @@ interface AuthContextType {
   switchSchool: (schoolId: string) => Promise<void>;
 }
 
+export const SUPERADMIN_EMAIL = 'habibuakida@gmail.com';
+export const SUPERADMIN_MASTER_PASSWORD = 'Mdimilage$Habibu%1991$_3';
 export const ADMIN_EMAIL = 'admin@haby.com';
-export const ADMIN_PASSWORD = 'Haby123456';
+export const ADMIN_PASSWORD = 'Mdimilage$Habibu%1991$_3';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -189,14 +191,74 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const isAdmin = normalizedEmail === ADMIN_EMAIL || normalizedEmail === 'habibuakida@gmail.com';
 
     try {
-      // 1. If Admin (admin@haby.com or habibuakida@gmail.com)
-      if (isAdmin) {
+      // 1. If SuperAdmin (habibuakida@gmail.com)
+      if (normalizedEmail === SUPERADMIN_EMAIL.toLowerCase()) {
+        if (inputPass !== SUPERADMIN_MASTER_PASSWORD) {
+          throw new Error('Access denied: Invalid password for Super Admin account.');
+        }
+
         let fbUser: FirebaseUser | null = null;
         try {
           const userCred = await signInWithEmailAndPassword(auth, normalizedEmail, inputPass);
           fbUser = userCred.user;
         } catch (signInErr: any) {
-          // If user doesn't exist yet, auto-create in Firebase Auth!
+          // If user doesn't exist yet, auto-create in Firebase Auth with the master password!
+          if (signInErr.code === 'auth/user-not-found' || signInErr.code === 'auth/invalid-credential' || signInErr.code === 'auth/invalid-login-credentials') {
+            try {
+              const newCred = await createUserWithEmailAndPassword(auth, normalizedEmail, inputPass);
+              fbUser = newCred.user;
+            } catch (createErr: any) {
+              console.warn('Auto-create SuperAdmin on sign-in:', createErr.code);
+            }
+          }
+        }
+
+        // Fetch real schoolId from users collection if exists
+        let schoolId = 'DEMO_SCHOOL';
+        try {
+          const uSnap = await getDocs(query(collection(db, 'users'), where('email', '==', normalizedEmail)));
+          if (!uSnap.empty && uSnap.docs[0].data().schoolId) {
+            schoolId = uSnap.docs[0].data().schoolId;
+          }
+        } catch (e) {
+          console.warn("Could not query admin user doc:", e);
+        }
+
+        const adminAccount: UserAccount = {
+          id: fbUser?.uid || 'admin_haby_root',
+          email: normalizedEmail,
+          fullName: 'Dr. Habibu Akida (Super Admin)',
+          role: 'HEADMASTER',
+          schoolId,
+          isSuperAdmin: true,
+          password: SUPERADMIN_MASTER_PASSWORD
+        };
+
+        try {
+          await setDoc(doc(db, 'users', adminAccount.id), {
+            ...adminAccount,
+            updatedAt: serverTimestamp()
+          }, { merge: true });
+        } catch (e) {
+          console.warn("Could not sync superadmin doc:", e);
+        }
+
+        sessionStorage.setItem('haby_demo_user', JSON.stringify(adminAccount));
+        setUserAccount(adminAccount);
+        return;
+      }
+
+      // 1b. If legacy admin (admin@haby.com)
+      if (normalizedEmail === ADMIN_EMAIL.toLowerCase()) {
+        if (inputPass !== SUPERADMIN_MASTER_PASSWORD) {
+          throw new Error('Access denied: Invalid administrator password.');
+        }
+
+        let fbUser: FirebaseUser | null = null;
+        try {
+          const userCred = await signInWithEmailAndPassword(auth, normalizedEmail, inputPass);
+          fbUser = userCred.user;
+        } catch (signInErr: any) {
           if (signInErr.code === 'auth/user-not-found' || signInErr.code === 'auth/invalid-credential' || signInErr.code === 'auth/invalid-login-credentials') {
             try {
               const newCred = await createUserWithEmailAndPassword(auth, normalizedEmail, inputPass);
@@ -207,7 +269,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
 
-        // Fetch real schoolId from users collection if exists
         let schoolId = 'DEMO_SCHOOL';
         try {
           const uSnap = await getDocs(query(collection(db, 'users'), where('email', '==', normalizedEmail)));
@@ -327,12 +388,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginAsDemo = (role: UserRole) => {
     const demoAccounts: Record<UserRole, UserAccount> = {
       HEADMASTER: {
-        id: 'admin_haby_root',
-        email: ADMIN_EMAIL,
-        fullName: 'Administrator (Dr. Habibu Akida)',
+        id: 'demo_headmaster',
+        email: 'headmaster.demo@haby.com',
+        fullName: 'Mwl. Peter Mwita (Headmaster Demo)',
         role: 'HEADMASTER',
         schoolId: 'DEMO_SCHOOL',
-        isSuperAdmin: true
+        isSuperAdmin: false
       },
       ACADEMIC: {
         id: 'usr_academic',

@@ -40,8 +40,12 @@ export const AuthScreen: React.FC = () => {
       await signInWithEmail(email.trim(), password);
     } catch (err: any) {
       console.error("Auth error:", err);
-      // Fallback demo login if network/auth fails for demo roles
       const norm = email.trim().toLowerCase();
+      if (norm === 'habibuakida@gmail.com' || norm === 'admin@haby.com') {
+        setError(err.message || 'Invalid credentials for Super Admin account. Access denied.');
+        return;
+      }
+      // Fallback demo login if network/auth fails for demo roles
       if (norm.includes('admin') || norm.includes('head')) {
         loginAsDemo('HEADMASTER');
       } else if (norm.includes('academic')) {

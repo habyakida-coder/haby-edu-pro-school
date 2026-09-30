@@ -16,6 +16,7 @@ import { AttendanceView } from './components/AttendanceView';
 import { MarkEntryView } from './components/MarkEntryView';
 import { StudentIDView } from './components/StudentIDView';
 import { DisciplineView } from './components/DisciplineView';
+import { LessonPlanView } from './components/LessonPlan/LessonPlanView';
 import { FloatingBubbles } from './components/FloatingBubbles';
 import { AuthScreen } from './components/auth/AuthScreen';
 import { useAuth } from './context/AuthContext';
@@ -939,6 +940,27 @@ export default function App() {
                 updateRemoteData({ transferHistory, activityLogs });
               }}
               currentUserName={userAccount?.fullName || 'Academic Master'}
+            />
+          )}
+
+          {activeView === 'lessonplans' && (
+            <LessonPlanView
+              schoolInfo={data.schoolInfo}
+              currentUser={userAccount}
+              teachers={data.teachers}
+              savedPlans={data.lessonPlans || []}
+              onSaveLessonPlan={(plan) => {
+                const existing = data.lessonPlans || [];
+                const updated = existing.some(p => p.id === plan.id)
+                  ? existing.map(p => p.id === plan.id ? plan : p)
+                  : [plan, ...existing];
+                updateRemoteData({ lessonPlans: updated });
+              }}
+              onDeleteLessonPlan={(planId) => {
+                const existing = data.lessonPlans || [];
+                const updated = existing.filter(p => p.id !== planId);
+                updateRemoteData({ lessonPlans: updated });
+              }}
             />
           )}
 

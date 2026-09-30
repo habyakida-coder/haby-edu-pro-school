@@ -19,7 +19,8 @@ import {
   UserPlus,
   RotateCw,
   Save,
-  FileSpreadsheet
+  FileSpreadsheet,
+  BookOpen
 } from 'lucide-react';
 import { SchoolInfo, UserAccount } from '../types';
 
@@ -28,6 +29,7 @@ export type ActiveView =
   | 'students'
   | 'results'
   | 'examrecords'
+  | 'lessonplans'
   | 'attendance'
   | 'discipline'
   | 'studentid'
@@ -62,6 +64,7 @@ export const Navigation: React.FC<NavigationProps> = ({
     { id: 'students', label: 'Registration', icon: <UserPlus className="w-4 h-4" /> },
     { id: 'results', label: 'Academic', icon: <Award className="w-4 h-4" /> },
     { id: 'examrecords', label: 'Exam Records', icon: <FileSpreadsheet className="w-4 h-4" /> },
+    { id: 'lessonplans', label: 'Lesson Plans', icon: <BookOpen className="w-4 h-4" /> },
     { id: 'attendance', label: 'Attendance', icon: <CalendarCheck className="w-4 h-4" /> },
     { id: 'discipline', label: 'Discipline', icon: <ShieldAlert className="w-4 h-4" /> },
     { id: 'studentid', label: 'Student ID', icon: <CreditCard className="w-4 h-4" /> },
@@ -73,7 +76,7 @@ export const Navigation: React.FC<NavigationProps> = ({
     { id: 'markentry', label: 'Mark Entry', icon: <CheckCircle2 className="w-4 h-4" /> }
   ] as { id: ActiveView; label: string; icon: React.ReactNode }[]).filter(item => {
     if (isTeacher) {
-      return (['markentry', 'results', 'examrecords', 'attendance', 'timetable', 'discipline', 'dashboard'] as ActiveView[]).includes(item.id);
+      return (['markentry', 'lessonplans', 'results', 'examrecords', 'attendance', 'timetable', 'discipline', 'dashboard'] as ActiveView[]).includes(item.id);
     }
     return true;
   });

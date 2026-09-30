@@ -21,7 +21,9 @@ import {
   RotateCcw,
   Sparkles,
   Users,
-  ChevronDown
+  ChevronDown,
+  X,
+  MessageSquare
 } from 'lucide-react';
 import { 
   ExaminationRecord, 
@@ -86,6 +88,7 @@ export const ExaminationRecordsView: React.FC<ExaminationRecordsViewProps> = ({
   // Filters
   const [selectedYear, setSelectedYear] = useState<string>('2026');
   const [selectedClass, setSelectedClass] = useState<string>('All');
+  const [selectedStream, setSelectedStream] = useState<string>('All');
   const [selectedTerm, setSelectedTerm] = useState<string>('All');
   const [selectedExamType, setSelectedExamType] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -105,6 +108,7 @@ export const ExaminationRecordsView: React.FC<ExaminationRecordsViewProps> = ({
   const [isPromotionModalOpen, setIsPromotionModalOpen] = useState<boolean>(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState<boolean>(false);
   const [isBulkWhatsAppOpen, setIsBulkWhatsAppOpen] = useState<boolean>(false);
+  const [isPdfExportModalOpen, setIsPdfExportModalOpen] = useState<boolean>(false);
 
   // Available Academic Years from records
   const availableYears = useMemo(() => {
@@ -115,18 +119,41 @@ export const ExaminationRecordsView: React.FC<ExaminationRecordsViewProps> = ({
     return Array.from(set).sort().reverse();
   }, [examinationRecords]);
 
+  // Available Streams for selected class
+  const availableStreams = useMemo(() => {
+    const set = new Set<string>();
+    examinationRecords.forEach(r => {
+      if ((selectedClass === 'All' || r.className === selectedClass) && r.stream) {
+        set.add(r.stream);
+      }
+    });
+    students.forEach(s => {
+      if ((selectedClass === 'All' || s.className === selectedClass) && s.stream) {
+        set.add(s.stream);
+      }
+    });
+    return Array.from(set).sort();
+  }, [examinationRecords, students, selectedClass]);
+
+  // Handle inline remarks updates
+  const handleUpdateRemarks = (recordId: string, remarks: string) => {
+    const updated = examinationRecords.map(r => r.id === recordId ? { ...r, teacherRemarks: remarks } : r);
+    onUpdateExaminationRecords(updated);
+  };
+
   // Filtered examination records
   const filteredRecords = useMemo(() => {
     let list = examinationRecords.filter(r => {
       const matchYear = selectedYear === 'All' || r.academicYear === selectedYear;
       const matchClass = selectedClass === 'All' || r.className === selectedClass;
+      const matchStream = selectedStream === 'All' || r.stream === selectedStream || (!r.stream && selectedStream === 'All');
       const matchTerm = selectedTerm === 'All' || r.term === selectedTerm;
       const matchExam = selectedExamType === 'All' || r.examType === selectedExamType;
       const matchSearch = !searchQuery.trim() || 
         r.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         String(r.studentId).includes(searchQuery);
 
-      return matchYear && matchClass && matchTerm && matchExam && matchSearch;
+      return matchYear && matchClass && matchStream && matchTerm && matchExam && matchSearch;
     });
 
     // Apply Grade & Ranking Quick Filters
@@ -346,6 +373,16 @@ Total: ${rec.totalMarks} Avg: ${rec.averageMarks}% Points: ${pointsStr} Div: ${d
           <div className="flex items-center gap-2.5 flex-wrap">
             <button
               type="button"
+              onClick={() => setIsPdfExportModalOpen(true)}
+              className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-black rounded-xl text-xs shadow-md flex items-center gap-2 transition cursor-pointer active:scale-[0.98] border border-blue-400"
+              title="Export results ledger as clean, printable PDF with remarks and signatures"
+            >
+              <Printer className="w-4 h-4 text-blue-200" />
+              <span>Export Results PDF</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setIsBulkWhatsAppOpen(true)}
               className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white font-black rounded-xl text-xs shadow-md flex items-center gap-2 transition cursor-pointer active:scale-[0.98] border border-emerald-400"
               title="Send results to whole class parents via WhatsApp automatically"
@@ -378,7 +415,7 @@ Total: ${rec.totalMarks} Avg: ${rec.averageMarks}% Points: ${pointsStr} Div: ${d
       {/* Control Panel: Filters, Search, View Toggles & Sorting */}
       <div className="bg-white rounded-2xl p-5 shadow-xs border border-slate-200 space-y-4">
         {/* Primary Filter Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           {/* Year selector */}
           <div>
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">
@@ -403,7 +440,10 @@ Total: ${rec.totalMarks} Avg: ${rec.averageMarks}% Points: ${pointsStr} Div: ${d
             </label>
             <select
               value={selectedClass}
-              onChange={(e) => setSelectedClass(e.target.value)}
+              onChange={(e) => {
+                setSelectedClass(e.target.value);
+                setSelectedStream('All');
+              }}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
             >
               <option value="All">All Classes</option>
@@ -416,6 +456,23 @@ Total: ${rec.totalMarks} Avg: ${rec.averageMarks}% Points: ${pointsStr} Div: ${d
               <optgroup label="SECONDARY LEVEL (Form 1 - 6)">
                 {SECONDARY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
               </optgroup>
+            </select>
+          </div>
+
+          {/* Stream selector */}
+          <div>
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">
+              Stream
+            </label>
+            <select
+              value={selectedStream}
+              onChange={(e) => setSelectedStream(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
+            >
+              <option value="All">All Streams</option>
+              {availableStreams.map(st => (
+                <option key={st} value={st}>{st}</option>
+              ))}
             </select>
           </div>
 
@@ -698,6 +755,7 @@ Total: ${rec.totalMarks} Avg: ${rec.averageMarks}% Points: ${pointsStr} Div: ${d
                   <th className="p-3 text-center">Total</th>
                   <th className="p-3 text-center">Average</th>
                   <th className="p-3 text-center">Grade & Division</th>
+                  <th className="p-3 text-left min-w-[220px]">Teacher Remarks / Comments</th>
                   <th className="p-3 text-center">Actions</th>
                 </tr>
               </thead>
@@ -815,6 +873,32 @@ Total: ${rec.totalMarks} Avg: ${rec.averageMarks}% Points: ${pointsStr} Div: ${d
                         )}
                       </td>
 
+                      {/* Inline Annotatable Teacher Remarks */}
+                      <td className="p-2.5 min-w-[220px]">
+                        <div className="space-y-1">
+                          <input
+                            type="text"
+                            placeholder="Add remark inline..."
+                            value={rec.teacherRemarks || ''}
+                            onChange={(e) => handleUpdateRemarks(rec.id, e.target.value)}
+                            className="w-full px-2.5 py-1 text-xs border border-slate-300 rounded-lg bg-white focus:bg-amber-50 focus:border-amber-400 focus:ring-1 focus:ring-amber-300 outline-none font-medium transition"
+                            title="Click to edit teacher remark inline"
+                          />
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {['Excellent', 'Very Good', 'Good Effort', 'Needs Improvement', 'Amefaulu'].map(badge => (
+                              <button
+                                key={badge}
+                                type="button"
+                                onClick={() => handleUpdateRemarks(rec.id, badge)}
+                                className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-900 border border-slate-200 cursor-pointer transition"
+                              >
+                                {badge}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </td>
+
                       {/* Action buttons */}
                       <td className="p-3 text-center">
                         <div className="flex items-center justify-center gap-1.5">
@@ -912,6 +996,195 @@ Total: ${rec.totalMarks} Avg: ${rec.averageMarks}% Points: ${pointsStr} Div: ${d
           promotionHistory={promotionHistory}
           transferHistory={transferHistory}
         />
+      )}
+
+      {/* PDF Export & Clean Printable Modal */}
+      {isPdfExportModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-5xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
+            {/* Modal Header */}
+            <div className="no-print bg-[#0f2948] text-white p-5 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-blue-500/20 rounded-xl text-blue-300">
+                  <Printer className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base">Official Examination Results Ledger (PDF / Print)</h3>
+                  <p className="text-xs text-blue-200">
+                    Filtered by: {selectedClass !== 'All' ? selectedClass : 'All Classes'} • {selectedStream !== 'All' ? selectedStream : 'All Streams'} • {selectedTerm} • Year {selectedYear}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md cursor-pointer transition"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Print / Save as PDF</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPdfExportModalOpen(false)}
+                  className="p-2 text-white/70 hover:text-white rounded-xl bg-white/10 hover:bg-white/20 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Document Body (Printable) */}
+            <div className="p-6 sm:p-8 overflow-y-auto space-y-6 flex-1 text-slate-900 bg-white" id="results-pdf-print-area">
+              {/* Letterhead */}
+              <div className="border-b-2 border-slate-900 pb-4 text-center space-y-1">
+                <div className="flex items-center justify-center gap-4">
+                  {schoolInfo.logo && (
+                    <img src={schoolInfo.logo} alt="School Logo" className="w-16 h-16 object-contain" />
+                  )}
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-black uppercase tracking-wide">
+                      {schoolInfo.name || 'HABY EDU PRO SCHOOL'}
+                    </h2>
+                    <p className="text-xs font-bold text-slate-600 uppercase">
+                      OFFICIAL EXAMINATION LEDGER & STUDENT REPORT RECORD
+                    </p>
+                    <p className="text-[11px] text-slate-500 font-medium">
+                      CTR: {schoolInfo.schoolNumber || 'S.0123'} • {schoolInfo.address || 'Tanzania'} • Tel: {schoolInfo.phone || '+255...'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Filter Metadata & Summary Banner */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 p-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium">
+                <div>
+                  <span className="text-[10px] text-slate-500 uppercase block font-bold">Class Level:</span>
+                  <strong className="text-slate-900 font-black">{selectedClass}</strong>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 uppercase block font-bold">Stream:</span>
+                  <strong className="text-slate-900 font-black">{selectedStream}</strong>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 uppercase block font-bold">Academic Year:</span>
+                  <strong className="text-slate-900 font-black">{selectedYear}</strong>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 uppercase block font-bold">Term & Exam:</span>
+                  <strong className="text-slate-900 font-black">{selectedTerm} ({selectedExamType})</strong>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 uppercase block font-bold">Total Candidates:</span>
+                  <strong className="text-blue-900 font-black">{filteredRecords.length} Students</strong>
+                </div>
+              </div>
+
+              {/* Division / Grade Summary Badges */}
+              <div className="flex items-center justify-between gap-2 p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs flex-wrap">
+                <span className="font-bold text-blue-950">Cohort Summary:</span>
+                <div className="flex items-center gap-3 flex-wrap text-xs font-bold">
+                  <span className="text-emerald-800">Boys: {genderSummary.totalBoys}</span>
+                  <span className="text-rose-800">Girls: {genderSummary.totalGirls}</span>
+                  <span className="text-slate-700">|</span>
+                  <span className="text-emerald-700">Div I: {genderSummary.divBreakdown['I']?.T || 0}</span>
+                  <span className="text-blue-700">Div II: {genderSummary.divBreakdown['II']?.T || 0}</span>
+                  <span className="text-amber-700">Div III: {genderSummary.divBreakdown['III']?.T || 0}</span>
+                  <span className="text-orange-700">Div IV: {genderSummary.divBreakdown['IV']?.T || 0}</span>
+                  <span className="text-rose-700">Div 0: {genderSummary.divBreakdown['0']?.T || 0}</span>
+                </div>
+              </div>
+
+              {/* Results Table */}
+              <div className="overflow-x-auto border border-slate-300 rounded-xl">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-[#1f4d8b] text-white uppercase text-[10px] tracking-wider">
+                    <tr>
+                      <th className="p-2.5 text-center w-10 border-r border-blue-900">Pos</th>
+                      <th className="p-2.5 border-r border-blue-900">Student Name</th>
+                      <th className="p-2.5 text-center w-14 border-r border-blue-900">Gender</th>
+                      <th className="p-2.5 text-center border-r border-blue-900">Class (Stream)</th>
+                      {activeSubjectKeys.slice(0, 7).map(sub => (
+                        <th key={sub} className="p-2 text-center border-r border-blue-900 max-w-[90px] truncate" title={sub}>
+                          {sub.split(' ')[0]}
+                        </th>
+                      ))}
+                      <th className="p-2.5 text-center border-r border-blue-900 w-14">Total</th>
+                      <th className="p-2.5 text-center border-r border-blue-900 w-14">Avg%</th>
+                      <th className="p-2.5 text-center border-r border-blue-900 w-16">Grade/Div</th>
+                      <th className="p-2.5 min-w-[180px]">Teacher Remarks & Annotations</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 font-medium text-slate-800">
+                    {filteredRecords.map((rec, i) => (
+                      <tr key={rec.id} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                        <td className="p-2 text-center font-black border-r border-slate-200">
+                          {rec.positionInClass}
+                        </td>
+                        <td className="p-2 font-bold text-slate-900 border-r border-slate-200">
+                          {rec.studentName}
+                        </td>
+                        <td className="p-2 text-center border-r border-slate-200">
+                          {rec.gender?.toLowerCase().startsWith('f') ? 'F' : 'M'}
+                        </td>
+                        <td className="p-2 text-center border-r border-slate-200 text-slate-700">
+                          {rec.className} {rec.stream ? `(${rec.stream})` : ''}
+                        </td>
+                        {activeSubjectKeys.slice(0, 7).map(sub => {
+                          const subInfo = rec.subjects?.[sub];
+                          return (
+                            <td key={sub} className="p-2 text-center border-r border-slate-200">
+                              {subInfo ? (
+                                <span className="font-bold">
+                                  {subInfo.marks} <span className="text-[10px] text-slate-500">({subInfo.grade})</span>
+                                </span>
+                              ) : '-'}
+                            </td>
+                          );
+                        })}
+                        <td className="p-2 text-center font-black text-slate-900 border-r border-slate-200">
+                          {rec.totalMarks}
+                        </td>
+                        <td className="p-2 text-center font-black text-blue-900 border-r border-slate-200">
+                          {rec.averageMarks}%
+                        </td>
+                        <td className="p-2 text-center border-r border-slate-200 font-bold">
+                          <div>Grade {rec.overallGrade}</div>
+                          {rec.division && <div className="text-[10px] text-blue-700">Div {rec.division}</div>}
+                        </td>
+                        <td className="p-2 text-slate-800 text-xs italic">
+                          {rec.teacherRemarks || 'Good progress.'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Official Signatures Block */}
+              <div className="pt-8 border-t-2 border-slate-900 grid grid-cols-3 gap-6 text-xs">
+                <div>
+                  <span className="block text-[10px] font-bold text-slate-500 uppercase">Mwalimu wa Darasa (Class Teacher):</span>
+                  <div className="mt-8 border-b border-slate-400"></div>
+                  <span className="block text-[10px] font-semibold text-slate-700 mt-1">Saini na Tarehe</span>
+                </div>
+
+                <div>
+                  <span className="block text-[10px] font-bold text-slate-500 uppercase">Mwalimu wa Taaluma (Academic Master):</span>
+                  <div className="mt-8 border-b border-slate-400"></div>
+                  <span className="block text-[10px] font-semibold text-slate-700 mt-1">Saini na Tarehe</span>
+                </div>
+
+                <div>
+                  <span className="block text-[10px] font-bold text-slate-500 uppercase">Mkuu wa Shule (Head of School):</span>
+                  <div className="mt-8 border-b border-slate-400"></div>
+                  <span className="block text-[10px] font-semibold text-slate-700 mt-1">Muhuri Rasmi na Saini</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -1,3 +1,5 @@
+import { LessonPlan } from './types/lessonPlan';
+
 export interface CharacterTrait {
   id: string;
   name: string;
@@ -395,6 +397,7 @@ export interface ExaminationRecord {
   points?: number | null;
   positionInClass: number;
   totalStudents: number;
+  teacherRemarks?: string;
   createdAt: string;
 }
 
@@ -484,6 +487,7 @@ export interface AppData {
   subjectPeriodAllocations?: SubjectPeriodAllocation[];
   teacherAssignments?: TeacherAssignment[];
   usalRecords?: UsalRecord[];
+  lessonPlans?: LessonPlan[];
   gradeCutoffs?: Record<string, any>;
 }
 

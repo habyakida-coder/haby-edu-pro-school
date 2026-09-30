@@ -180,6 +180,9 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
   const [selectedClass, setSelectedClass] = useState<string>('Form 1');
   const [selectedStream, setSelectedStream] = useState<string>('All');
   const [selectedExam, setSelectedExam] = useState<string>('Midterm I');
+  const [selectedTerm, setSelectedTerm] = useState<string>('Term 1');
+  const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
+  const [isPdfExportModalOpen, setIsPdfExportModalOpen] = useState<boolean>(false);
   const [isEditMarksMode, setIsEditMarksMode] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'SAT' | 'NO_SUBJECT'>('ALL');
@@ -187,6 +190,20 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
   const [docModalExamId, setDocModalExamId] = useState<number | undefined>(undefined);
   const [isCutoffModalOpen, setIsCutoffModalOpen] = useState(false);
   const [isUsalModalOpen, setIsUsalModalOpen] = useState(false);
+
+  // Handle inline teacher remarks on candidate
+  const handleUpdateStudentRemarks = (studentId: number, remarks: string) => {
+    const student = students.find(s => s.id === studentId);
+    if (!student) return;
+    const updated: Student = {
+      ...student,
+      reportCardData: {
+        ...student.reportCardData,
+        classTeacherRemarks: remarks
+      }
+    };
+    onUpdateStudent(updated);
+  };
 
   // Dynamic list of exams: exam created in Exams tab appears in Academic tab!
   const allAvailableExams = useMemo(() => {
@@ -464,15 +481,17 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
 
     // Auto-save/upsert calculated results to Examination Records ledger
     if (onAutoSaveExaminationRecords) {
-      const currentYear = new Date().getFullYear().toString();
+      const currentYear = selectedYear || new Date().getFullYear().toString();
+      const termName = (selectedTerm || 'Term 1') as ExamTerm;
+      const examName = (selectedExam || 'Terminal') as RecordExamType;
       const newExamRecords: ExaminationRecord[] = finalStudents
         .filter(s => updatedCandidates.some(u => u.id === s.id))
         .map(c => {
           return buildExaminationRecord(
             c,
             currentYear,
-            'Term 1',
-            'Terminal',
+            termName,
+            examName,
             updatedCandidates.length
           );
         });
@@ -486,7 +505,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
     }
 
     setPendingMarks({});
-    setSaveToast(`Calculated totals, averages, NECTA rankings & auto-saved to Examination Records ledger for ${updatedCandidates.length} candidates!`);
+    setSaveToast(`Calculated totals, averages, NECTA rankings & auto-saved to Examination Records ledger (${selectedTerm} - ${selectedYear}) for ${updatedCandidates.length} candidates!`);
     setTimeout(() => setSaveToast(null), 4000);
   };
 
@@ -497,8 +516,8 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
   const handleInitiateRelease = () => {
     const streamTag = selectedStream !== 'All' ? selectedStream.replace(/^STREAM\s+/i, '') : '';
     const classStreamStr = `${selectedClass}${streamTag ? ` ${streamTag}` : ''}`;
-    const examYear = '2026';
-    const examTerm = 'Term 1';
+    const examYear = selectedYear || '2026';
+    const examTerm = selectedTerm || 'Term 1';
     const examName = selectedExam || 'Terminal';
 
     handleExecuteRelease(classStreamStr, examYear, examTerm, examName);
@@ -1198,11 +1217,38 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 uppercase tracking-wider text-[11px]">Term:</span>
+            <select
+              value={selectedTerm}
+              onChange={e => setSelectedTerm(e.target.value)}
+              className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            >
+              <option value="Term 1">Term 1</option>
+              <option value="Term 2">Term 2</option>
+              <option value="Term 3">Term 3</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 uppercase tracking-wider text-[11px]">Year:</span>
+            <select
+              value={selectedYear}
+              onChange={e => setSelectedYear(e.target.value)}
+              className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            >
+              <option value="2026">Year 2026</option>
+              <option value="2025">Year 2025</option>
+              <option value="2024">Year 2024</option>
+              <option value="2027">Year 2027</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5">
             <span className="text-slate-500 uppercase tracking-wider text-[11px]">Exam:</span>
             <select
               value={selectedExam}
               onChange={e => setSelectedExam(e.target.value)}
-              className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 font-bold text-slate-800 focus:ring-2 focus:ring-blue-500"
+              className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 cursor-pointer"
             >
               {allAvailableExams.map(ex => (
                 <option key={ex.name} value={ex.name}>
@@ -1432,6 +1478,16 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Export CSV</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsPdfExportModalOpen(true)}
+                className="px-3.5 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs border border-blue-400"
+                title="Export results ledger table as clean printable PDF with remarks and signatures"
+              >
+                <Printer className="w-3.5 h-3.5 text-blue-200" />
+                <span>Export Results PDF</span>
               </button>
 
               <button
@@ -1676,13 +1732,14 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                   <th className="p-2 border-r border-slate-200 text-center font-black bg-blue-50/50 w-14">AVG</th>
                   <th className="p-2 border-r border-slate-200 text-center font-black bg-blue-50/50 w-10">DIV</th>
                   <th className="p-2 border-r border-slate-200 text-center font-black bg-blue-50/50 w-10">RANK</th>
+                  <th className="p-2 border-r border-slate-200 text-left min-w-[210px]">TEACHER REMARKS / COMMENTS</th>
                   <th className="p-2 text-center w-16">ACTIONS</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
                 {classCandidates.length === 0 ? (
                   <tr>
-                    <td colSpan={activeLedgerSubjects.length + 9} className="p-8 text-center text-slate-400 font-bold">
+                    <td colSpan={activeLedgerSubjects.length + 10} className="p-8 text-center text-slate-400 font-bold">
                       0 CANDIDATES FOUND FOR {selectedClass} {selectedStream}. Register students in the Registration view.
                     </td>
                   </tr>
@@ -1798,6 +1855,31 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                       </td>
                       <td className="p-2 border-r border-slate-200 text-center font-mono font-bold text-slate-700 bg-slate-50/40">
                         {hasStudentAttemptedAnySubject(st, pendingMarks[st.id]) ? (st.reportCardData?.positionInClass ?? idx + 1) : '-'}
+                      </td>
+                      {/* Annotatable Inline Teacher Remarks / Comments */}
+                      <td className="p-2 border-r border-slate-200 min-w-[210px]">
+                        <div className="space-y-1">
+                          <input
+                            type="text"
+                            placeholder="Add remark inline..."
+                            value={st.reportCardData?.classTeacherRemarks || ''}
+                            onChange={(e) => handleUpdateStudentRemarks(st.id, e.target.value)}
+                            className="w-full px-2.5 py-1 text-xs border border-slate-300 rounded-lg bg-white focus:bg-amber-50 focus:border-amber-400 focus:ring-1 focus:ring-amber-300 outline-none font-medium transition"
+                            title="Click to edit teacher remark inline"
+                          />
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {['Excellent', 'Very Good', 'Good Effort', 'Needs Improvement', 'Amefaulu'].map(badge => (
+                              <button
+                                key={badge}
+                                type="button"
+                                onClick={() => handleUpdateStudentRemarks(st.id, badge)}
+                                className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-900 border border-slate-200 cursor-pointer transition"
+                              >
+                                {badge}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       </td>
                       <td className="p-2 text-center">
                         <button
@@ -2888,6 +2970,193 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
           currentUser={currentUser}
           selectedExamName={selectedExam}
         />
+      )}
+
+      {/* Clean Printable Results Ledger PDF Modal */}
+      {isPdfExportModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-5xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
+            {/* Modal Header */}
+            <div className="no-print bg-[#0f2948] text-white p-5 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-blue-500/20 rounded-xl text-blue-300">
+                  <Printer className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base">Official Examination Results Ledger (PDF / Print)</h3>
+                  <p className="text-xs text-blue-200">
+                    Filtered by: {selectedClass} • {selectedStream !== 'All' ? `Stream ${selectedStream}` : 'All Streams'} • {selectedTerm} • Year {selectedYear} • {selectedExam}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md cursor-pointer transition"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Print / Save as PDF</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPdfExportModalOpen(false)}
+                  className="p-2 text-white/70 hover:text-white rounded-xl bg-white/10 hover:bg-white/20 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Document Body (Printable) */}
+            <div className="p-6 sm:p-8 overflow-y-auto space-y-6 flex-1 text-slate-900 bg-white" id="results-view-pdf-print-area">
+              {/* Letterhead */}
+              <div className="border-b-2 border-slate-900 pb-4 text-center space-y-1">
+                <div className="flex items-center justify-center gap-4">
+                  {schoolInfo?.logo && (
+                    <img src={schoolInfo.logo} alt="School Logo" className="w-16 h-16 object-contain" />
+                  )}
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-black uppercase tracking-wide">
+                      {schoolInfo?.name || 'HABY EDU PRO SCHOOL'}
+                    </h2>
+                    <p className="text-xs font-bold text-slate-600 uppercase">
+                      OFFICIAL EXAMINATION RESULT RECORD &amp; MARKS LEDGER
+                    </p>
+                    <p className="text-[11px] text-slate-500 font-medium">
+                      CTR: {schoolInfo?.schoolNumber || 'S.0123'} • {schoolInfo?.address || 'Tanzania'} • Tel: {schoolInfo?.phone || '+255...'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Filter Metadata Banner */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 p-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium">
+                <div>
+                  <span className="text-[10px] text-slate-500 uppercase block font-bold">Class Level:</span>
+                  <strong className="text-slate-900 font-black">{selectedClass}</strong>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 uppercase block font-bold">Stream:</span>
+                  <strong className="text-slate-900 font-black">{selectedStream !== 'All' ? selectedStream : 'All Streams'}</strong>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 uppercase block font-bold">Academic Year:</span>
+                  <strong className="text-slate-900 font-black">{selectedYear}</strong>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 uppercase block font-bold">Term &amp; Exam:</span>
+                  <strong className="text-slate-900 font-black">{selectedTerm} ({selectedExam})</strong>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 uppercase block font-bold">Total Candidates:</span>
+                  <strong className="text-blue-900 font-black">{classCandidates.length} Students</strong>
+                </div>
+              </div>
+
+              {/* Cohort Performance Summary */}
+              <div className="flex items-center justify-between gap-2 p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs flex-wrap">
+                <span className="font-bold text-blue-950">Cohort Statistics:</span>
+                <div className="flex items-center gap-3 flex-wrap text-xs font-bold">
+                  <span className="text-blue-800">Boys: {classCandidates.filter(c => c.gender?.toLowerCase().startsWith('m')).length}</span>
+                  <span className="text-rose-800">Girls: {classCandidates.filter(c => c.gender?.toLowerCase().startsWith('f')).length}</span>
+                  <span className="text-slate-700">|</span>
+                  <span className="text-emerald-700">Class Average: {dashboardMetrics.avgOverall}%</span>
+                  <span className="text-blue-700">Pass Rate: {dashboardMetrics.passRate}%</span>
+                </div>
+              </div>
+
+              {/* Results Table with Remarks */}
+              <div className="overflow-x-auto border border-slate-300 rounded-xl">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-[#1f4d8b] text-white uppercase text-[10px] tracking-wider">
+                    <tr>
+                      <th className="p-2.5 text-center w-10 border-r border-blue-900">Pos</th>
+                      <th className="p-2.5 border-r border-blue-900">Reg No</th>
+                      <th className="p-2.5 border-r border-blue-900">Student Name</th>
+                      <th className="p-2.5 text-center w-12 border-r border-blue-900">Sex</th>
+                      {activeLedgerSubjects.slice(0, 8).map(sub => (
+                        <th key={sub.key} className="p-2 text-center border-r border-blue-900 max-w-[85px] truncate" title={sub.fullName}>
+                          {sub.label}
+                        </th>
+                      ))}
+                      <th className="p-2.5 text-center border-r border-blue-900 w-12">Total</th>
+                      <th className="p-2.5 text-center border-r border-blue-900 w-14">Avg%</th>
+                      <th className="p-2.5 text-center border-r border-blue-900 w-14">Grade/Div</th>
+                      <th className="p-2.5 min-w-[180px]">Teacher Remarks &amp; Annotations</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 font-medium text-slate-800">
+                    {classCandidates.map((st, i) => {
+                      const pos = st.reportCardData?.positionInClass ?? i + 1;
+                      const remarks = st.reportCardData?.classTeacherRemarks || 'Good progress and steady participation.';
+                      return (
+                        <tr key={st.id} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                          <td className="p-2 text-center font-black border-r border-slate-200">
+                            {pos}
+                          </td>
+                          <td className="p-2 font-mono text-slate-700 border-r border-slate-200">
+                            {st.regNo}
+                          </td>
+                          <td className="p-2 font-bold text-slate-900 border-r border-slate-200">
+                            {st.name}
+                          </td>
+                          <td className="p-2 text-center border-r border-slate-200 font-bold">
+                            {st.gender?.toLowerCase().startsWith('f') ? 'F' : 'M'}
+                          </td>
+                          {activeLedgerSubjects.slice(0, 8).map(sub => {
+                            const sc = getScore(st, sub.fullName, sub.key);
+                            return (
+                              <td key={sub.key} className="p-2 text-center border-r border-slate-200 font-mono font-bold">
+                                {sc !== '' ? sc : '-'}
+                              </td>
+                            );
+                          })}
+                          <td className="p-2 text-center font-black text-slate-900 border-r border-slate-200">
+                            {st.total ?? '-'}
+                          </td>
+                          <td className="p-2 text-center font-black text-blue-900 border-r border-slate-200">
+                            {st.average ? `${st.average}%` : '-'}
+                          </td>
+                          <td className="p-2 text-center border-r border-slate-200 font-bold">
+                            {isClassPrimary 
+                              ? (st.primaryGrade || st.division ? `Grade ${st.primaryGrade || st.division}` : '-')
+                              : (st.division ? `Div ${st.division}` : '-')}
+                          </td>
+                          <td className="p-2 text-slate-800 text-xs italic">
+                            {remarks}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Official Signatures Section */}
+              <div className="pt-8 border-t-2 border-slate-900 grid grid-cols-3 gap-6 text-xs">
+                <div>
+                  <span className="block text-[10px] font-bold text-slate-500 uppercase">Mwalimu wa Darasa (Class Teacher):</span>
+                  <div className="mt-8 border-b border-slate-400"></div>
+                  <span className="block text-[10px] font-semibold text-slate-700 mt-1">Saini na Tarehe</span>
+                </div>
+
+                <div>
+                  <span className="block text-[10px] font-bold text-slate-500 uppercase">Mwalimu wa Taaluma (Academic Master):</span>
+                  <div className="mt-8 border-b border-slate-400"></div>
+                  <span className="block text-[10px] font-semibold text-slate-700 mt-1">Saini na Tarehe</span>
+                </div>
+
+                <div>
+                  <span className="block text-[10px] font-bold text-slate-500 uppercase">Mkuu wa Shule (Head of School):</span>
+                  <div className="mt-8 border-b border-slate-400"></div>
+                  <span className="block text-[10px] font-semibold text-slate-700 mt-1">Muhuri Rasmi na Saini</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

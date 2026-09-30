@@ -47,6 +47,9 @@ import {
 import { 
   DAYS_OF_WEEK, 
   DEFAULT_CLASSES, 
+  NURSERY_CLASSES,
+  PRIMARY_CLASSES,
+  SECONDARY_CLASSES,
   EXTRA_CURRICULAR_ACTIVITIES,
   DEFAULT_DAY_THEMES,
   DEFAULT_INSTITUTIONAL_POLICY
@@ -138,6 +141,8 @@ export const TimetableContainer: React.FC<TimetableContainerProps> = ({
   >('general');
   const [selectedDayFilter, setSelectedDayFilter] = useState<string>('All');
   const [selectedClassFilter, setSelectedClassFilter] = useState<string>('Form 1');
+  const [selectedGeneralClass, setSelectedGeneralClass] = useState<string>('Form 1');
+  const [selectedGeneralStream, setSelectedGeneralStream] = useState<string>('All');
   const [selectedTeacherFilter, setSelectedTeacherFilter] = useState<number>(teachers[0]?.id || 0);
 
   // Manual editing modal state
@@ -794,12 +799,55 @@ Ratiba hii imekaguliwa rasmi na haina mgongano (Zero Clashes).`;
         <div className="space-y-6">
           {/* Action Bar */}
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Filter Day:</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Class:</span>
+              <select
+                value={selectedGeneralClass}
+                onChange={e => {
+                  setSelectedGeneralClass(e.target.value);
+                  setSelectedGeneralStream('All');
+                }}
+                className="px-3 py-1.5 text-xs font-bold border border-blue-300 rounded-lg bg-blue-50/70 text-blue-900 focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                title="Select Class to display timetable"
+              >
+                <option value="All">🏫 All Classes (Whole School)</option>
+                <optgroup label="NURSERY LEVEL">
+                  {NURSERY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                </optgroup>
+                <optgroup label="PRIMARY LEVEL (Std 1 - 7)">
+                  {PRIMARY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                </optgroup>
+                <optgroup label="SECONDARY LEVEL (Form 1 - 6)">
+                  {SECONDARY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                </optgroup>
+              </select>
+
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Stream:</span>
+              <select
+                value={selectedGeneralStream}
+                onChange={e => setSelectedGeneralStream(e.target.value)}
+                className="px-3 py-1.5 text-xs font-bold border border-emerald-300 rounded-lg bg-emerald-50/70 text-emerald-900 focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                title="Select Stream"
+              >
+                <option value="All">
+                  {selectedGeneralClass === 'All' ? 'All Streams' : `All Streams (${getStreamsForClass(selectedGeneralClass).join(', ')})`}
+                </option>
+                {selectedGeneralClass !== 'All' ? (
+                  getStreamsForClass(selectedGeneralClass).map(st => (
+                    <option key={st} value={st}>{st}</option>
+                  ))
+                ) : (
+                  Array.from(new Set(DEFAULT_CLASSES.flatMap(c => getStreamsForClass(c)))).map(st => (
+                    <option key={st} value={st}>{st}</option>
+                  ))
+                )}
+              </select>
+
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Day:</span>
               <select
                 value={selectedDayFilter}
                 onChange={e => setSelectedDayFilter(e.target.value)}
-                className="px-3 py-1.5 text-xs font-semibold border border-slate-300 rounded-lg bg-white"
+                className="px-3 py-1.5 text-xs font-semibold border border-slate-300 rounded-lg bg-white cursor-pointer"
               >
                 <option value="All">All Days</option>
                 {DAYS_OF_WEEK.map(d => (
@@ -807,9 +855,9 @@ Ratiba hii imekaguliwa rasmi na haina mgongano (Zero Clashes).`;
                 ))}
               </select>
 
-              <div className="text-xs text-slate-500 hidden sm:flex items-center gap-1 ml-2">
+              <div className="text-xs text-slate-500 hidden xl:flex items-center gap-1 ml-2">
                 <Move className="w-3.5 h-3.5 text-blue-500" />
-                <span>Drag slots to reschedule • Click any slot to edit manually</span>
+                <span>Drag slots to reschedule • Click any slot to edit</span>
               </div>
             </div>
 
@@ -871,7 +919,11 @@ Ratiba hii imekaguliwa rasmi na haina mgongano (Zero Clashes).`;
               </button>
 
               <button
-                onClick={() => handleShareTimetableWhatsApp('General Timetable')}
+                onClick={() => {
+                  const scopeLabel = selectedGeneralClass === 'All' ? 'Whole School' : selectedGeneralClass;
+                  const streamLabel = selectedGeneralStream !== 'All' ? selectedGeneralStream : '';
+                  handleShareTimetableWhatsApp(`General Timetable - ${scopeLabel} ${streamLabel}`.trim());
+                }}
                 className="px-3 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
                 title="Send Timetable details to teachers and parents on WhatsApp"
               >
@@ -888,11 +940,15 @@ Ratiba hii imekaguliwa rasmi na haina mgongano (Zero Clashes).`;
               </button>
 
               <button
-                onClick={() => printFormattedSection('general-printable-view', 'General Teaching Timetable', schoolName, { orientation: printOrientation })}
+                onClick={() => {
+                  const scopeLabel = selectedGeneralClass === 'All' ? 'Whole School' : selectedGeneralClass;
+                  const streamLabel = selectedGeneralStream !== 'All' ? selectedGeneralStream : '';
+                  printFormattedSection('general-printable-view', `General Teaching Timetable - ${scopeLabel} ${streamLabel}`.trim(), schoolName, { orientation: printOrientation });
+                }}
                 className="px-3 py-2 text-xs font-bold bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-1.5 shadow-xs"
               >
                 <Printer className="w-3.5 h-3.5" />
-                Print / Export PDF
+                <span>Print / Export PDF</span>
               </button>
             </div>
           </div>
@@ -934,11 +990,23 @@ Ratiba hii imekaguliwa rasmi na haina mgongano (Zero Clashes).`;
                     </span>
                   </div>
 
-                  {/* Day Grid by Forms */}
+                  {/* Day Grid: Shows selected class/stream or whole school */}
                   <div className="p-4 space-y-4">
-                    {DEFAULT_CLASSES.map(className => {
+                    {(selectedGeneralClass === 'All' ? DEFAULT_CLASSES : [selectedGeneralClass]).map(className => {
                       const formTheme = getFormStreamTheme(className);
-                      const streams = getStreamsForClass(className);
+                      const allStreams = getStreamsForClass(className);
+                      const streams = selectedGeneralStream === 'All'
+                        ? allStreams
+                        : allStreams.filter(st => st === selectedGeneralStream);
+
+                      if (streams.length === 0) {
+                        if (selectedGeneralClass === 'All') return null;
+                        return (
+                          <div key={className} className="bg-white rounded-lg border border-slate-200 p-6 text-center text-slate-400">
+                            No stream found for {className} matching &quot;{selectedGeneralStream}&quot;.
+                          </div>
+                        );
+                      }
 
                       return (
                         <div
@@ -1062,9 +1130,11 @@ Ratiba hii imekaguliwa rasmi na haina mgongano (Zero Clashes).`;
                                         const periodKey = `${period.name} (${period.start}-${period.end})`;
                                         const assignment = assignments.find(
                                           a =>
-                                            a.className === className &&
-                                            a.stream === stream &&
-                                            a.day === day &&
+                                            a.className.toLowerCase() === className.toLowerCase() &&
+                                            (a.stream === stream || 
+                                             a.stream.toLowerCase() === stream.toLowerCase() || 
+                                             a.stream.replace(/^stream\s*/i, '').trim().toLowerCase() === stream.replace(/^stream\s*/i, '').trim().toLowerCase()) &&
+                                            a.day.toLowerCase() === day.toLowerCase() &&
                                             (a.period === periodKey || a.period === period.name || (a.periodName && a.periodName === period.name))
                                         );
 
