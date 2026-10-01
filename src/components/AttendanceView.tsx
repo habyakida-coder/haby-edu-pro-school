@@ -19,7 +19,8 @@ import {
   Save, 
   X,
   Sparkles,
-  Info
+  Info,
+  CalendarCheck2
 } from 'lucide-react';
 import { Student, SchoolInfo, UserAccount, ReportCardPeriodSetting } from '../types';
 import { 
@@ -27,11 +28,15 @@ import {
   PRIMARY_CLASSES, 
   SECONDARY_CLASSES 
 } from '../constants/defaults';
+import { GenderSummary } from './common/GenderSummary';
+import { HabyEduProLogo } from './common/HabyEduProLogo';
 
 interface AttendanceViewProps {
   students: Student[];
   schoolInfo: SchoolInfo;
   currentUser?: UserAccount | null;
+  dailyAttendance?: Record<string, Record<number, 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED'>>;
+  onSaveDailyAttendance?: (date: string, records: Record<number, 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED'>) => void;
   onUpdateStudent?: (student: Student) => void;
   onNavigateToResults?: () => void;
 }
@@ -40,6 +45,8 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
   students,
   schoolInfo,
   currentUser,
+  dailyAttendance = {},
+  onSaveDailyAttendance,
   onUpdateStudent,
   onNavigateToResults
 }) => {
@@ -49,10 +56,32 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
     return students.length > 0 ? students[0].id : 1;
   });
 
-  const [activeTab, setActiveTab] = useState<'summary' | 'subjects' | 'weekly' | 'official_slip'>('summary');
+  const [activeTab, setActiveTab] = useState<'daily_rollcall' | 'summary' | 'subjects' | 'weekly' | 'official_slip'>('daily_rollcall');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClass, setSelectedClass] = useState<string>('all');
   const [selectedStream, setSelectedStream] = useState<string>('all');
+
+  // Daily Roll Call States
+  const [rollCallDate, setRollCallDate] = useState<string>(() => {
+    return new Date().toISOString().split('T')[0];
+  });
+  const [rollCallClass, setRollCallClass] = useState<string>('Form 1');
+  const [rollCallStream, setRollCallStream] = useState<string>('all');
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
+
+  // Local roll call state mapped studentId -> Status
+  const [currentRollCall, setCurrentRollCall] = useState<Record<number, 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED'>>(() => {
+    return dailyAttendance[new Date().toISOString().split('T')[0]] || {};
+  });
+
+  // Sync roll call when date changes
+  useEffect(() => {
+    if (dailyAttendance && dailyAttendance[rollCallDate]) {
+      setCurrentRollCall(dailyAttendance[rollCallDate]);
+    } else {
+      setCurrentRollCall({});
+    }
+  }, [rollCallDate, dailyAttendance]);
 
   // Dynamic streams collected from all registered students
   const availableStreams = useMemo(() => {
@@ -214,6 +243,86 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
 
   const handlePrintSlip = () => {
     window.print();
+  };
+
+  // Filter students for Daily Roll Call by class and stream
+  const rollCallStudents = useMemo(() => {
+    return students.filter(s => {
+      const matchClass = rollCallClass === 'all' || s.className.toLowerCase() === rollCallClass.toLowerCase();
+      const matchStream = rollCallStream === 'all' ||
+        (s.stream ? (
+          s.stream.toUpperCase().replace(/^STREAM\s+/i, '') === rollCallStream.toUpperCase() ||
+          s.stream.toUpperCase().includes(rollCallStream.toUpperCase())
+        ) : true);
+      return matchClass && matchStream;
+    });
+  }, [students, rollCallClass, rollCallStream]);
+
+  // Daily Roll Call Statistics with Gender Breakdown (Requirement 4 & 10)
+  const dailyGenderStats = useMemo(() => {
+    const stats = {
+      present: { B: 0, G: 0, T: 0 },
+      absent: { B: 0, G: 0, T: 0 },
+      late: { B: 0, G: 0, T: 0 },
+      excused: { B: 0, G: 0, T: 0 },
+      totalStudents: rollCallStudents.length,
+      boysTotal: 0,
+      girlsTotal: 0
+    };
+
+    rollCallStudents.forEach(st => {
+      const isGirl = (st.gender || '').toLowerCase().startsWith('f');
+      if (isGirl) stats.girlsTotal++;
+      else stats.boysTotal++;
+
+      const status = currentRollCall[st.id] || 'PRESENT';
+      if (status === 'PRESENT') {
+        if (isGirl) stats.present.G++; else stats.present.B++;
+        stats.present.T++;
+      } else if (status === 'ABSENT') {
+        if (isGirl) stats.absent.G++; else stats.absent.B++;
+        stats.absent.T++;
+      } else if (status === 'LATE') {
+        if (isGirl) stats.late.G++; else stats.late.B++;
+        stats.late.T++;
+      } else if (status === 'EXCUSED') {
+        if (isGirl) stats.excused.G++; else stats.excused.B++;
+        stats.excused.T++;
+      }
+    });
+
+    return stats;
+  }, [rollCallStudents, currentRollCall]);
+
+  const handleToggleStatus = (studentId: number, status: 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED') => {
+    setCurrentRollCall(prev => ({
+      ...prev,
+      [studentId]: status
+    }));
+  };
+
+  const handleMarkAll = (status: 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED') => {
+    const updated: Record<number, 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED'> = {};
+    rollCallStudents.forEach(s => {
+      updated[s.id] = status;
+    });
+    setCurrentRollCall(prev => ({
+      ...prev,
+      ...updated
+    }));
+  };
+
+  const handleSaveRollCall = () => {
+    const fullRollCall: Record<number, 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED'> = {};
+    rollCallStudents.forEach(s => {
+      fullRollCall[s.id] = currentRollCall[s.id] || 'PRESENT';
+    });
+    if (onSaveDailyAttendance) {
+      onSaveDailyAttendance(rollCallDate, fullRollCall);
+    }
+    setCurrentRollCall(fullRollCall);
+    setSaveNotice(`✓ Roll Call for ${rollCallDate} (${rollCallClass}) saved successfully! ${rollCallStudents.length} students recorded.`);
+    setTimeout(() => setSaveNotice(null), 5000);
   };
 
   if (!currentStudent) {
@@ -466,6 +575,19 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
       <div className="flex flex-wrap gap-1.5 border-b border-slate-200 pb-2">
         <button
           type="button"
+          onClick={() => setActiveTab('daily_rollcall')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            activeTab === 'daily_rollcall'
+              ? 'bg-[#1f4d8b] text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200'
+          }`}
+        >
+          <CalendarCheck2 className="w-3.5 h-3.5" />
+          <span>Daily Roll Call & Register</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => setActiveTab('summary')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
             activeTab === 'summary'
@@ -516,6 +638,359 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
           <span>Official Attendance Slip (Printable)</span>
         </button>
       </div>
+
+      {/* TAB 0: DAILY ROLL CALL & REGISTER */}
+      {activeTab === 'daily_rollcall' && (
+        <div className="space-y-4">
+          {/* Notification on save */}
+          {saveNotice && (
+            <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-emerald-900 font-bold text-xs flex items-center justify-between shadow-xs animate-in fade-in">
+              <span className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                {saveNotice}
+              </span>
+              <button
+                type="button"
+                onClick={() => setSaveNotice(null)}
+                className="text-emerald-700 hover:text-emerald-900 font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* Roll Call Filter & Action Bar */}
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-base font-bold text-[#1f4d8b] flex items-center gap-2">
+                  <CalendarCheck2 className="w-5 h-5 text-blue-600" />
+                  <span>Daily Roll Call Entry & Gender Attendance Ledger</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Select Day/Date and Class to record daily student attendance: Present, Absent, Late, or Excused with automatic gender summaries.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleMarkAll('PRESENT')}
+                  className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold transition cursor-pointer"
+                  title="Mark all listed students as Present"
+                >
+                  ✓ Mark All Present
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleMarkAll('ABSENT')}
+                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 rounded-lg text-xs font-bold transition cursor-pointer"
+                  title="Mark all listed students as Absent"
+                >
+                  ✕ Mark All Absent
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveRollCall}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Save Daily Attendance</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5 text-slate-600" />
+                  <span>Print Sheet</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Filter controls */}
+            <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-3">
+              {/* Day / Date Picker */}
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Date / Day:</label>
+                <input
+                  type="date"
+                  value={rollCallDate}
+                  onChange={e => setRollCallDate(e.target.value)}
+                  className="px-3 py-1.5 text-xs font-semibold border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Class Selector */}
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Class:</label>
+                <select
+                  value={rollCallClass}
+                  onChange={e => setRollCallClass(e.target.value)}
+                  className="px-3 py-1.5 text-xs font-semibold border border-slate-300 rounded-lg bg-white"
+                >
+                  <option value="all">All Classes</option>
+                  <optgroup label="Pre-Primary / Nursery">
+                    {NURSERY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </optgroup>
+                  <optgroup label="Primary School">
+                    {PRIMARY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </optgroup>
+                  <optgroup label="Secondary School">
+                    {SECONDARY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </optgroup>
+                </select>
+              </div>
+
+              {/* Stream Selector */}
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Stream:</label>
+                <select
+                  value={rollCallStream}
+                  onChange={e => setRollCallStream(e.target.value)}
+                  className="px-3 py-1.5 text-xs font-semibold border border-slate-300 rounded-lg bg-white"
+                >
+                  <option value="all">All Streams</option>
+                  {availableStreams.map(st => (
+                    <option key={st} value={st}>Stream {st}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="text-xs text-slate-500 font-medium ml-auto">
+                Candidates: <strong>{rollCallStudents.length}</strong> (B: {dailyGenderStats.boysTotal}, G: {dailyGenderStats.girlsTotal})
+              </div>
+            </div>
+          </div>
+
+          {/* Daily Attendance Summary Cards with Gender Breakdown (Requirement 4) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* Present */}
+            <div className="bg-white p-3.5 rounded-xl border border-emerald-200/80 shadow-xs space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-emerald-800 flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                  Present Today
+                </span>
+                <span className="font-black text-emerald-900 text-sm">{dailyGenderStats.present.T}</span>
+              </div>
+              <div>
+                <GenderSummary
+                  B={dailyGenderStats.present.B}
+                  G={dailyGenderStats.present.G}
+                  T={dailyGenderStats.present.T}
+                  total={dailyGenderStats.totalStudents}
+                  size="xs"
+                />
+              </div>
+            </div>
+
+            {/* Absent */}
+            <div className="bg-white p-3.5 rounded-xl border border-rose-200/80 shadow-xs space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-rose-800 flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                  Absent Today
+                </span>
+                <span className="font-black text-rose-900 text-sm">{dailyGenderStats.absent.T}</span>
+              </div>
+              <div>
+                <GenderSummary
+                  B={dailyGenderStats.absent.B}
+                  G={dailyGenderStats.absent.G}
+                  T={dailyGenderStats.absent.T}
+                  total={dailyGenderStats.totalStudents}
+                  size="xs"
+                />
+              </div>
+            </div>
+
+            {/* Late */}
+            <div className="bg-white p-3.5 rounded-xl border border-amber-200/80 shadow-xs space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-amber-800 flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                  Late Today
+                </span>
+                <span className="font-black text-amber-900 text-sm">{dailyGenderStats.late.T}</span>
+              </div>
+              <div>
+                <GenderSummary
+                  B={dailyGenderStats.late.B}
+                  G={dailyGenderStats.late.G}
+                  T={dailyGenderStats.late.T}
+                  total={dailyGenderStats.totalStudents}
+                  size="xs"
+                />
+              </div>
+            </div>
+
+            {/* Excused */}
+            <div className="bg-white p-3.5 rounded-xl border border-blue-200/80 shadow-xs space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-blue-800 flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                  Excused Today
+                </span>
+                <span className="font-black text-blue-900 text-sm">{dailyGenderStats.excused.T}</span>
+              </div>
+              <div>
+                <GenderSummary
+                  B={dailyGenderStats.excused.B}
+                  G={dailyGenderStats.excused.G}
+                  T={dailyGenderStats.excused.T}
+                  total={dailyGenderStats.totalStudents}
+                  size="xs"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Student Roll Call Table */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="p-3.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span className="font-bold text-slate-700">
+                Attendance Sheet: {rollCallDate} • {rollCallClass} {rollCallStream !== 'all' ? `(${rollCallStream})` : ''}
+              </span>
+              <span className="text-slate-500 font-medium">
+                Click P, A, L, or E on any student to update real-time attendance
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse font-normal">
+                <thead>
+                  <tr className="bg-slate-100 text-slate-700 font-medium border-b border-slate-200 uppercase text-[10px] tracking-wider">
+                    <th className="py-2.5 px-3 w-10 text-center font-medium">#</th>
+                    <th className="py-2.5 px-3 font-medium">Reg No</th>
+                    <th className="py-2.5 px-3 font-medium">Student Name</th>
+                    <th className="py-2.5 px-3 text-center font-medium">Gender</th>
+                    <th className="py-2.5 px-3 font-medium">Class & Stream</th>
+                    <th className="py-2.5 px-3 text-center font-medium min-w-[200px]">Mark Roll Call</th>
+                    <th className="py-2.5 px-3 text-center font-medium">Current Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-800 font-normal">
+                  {rollCallStudents.map((st, idx) => {
+                    const status = currentRollCall[st.id] || 'PRESENT';
+                    const isGirl = (st.gender || '').toLowerCase().startsWith('f');
+
+                    return (
+                      <tr key={st.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-2.5 px-3 text-center text-slate-400 font-normal">{idx + 1}</td>
+                        <td className="py-2.5 px-3 font-mono text-slate-600 font-normal">{st.regNo}</td>
+                        <td className="py-2.5 px-3 font-normal text-slate-900">{st.name}</td>
+                        <td className="py-2.5 px-3 text-center font-normal">
+                          <span className={`inline-block px-1.5 py-0.2 rounded text-[10px] ${
+                            isGirl ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-blue-50 text-blue-700 border border-blue-200'
+                          }`}>
+                            {isGirl ? 'Female' : 'Male'}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 font-normal text-slate-600">
+                          {st.className} {st.stream ? `(${st.stream})` : ''}
+                        </td>
+
+                        {/* Interactive Toggle Buttons: Present, Absent, Late, Excused */}
+                        <td className="py-2.5 px-3 text-center">
+                          <div className="inline-flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
+                            {/* P - Present */}
+                            <button
+                              type="button"
+                              onClick={() => handleToggleStatus(st.id, 'PRESENT')}
+                              className={`px-2.5 py-1 rounded text-xs font-bold transition cursor-pointer ${
+                                status === 'PRESENT'
+                                  ? 'bg-emerald-600 text-white shadow-xs'
+                                  : 'text-slate-600 hover:bg-white hover:text-emerald-700'
+                              }`}
+                              title="Mark Present"
+                            >
+                              P
+                            </button>
+
+                            {/* A - Absent */}
+                            <button
+                              type="button"
+                              onClick={() => handleToggleStatus(st.id, 'ABSENT')}
+                              className={`px-2.5 py-1 rounded text-xs font-bold transition cursor-pointer ${
+                                status === 'ABSENT'
+                                  ? 'bg-rose-600 text-white shadow-xs'
+                                  : 'text-slate-600 hover:bg-white hover:text-rose-700'
+                              }`}
+                              title="Mark Absent"
+                            >
+                              A
+                            </button>
+
+                            {/* L - Late */}
+                            <button
+                              type="button"
+                              onClick={() => handleToggleStatus(st.id, 'LATE')}
+                              className={`px-2.5 py-1 rounded text-xs font-bold transition cursor-pointer ${
+                                status === 'LATE'
+                                  ? 'bg-amber-500 text-white shadow-xs'
+                                  : 'text-slate-600 hover:bg-white hover:text-amber-700'
+                              }`}
+                              title="Mark Late"
+                            >
+                              L
+                            </button>
+
+                            {/* E - Excused */}
+                            <button
+                              type="button"
+                              onClick={() => handleToggleStatus(st.id, 'EXCUSED')}
+                              className={`px-2.5 py-1 rounded text-xs font-bold transition cursor-pointer ${
+                                status === 'EXCUSED'
+                                  ? 'bg-blue-600 text-white shadow-xs'
+                                  : 'text-slate-600 hover:bg-white hover:text-blue-700'
+                              }`}
+                              title="Mark Excused"
+                            >
+                              E
+                            </button>
+                          </div>
+                        </td>
+
+                        {/* Status Label */}
+                        <td className="py-2.5 px-3 text-center">
+                          {status === 'PRESENT' && (
+                            <span className="px-2 py-0.5 rounded text-[11px] font-normal bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              Present
+                            </span>
+                          )}
+                          {status === 'ABSENT' && (
+                            <span className="px-2 py-0.5 rounded text-[11px] font-normal bg-rose-100 text-rose-800 border border-rose-200">
+                              Absent
+                            </span>
+                          )}
+                          {status === 'LATE' && (
+                            <span className="px-2 py-0.5 rounded text-[11px] font-normal bg-amber-100 text-amber-800 border border-amber-200">
+                              Late
+                            </span>
+                          )}
+                          {status === 'EXCUSED' && (
+                            <span className="px-2 py-0.5 rounded text-[11px] font-normal bg-blue-100 text-blue-800 border border-blue-200">
+                              Excused
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {rollCallStudents.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-slate-400">
+                        No students found for {rollCallClass} {rollCallStream !== 'all' ? `(${rollCallStream})` : ''}.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* TAB 1: SUMMARY & DETAILS */}
       {activeTab === 'summary' && (

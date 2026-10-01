@@ -17,6 +17,7 @@ import { MarkEntryView } from './components/MarkEntryView';
 import { StudentIDView } from './components/StudentIDView';
 import { DisciplineView } from './components/DisciplineView';
 import { LessonPlanView } from './components/LessonPlan/LessonPlanView';
+import { SchemeOfWorkView } from './components/SchemeOfWork/SchemeOfWorkView';
 import { FloatingBubbles } from './components/FloatingBubbles';
 import { AuthScreen } from './components/auth/AuthScreen';
 import { useAuth } from './context/AuthContext';
@@ -813,11 +814,7 @@ export default function App() {
           schoolInfo={data.schoolInfo}
           saveStatus={saveStatus}
           onSelectView={view => {
-            if (userAccount?.role === 'TEACHER' && !['results', 'attendance', 'timetable', 'markentry', 'discipline', 'dashboard'].includes(view)) {
-              setActiveView('timetable');
-            } else {
-              setActiveView(view);
-            }
+            setActiveView(view);
           }}
           currentUser={userAccount}
           onLogout={() => {
@@ -943,6 +940,25 @@ export default function App() {
             />
           )}
 
+          {activeView === 'schemes' && (
+            <SchemeOfWorkView
+              schoolInfo={data.schoolInfo}
+              currentUser={userAccount}
+              teachers={data.teachers}
+              schemesOfWork={data.schemesOfWork || []}
+              onSaveSchemeOfWork={(scheme) => {
+                const existing = data.schemesOfWork || [];
+                const updated = existing.some(s => s.id === scheme.id)
+                  ? existing.map(s => s.id === scheme.id ? scheme : s)
+                  : [scheme, ...existing];
+                updateRemoteData({ schemesOfWork: updated });
+              }}
+              onNavigateToLessonPlan={(_subject, _className, _topic) => {
+                setActiveView('lessonplans');
+              }}
+            />
+          )}
+
           {activeView === 'lessonplans' && (
             <LessonPlanView
               schoolInfo={data.schoolInfo}
@@ -969,6 +985,15 @@ export default function App() {
               students={data.students}
               schoolInfo={data.schoolInfo}
               currentUser={userAccount}
+              dailyAttendance={data.dailyAttendance || {}}
+              onSaveDailyAttendance={(date, rollCallRecords) => {
+                const currentDaily = data.dailyAttendance || {};
+                const updatedDaily = {
+                  ...currentDaily,
+                  [date]: rollCallRecords
+                };
+                updateRemoteData({ dailyAttendance: updatedDaily });
+              }}
               onUpdateStudent={handleUpdateStudent}
               onNavigateToResults={() => setActiveView('results')}
             />

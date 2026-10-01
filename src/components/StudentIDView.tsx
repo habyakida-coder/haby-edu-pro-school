@@ -18,6 +18,7 @@ import {
   PRIMARY_CLASSES, 
   SECONDARY_CLASSES 
 } from '../constants/defaults';
+import { HabyEduProLogo } from './common/HabyEduProLogo';
 
 interface StudentIDViewProps {
   students: Student[];
@@ -213,20 +214,26 @@ export const StudentIDView: React.FC<StudentIDViewProps> = ({
             {/* Single Official ID Card Badge Container */}
             <div className="w-full max-w-[420px] bg-white rounded-2xl border-2 border-blue-900 shadow-xl overflow-hidden relative">
               {/* Top School Header */}
-              <div className="bg-[#1f4d8b] text-white p-4 text-center border-b-2 border-amber-400">
-                <div className="flex items-center justify-center gap-2">
-                  <div className="w-7 h-7 bg-amber-400 text-slate-900 rounded-full flex items-center justify-center font-black text-xs shadow-xs">
-                    🇹🇿
+              <div className="bg-[#1f4d8b] text-white p-3.5 text-center border-b-2 border-amber-400">
+                <div className="flex items-center justify-center gap-3">
+                  <div className="p-1 rounded-lg bg-white/10 shrink-0">
+                    {schoolInfo.logo ? (
+                      <img src={schoolInfo.logo} alt="School Logo" className="w-9 h-9 object-contain rounded" />
+                    ) : (
+                      <HabyEduProLogo theme="dark" size="sm" variant="icon" />
+                    )}
                   </div>
-                  <h3 className="font-black text-sm tracking-wide uppercase">
-                    {schoolInfo.name || 'KIOMONI SECONDARY SCHOOL'}
-                  </h3>
+                  <div className="text-left">
+                    <h3 className="font-black text-sm tracking-wide uppercase leading-tight">
+                      {schoolInfo.name || 'HABY EDU PRO SCHOOL'}
+                    </h3>
+                    <p className="text-[10px] text-blue-200 font-medium">
+                      {schoolInfo.address || 'P.O. Box 1234, Tanga, Tanzania'} • {schoolInfo.phone || '+255 754 000 111'}
+                    </p>
+                  </div>
                 </div>
-                <p className="text-[10px] text-blue-200 mt-0.5 font-medium">
-                  {schoolInfo.address || 'P.O. Box 1234, Tanga, Tanzania'} • {schoolInfo.phone || '+255 754 000 111'}
-                </p>
                 <div className="inline-block mt-2 bg-amber-400 text-slate-950 font-black text-[10px] px-3 py-0.5 rounded-full uppercase tracking-wider shadow-2xs">
-                  STUDENT IDENTITY CARD
+                  OFFICIAL STUDENT IDENTITY CARD
                 </div>
               </div>
 
@@ -236,8 +243,18 @@ export const StudentIDView: React.FC<StudentIDViewProps> = ({
                   {/* Photo Avatar */}
                   <div className="w-28 flex flex-col items-center">
                     <div className="w-24 h-28 bg-slate-100 border-2 border-slate-300 rounded-xl flex flex-col items-center justify-center overflow-hidden shadow-inner relative">
-                      <User className="w-12 h-12 text-slate-400" />
-                      <span className="text-[9px] font-bold text-slate-400 uppercase mt-1">Photo</span>
+                      {selectedStudent.passportPhoto ? (
+                        <img
+                          src={selectedStudent.passportPhoto}
+                          alt={selectedStudent.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <>
+                          <User className="w-12 h-12 text-slate-400" />
+                          <span className="text-[9px] font-bold text-slate-400 uppercase mt-1">Photo</span>
+                        </>
+                      )}
                     </div>
                     <div className="mt-2 text-center">
                       <span className="inline-block px-2 py-0.5 bg-blue-100 text-blue-900 rounded-md font-mono font-bold text-[10px] border border-blue-200">
@@ -277,8 +294,10 @@ export const StudentIDView: React.FC<StudentIDViewProps> = ({
 
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <div className="text-[9px] font-bold text-slate-400 uppercase">Academic Year</div>
-                        <div className="font-bold text-slate-800">2026/2027</div>
+                        <div className="text-[9px] font-bold text-slate-400 uppercase">Parent Phone</div>
+                        <div className="font-mono text-blue-900 font-bold text-[11px] truncate">
+                          {selectedStudent.parentPhone || selectedStudent.phone || '0754 000 111'}
+                        </div>
                       </div>
                       <div>
                         <div className="text-[9px] font-bold text-slate-400 uppercase">Valid Until</div>
@@ -327,19 +346,43 @@ export const StudentIDView: React.FC<StudentIDViewProps> = ({
               <div key={st.id} className="bg-white rounded-2xl border-2 border-blue-900 shadow-md overflow-hidden relative">
                 {/* School Header */}
                 <div className="bg-[#1f4d8b] text-white p-3 text-center border-b-2 border-amber-400">
-                  <h3 className="font-black text-xs uppercase tracking-wide">
-                    {schoolInfo.name || 'KIOMONI SECONDARY SCHOOL'}
-                  </h3>
-                  <div className="inline-block mt-1 bg-amber-400 text-slate-950 font-black text-[9px] px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                    STUDENT IDENTITY CARD
+                  <div className="flex items-center justify-center gap-2.5">
+                    <div className="p-0.5 rounded bg-white/10 shrink-0">
+                      {schoolInfo.logo ? (
+                        <img src={schoolInfo.logo} alt="Logo" className="w-6 h-6 object-contain rounded" />
+                      ) : (
+                        <HabyEduProLogo theme="dark" size="sm" variant="icon" />
+                      )}
+                    </div>
+                    <div className="text-left">
+                      <h3 className="font-black text-xs uppercase tracking-wide leading-tight">
+                        {schoolInfo.name || 'HABY EDU PRO SCHOOL'}
+                      </h3>
+                      <p className="text-[9px] text-blue-200">
+                        {schoolInfo.phone || '+255 754 000 111'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="inline-block mt-1 bg-amber-400 text-slate-950 font-black text-[9px] px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-2xs">
+                    OFFICIAL STUDENT IDENTITY CARD
                   </div>
                 </div>
 
                 {/* Body */}
                 <div className="p-4 bg-slate-50/50 flex gap-3 text-xs">
-                  <div className="w-20 h-24 bg-slate-200 border border-slate-300 rounded-lg flex flex-col items-center justify-center shrink-0">
-                    <User className="w-8 h-8 text-slate-400" />
-                    <span className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Photo</span>
+                  <div className="w-20 h-24 bg-slate-200 border border-slate-300 rounded-lg flex flex-col items-center justify-center overflow-hidden shrink-0">
+                    {st.passportPhoto ? (
+                      <img
+                        src={st.passportPhoto}
+                        alt={st.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <>
+                        <User className="w-8 h-8 text-slate-400" />
+                        <span className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Photo</span>
+                      </>
+                    )}
                   </div>
 
                   <div className="flex-1 space-y-1">
@@ -347,6 +390,9 @@ export const StudentIDView: React.FC<StudentIDViewProps> = ({
                     <div className="text-xs font-mono font-bold text-blue-700">{st.regNo}</div>
                     <div className="text-[11px] text-slate-600">
                       <strong>Class:</strong> {st.className} {st.stream || 'A'} • <strong>Sex:</strong> {st.gender || '-'}
+                    </div>
+                    <div className="text-[11px] text-slate-700">
+                      <strong>Parent Phone:</strong> <span className="font-mono font-bold text-blue-900">{st.parentPhone || st.phone || '0754 000 111'}</span>
                     </div>
                     <div className="text-[10px] text-slate-500">
                       <strong>DOB:</strong> {st.dob || '2010-01-01'} • <strong>Valid:</strong> 2026/2027

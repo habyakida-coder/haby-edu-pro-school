@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { LogIn, School as SchoolIcon, Loader2, User, KeyRound, ShieldAlert, CheckCircle2, Eye, EyeOff, Shield } from 'lucide-react';
+import { HabyEduProLogo } from '../common/HabyEduProLogo';
 
 export const AuthScreen: React.FC = () => {
   const { signInWithGoogle, signInWithEmail, loginAsDemo } = useAuth();
@@ -63,14 +64,18 @@ export const AuthScreen: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-[#0f2948] to-slate-900 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
-        {/* Header */}
-        <div className="bg-[#0f2948] p-8 text-white text-center relative overflow-hidden">
+        {/* Header with Official Logo */}
+        <div className="bg-[#0f2948] p-8 text-white text-center relative overflow-hidden flex flex-col items-center">
           <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
-          <div className="w-16 h-16 bg-blue-500/20 backdrop-blur rounded-2xl flex items-center justify-center mx-auto mb-3 border border-blue-400/30 shadow-inner">
-            <SchoolIcon className="w-8 h-8 text-blue-300" />
+          
+          <div className="mb-2">
+            <HabyEduProLogo theme="dark" size="lg" variant="full" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">HabyEduPro</h1>
-          <p className="text-blue-200 text-xs mt-1 font-medium">School Management, Timetable & Examination Ledger</p>
+
+          <p className="text-blue-200 text-xs mt-2 font-medium max-w-xs">
+            Comprehensive School Management, Timetable & Examination Ledger
+          </p>
+
           <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/20 border border-emerald-400/30 rounded-full text-[11px] text-emerald-300 font-semibold">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Authorized Portal
           </div>

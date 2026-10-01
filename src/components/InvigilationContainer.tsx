@@ -100,6 +100,7 @@ export const InvigilationContainer: React.FC<InvigilationContainerProps> = ({
 
   // Supervisor state
   const [selectedSupervisorTeacher, setSelectedSupervisorTeacher] = useState<number>(teachers[0]?.id || 0);
+  const [assignNotice, setAssignNotice] = useState<{ type: 'success' | 'warning' | 'error'; message: string } | null>(null);
 
   // Filter available teachers
   const availableTeachers = useMemo(() => teachers.filter(t => !t.excludeInvigilation), [teachers]);
@@ -295,7 +296,11 @@ export const InvigilationContainer: React.FC<InvigilationContainerProps> = ({
     );
 
     if (activeTeachers.length === 0) {
-      alert('No active invigilators available. Please enable teachers in the Invigilators tab first.');
+      setAssignNotice({
+        type: 'warning',
+        message: 'No active invigilators available. Please enable teachers in the Invigilators tab first.'
+      });
+      setTimeout(() => setAssignNotice(null), 5000);
       return;
     }
 
@@ -355,11 +360,36 @@ export const InvigilationContainer: React.FC<InvigilationContainerProps> = ({
     });
 
     onUpdateInvigilationAssignments(newAssignments);
-    alert(`Successfully auto-assigned ${assignedCount} room duty slot(s) with balanced workload and zero clashes!`);
+    setAssignNotice({
+      type: 'success',
+      message: `Successfully auto-assigned ${assignedCount} room duty slot(s) with balanced workload and zero clashes across ${activeTeachers.length} available teachers!`
+    });
+    setTimeout(() => setAssignNotice(null), 6000);
   };
 
   return (
     <div className="space-y-6">
+      {/* Notice Banner */}
+      {assignNotice && (
+        <div className={`p-4 rounded-xl text-xs font-bold flex items-center justify-between shadow-xs animate-in fade-in ${
+          assignNotice.type === 'success' 
+            ? 'bg-emerald-50 border border-emerald-300 text-emerald-900' 
+            : 'bg-amber-50 border border-amber-300 text-amber-900'
+        }`}>
+          <span className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            {assignNotice.message}
+          </span>
+          <button
+            type="button"
+            onClick={() => setAssignNotice(null)}
+            className="text-slate-500 hover:text-slate-800 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* 1. TOP SUB-NAVIGATION TABS (Matching TimetableContainer) */}
       <div className="bg-white border border-slate-200 rounded-xl p-1.5 shadow-xs flex flex-wrap gap-1">
         <button

@@ -205,6 +205,8 @@ export const SUBJECT_LIST = [
   'Weekly Test'
 ];
 
+export const POPULAR_SUBJECTS = SUBJECT_LIST;
+
 export const EXTRA_CURRICULAR_ACTIVITIES = [
   { id: 'weekly_test', name: 'Weekly Test', icon: 'FileCheck', color: '#dc2626', bg: '#fee2e2', border: '#fca5a5', text: '#991b1b', cellBg: '#fff1f2' },
   { id: 'praying', name: 'Praying / Devotion', icon: 'Sparkles', color: '#0284c7', bg: '#e0f2fe', border: '#7dd3fc', text: '#0369a1', cellBg: '#f0f9ff' },
@@ -1220,6 +1222,9 @@ export const DEFAULT_APP_DATA: AppData = {
       reportedBy: 'Grace Mchome',
       status: 'Resolved'
     }
-  ]
+  ],
+  dailyAttendance: {},
+  schemesOfWork: [],
+  lessonPlans: []
 };
 

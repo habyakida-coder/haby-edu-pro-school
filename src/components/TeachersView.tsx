@@ -23,8 +23,11 @@ import {
   Plus,
   Printer,
   ChevronRight,
-  BookOpen
+  BookOpen,
+  FileSpreadsheet,
+  Users
 } from 'lucide-react';
+import { GenderSummary, formatGenderSummaryText } from './common/GenderSummary';
 import { 
   Teacher, 
   SchoolStaffRole, 
@@ -92,9 +95,11 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
 
   // Form states
   const [name, setName] = useState('');
+  const [gender, setGender] = useState<'Male' | 'Female' | ''>('Male');
   const [schoolRole, setSchoolRole] = useState<string>('Subject Teacher');
   const [customRole, setCustomRole] = useState('');
   const [isCustomRole, setIsCustomRole] = useState(false);
+  const [formNotice, setFormNotice] = useState<string | null>(null);
   
   // MULTIPLE TEACHING SUBJECTS WITH STREAM ID (One after another)
   const [subjects, setSubjects] = useState<string[]>([
@@ -309,12 +314,14 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
     }
 
     const finalRole = isCustomRole ? (customRole.trim() || 'Subject Teacher') : schoolRole;
+    const finalGender = gender || (finalRole.includes('Mistress') || finalRole.includes('Headmistress') ? 'Female' : 'Male');
 
     if (editingTeacher) {
       const updatedTeacher: Teacher = {
         ...editingTeacher,
         name: name.trim(),
         initial: generateInitials(name.trim(), editingTeacher.id),
+        gender: finalGender,
         schoolRole: finalRole,
         subjects: subjects,
         excludeInvigilation,
@@ -327,12 +334,14 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
       };
       onUpdateTeacher(updatedTeacher);
       setEditingTeacher(null);
-      alert(`Teacher ${updatedTeacher.name} updated successfully with ${subjects.length} subjects!`);
+      setFormNotice(`Teacher ${updatedTeacher.name} updated successfully with ${subjects.length} subjects!`);
+      setTimeout(() => setFormNotice(null), 4000);
     } else {
       const newTeacher: Teacher = {
         id: Date.now(),
         name: name.trim(),
         initial: currentInitial,
+        gender: finalGender,
         schoolRole: finalRole,
         subjects: subjects,
         excludeInvigilation,
@@ -344,11 +353,13 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
         maxPeriodsPerWeek
       };
       onAddTeacher(newTeacher);
-      alert(`Teacher ${newTeacher.name} (${newTeacher.initial}) registered successfully with ${subjects.length} teaching subjects!`);
+      setFormNotice(`Teacher ${newTeacher.name} (${newTeacher.initial}) registered successfully with ${subjects.length} teaching subjects!`);
+      setTimeout(() => setFormNotice(null), 4000);
     }
     
     // Reset form
     setName('');
+    setGender('Male');
     setSchoolRole('Subject Teacher');
     setIsCustomRole(false);
     setCustomRole('');
@@ -371,6 +382,7 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
   const handleEdit = (teacher: Teacher) => {
     setEditingTeacher(teacher);
     setName(teacher.name);
+    setGender(teacher.gender || (teacher.schoolRole?.includes('Mistress') || teacher.schoolRole?.includes('Headmistress') ? 'Female' : 'Male'));
     
     if (teacher.schoolRole && STAFF_ROLES_LIST.includes(teacher.schoolRole)) {
       setSchoolRole(teacher.schoolRole);
@@ -398,6 +410,7 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
   const cancelEdit = () => {
     setEditingTeacher(null);
     setName('');
+    setGender('Male');
     setSchoolRole('Subject Teacher');
     setIsCustomRole(false);
     setCustomRole('');
@@ -415,6 +428,63 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
     setAllocStreams(['A', 'B', 'D']);
     setCustomSubjectText('');
     setManualSubjectStreamInput('');
+  };
+
+  // Gender summary for teachers (Requirement 5)
+  const teacherGenderStats = useMemo(() => {
+    let male = 0;
+    let female = 0;
+    teachers.forEach(t => {
+      const g = (t.gender || '').toLowerCase();
+      if (g.startsWith('f') || g.includes('female') || (t.schoolRole && (t.schoolRole.includes('Mistress') || t.schoolRole.includes('Headmistress')))) {
+        female++;
+      } else {
+        male++;
+      }
+    });
+    return {
+      male,
+      female,
+      total: teachers.length
+    };
+  }, [teachers]);
+
+  const handleExportTeachersCSV = () => {
+    const headers = ['#', 'Full Name', 'Gender', 'Role', 'Initial', 'Contact Phone', 'Email', 'Teaching Subjects', 'Assigned Periods/Wk'];
+    const rows = teachers.map((t, idx) => {
+      const isFemale = t.gender?.toLowerCase().startsWith('f') || (t.schoolRole && (t.schoolRole.includes('Mistress') || t.schoolRole.includes('Headmistress')));
+      const g = isFemale ? 'Female' : 'Male';
+      const tSlots = timetableAssignments.filter(a => {
+        const matchId = a.teacherId === t.id;
+        const aT = (('teacher' in a ? (a as any).teacher : '') || '').toLowerCase();
+        return matchId || aT === t.name.toLowerCase() || (t.initial && aT === t.initial.toLowerCase());
+      });
+      return [
+        idx + 1,
+        `"${t.name.replace(/"/g, '""')}"`,
+        g,
+        `"${(t.schoolRole || 'Subject Teacher').replace(/"/g, '""')}"`,
+        t.initial,
+        `"${t.phone || ''}"`,
+        `"${t.email || ''}"`,
+        `"${(t.subjects || []).join('; ')}"`,
+        tSlots.length
+      ].join(',');
+    });
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Teachers_Faculty_Roster_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handlePrintTeachersRoster = () => {
+    window.print();
   };
 
   // Filter teachers by search and role
@@ -595,8 +665,83 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
         />
       ) : (
         <>
+          {/* Top Summary Cards (Requirement 5: Teacher Summary) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Total Faculty */}
+            <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-700 flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-blue-600" />
+                  Total Teaching Faculty
+                </span>
+                <span className="font-black text-slate-900 text-sm">{teacherGenderStats.total}</span>
+              </div>
+              <div>
+                <GenderSummary
+                  B={teacherGenderStats.male}
+                  G={teacherGenderStats.female}
+                  T={teacherGenderStats.total}
+                  total={teachers.length}
+                  size="xs"
+                />
+              </div>
+            </div>
+
+            {/* Male Teachers */}
+            <div className="bg-white p-3.5 rounded-xl border border-blue-200 shadow-xs space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-blue-900 flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                  Male Teachers
+                </span>
+                <span className="font-black text-blue-950 text-sm">{teacherGenderStats.male}</span>
+              </div>
+              <div>
+                <GenderSummary
+                  B={teacherGenderStats.male}
+                  G={0}
+                  T={teacherGenderStats.male}
+                  total={teachers.length}
+                  size="xs"
+                />
+              </div>
+            </div>
+
+            {/* Female Teachers */}
+            <div className="bg-white p-3.5 rounded-xl border border-rose-200 shadow-xs space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-rose-900 flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                  Female Teachers
+                </span>
+                <span className="font-black text-rose-950 text-sm">{teacherGenderStats.female}</span>
+              </div>
+              <div>
+                <GenderSummary
+                  B={0}
+                  G={teacherGenderStats.female}
+                  T={teacherGenderStats.female}
+                  total={teachers.length}
+                  size="xs"
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Registration / Edit Form */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-6">
+            {formNotice && (
+              <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-emerald-900 font-bold text-xs flex items-center justify-between shadow-xs animate-in fade-in">
+                <span>{formNotice}</span>
+                <button
+                  type="button"
+                  onClick={() => setFormNotice(null)}
+                  className="text-emerald-700 hover:text-emerald-900 cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold text-[#1f4d8b] flex items-center gap-2">
@@ -698,6 +843,20 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
                         className="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white"
                         required
                       />
+                    </div>
+
+                    {/* Teacher Gender */}
+                    <div>
+                      <label className="text-xs font-bold text-slate-600 uppercase block mb-1">Teacher Gender *</label>
+                      <select
+                        value={gender}
+                        onChange={e => setGender(e.target.value as 'Male' | 'Female')}
+                        className="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl bg-white font-medium text-slate-800 focus:ring-2 focus:ring-blue-500"
+                        required
+                      >
+                        <option value="Male">Male (B)</option>
+                        <option value="Female">Female (G)</option>
+                      </select>
                     </div>
 
                     {/* School Administrative / Faculty Role */}
@@ -1139,6 +1298,25 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
                   <option value="LEADERSHIP">School Leadership</option>
                   <option value="HOD">Heads of Department (HOD)</option>
                 </select>
+
+                <button
+                  type="button"
+                  onClick={handleExportTeachersCSV}
+                  className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl shadow-2xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                  title="Export complete faculty roster to CSV"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Export CSV</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePrintTeachersRoster}
+                  className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl shadow-2xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                  title="Print teacher roster"
+                >
+                  <Printer className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Print Roster</span>
+                </button>
               </div>
             </div>
 
@@ -1149,6 +1327,7 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
                     <th className="p-2.5 border-r border-slate-200 w-10 text-center">#</th>
                     <th className="p-2.5 border-r border-slate-200 w-14 text-center">Photo</th>
                     <th className="p-2.5 border-r border-slate-200">Teacher Full Name</th>
+                    <th className="p-2.5 border-r border-slate-200 text-center w-24">Gender</th>
                     <th className="p-2.5 border-r border-slate-200">Staff Role</th>
                     <th className="p-2.5 border-r border-slate-200 text-center">Initial</th>
                     <th className="p-2.5 border-r border-slate-200">Teaching Subjects</th>
@@ -1160,7 +1339,7 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
                 <tbody className="divide-y divide-slate-100">
                   {filteredTeachers.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="p-8 text-center text-slate-400">
+                      <td colSpan={10} className="p-8 text-center text-slate-400">
                         No faculty members found matching your search.
                       </td>
                     </tr>
@@ -1172,6 +1351,8 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
                         const aT = (('teacher' in a ? (a as any).teacher : '') || '').toLowerCase();
                         return matchId || aT === t.name.toLowerCase() || (t.initial && aT === t.initial.toLowerCase()) || aT.includes(t.name.toLowerCase());
                       });
+
+                      const isFemale = t.gender?.toLowerCase().startsWith('f') || (t.schoolRole && (t.schoolRole.includes('Mistress') || t.schoolRole.includes('Headmistress')));
 
                       return (
                         <tr key={t.id} className="hover:bg-slate-50 transition">
@@ -1191,6 +1372,17 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
                           </td>
                           <td className="p-2.5 border-r border-slate-200">
                             <div className="font-bold text-slate-800">{t.name}</div>
+                          </td>
+                          <td className="p-2.5 border-r border-slate-200 text-center font-normal">
+                            {isFemale ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] bg-rose-50 text-rose-700 border border-rose-200 font-normal">
+                                Female (G)
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] bg-blue-50 text-blue-700 border border-blue-200 font-normal">
+                                Male (B)
+                              </span>
+                            )}
                           </td>
                           <td className="p-2.5 border-r border-slate-200">
                             <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] border shadow-2xs ${getRoleBadgeStyle(t.schoolRole)}`}>

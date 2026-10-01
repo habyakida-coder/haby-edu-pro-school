@@ -33,6 +33,8 @@ import {
 } from '../constants/defaults';
 import { downloadFile, escapeCSV, printFormattedSection } from '../utils/export';
 import { formatStudentRegNo, getNextStudentRegNo } from '../utils/studentRegUtils';
+import { GenderSummary } from './common/GenderSummary';
+import { HabyEduProLogo } from './common/HabyEduProLogo';
 
 interface StudentsViewProps {
   students: Student[];
@@ -61,6 +63,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   const [stream, setStream] = useState('STREAM A');
   const [combination, setCombination] = useState('PCM');
   const [dob, setDob] = useState('2010-01-01');
+  const [parentPhone, setParentPhone] = useState('');
   const [passportPhoto, setPassportPhoto] = useState<string>('');
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([
     'English Language', 'Kiswahili', 'Mathematics', 'Biology', 'Chemistry', 'Physics'
@@ -84,11 +87,43 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
     return Array.from(set).sort();
   }, [students]);
 
-  // List filters & sorting
+  // List filters & sorting (with gender-grouped alphabetical arrangement per user request)
   const [searchFilter, setSearchFilter] = useState('');
   const [classFilter, setClassFilter] = useState('ALL');
   const [streamFilter, setStreamFilter] = useState('ALL');
-  const [sortBy, setSortBy] = useState<'regNo_asc' | 'regNo_desc' | 'name_asc'>('regNo_asc');
+  const [sortBy, setSortBy] = useState<'regNo_asc' | 'regNo_desc' | 'name_asc' | 'girls_first_asc' | 'boys_first_asc'>('regNo_asc');
+
+  // Top Summary Cards Gender Statistics (Requirement 2)
+  const topGenderStats = useMemo(() => {
+    const stats = {
+      total: { B: 0, G: 0, T: students.length },
+      nursery: { B: 0, G: 0, T: 0 },
+      primary: { B: 0, G: 0, T: 0 },
+      secondary: { B: 0, G: 0, T: 0 }
+    };
+
+    students.forEach(s => {
+      const isGirl = (s.gender || '').toLowerCase().startsWith('f');
+      if (isGirl) stats.total.G++; else stats.total.B++;
+
+      const isNursery = NURSERY_CLASSES.includes(s.className) || s.level === 'PRE_PRIMARY';
+      const isPrimary = PRIMARY_CLASSES.includes(s.className) || s.level === 'PRIMARY';
+      const isSecondary = SECONDARY_CLASSES.includes(s.className) || s.level === 'CSEE' || s.level === 'ACSEE';
+
+      if (isNursery) {
+        if (isGirl) stats.nursery.G++; else stats.nursery.B++;
+        stats.nursery.T++;
+      } else if (isPrimary) {
+        if (isGirl) stats.primary.G++; else stats.primary.B++;
+        stats.primary.T++;
+      } else if (isSecondary) {
+        if (isGirl) stats.secondary.G++; else stats.secondary.B++;
+        stats.secondary.T++;
+      }
+    });
+
+    return stats;
+  }, [students]);
 
   // Multiple Student Selection for Bulk Actions
   const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
@@ -239,6 +274,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
       stream: level === 'CSEE' ? stream : undefined,
       combination: level === 'ACSEE' ? combination : undefined,
       dob,
+      parentPhone: parentPhone.trim() || undefined,
       passportPhoto: passportPhoto || undefined,
       subjects: selectedSubjects,
       marks: {},
@@ -249,6 +285,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
 
     onAddStudent(newStudent);
     setName('');
+    setParentPhone('');
     setPassportPhoto('');
     // After Student Create, show all students in Student button list immediately
     setActiveTab('register_list');
@@ -328,7 +365,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   };
 
   const handleExportRegisteredListCSV = () => {
-    const headers = ['Registration Order', 'Reg No', 'Student Full Name', 'Gender', 'Class', 'Level', 'Stream / Combination', 'DOB', 'Total Subjects Enrolled'];
+    const headers = ['Registration Order', 'Reg No', 'Student Full Name', 'Gender', 'Class', 'Level', 'Stream / Combination', 'Parent Phone', 'DOB', 'Total Subjects Enrolled'];
     const rows = sortedFilteredStudents.map((s, idx) => [
       String(idx + 1),
       s.regNo || '',
@@ -337,6 +374,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
       s.className,
       s.level,
       s.stream || s.combination || '',
+      s.parentPhone || s.phone || '',
       s.dob || '',
       String(s.subjects.length)
     ]);
@@ -378,8 +416,33 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
     if (sortBy === 'regNo_desc') {
       return (b.regNo || '').localeCompare(a.regNo || '', undefined, { numeric: true });
     }
+    if (sortBy === 'girls_first_asc') {
+      const isGirlA = (a.gender || '').toLowerCase().startsWith('f');
+      const isGirlB = (b.gender || '').toLowerCase().startsWith('f');
+      if (isGirlA && !isGirlB) return -1;
+      if (!isGirlA && isGirlB) return 1;
+      return a.name.localeCompare(b.name);
+    }
+    if (sortBy === 'boys_first_asc') {
+      const isBoyA = !(a.gender || '').toLowerCase().startsWith('f');
+      const isBoyB = !(b.gender || '').toLowerCase().startsWith('f');
+      if (isBoyA && !isBoyB) return -1;
+      if (!isBoyA && isBoyB) return 1;
+      return a.name.localeCompare(b.name);
+    }
     return a.name.localeCompare(b.name);
   });
+
+  // Cohort Gender Breakdown (Requirement 3: B = 15 (45%) G = 18 (55%) T = 33)
+  const filteredCohortGenderStats = useMemo(() => {
+    let B = 0;
+    let G = 0;
+    sortedFilteredStudents.forEach(s => {
+      const isGirl = (s.gender || '').toLowerCase().startsWith('f');
+      if (isGirl) G++; else B++;
+    });
+    return { B, G, T: sortedFilteredStudents.length };
+  }, [sortedFilteredStudents]);
 
   // Multiple selection helpers for student bulk deletion
   const handleToggleSelectStudent = (id: number) => {
@@ -469,6 +532,89 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Top Summary Cards (Requirement 2: Total Students, Nursery, Primary, Secondary) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Total Students */}
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs space-y-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-slate-700 flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5 text-blue-600" />
+              Total Students
+            </span>
+            <span className="font-black text-slate-900 text-sm">{topGenderStats.total.T}</span>
+          </div>
+          <div>
+            <GenderSummary
+              B={topGenderStats.total.B}
+              G={topGenderStats.total.G}
+              T={topGenderStats.total.T}
+              total={students.length}
+              size="xs"
+            />
+          </div>
+        </div>
+
+        {/* Nursery */}
+        <div className="bg-white p-3.5 rounded-xl border border-purple-200 shadow-xs space-y-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-purple-900 flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
+              Nursery / Awali
+            </span>
+            <span className="font-black text-purple-950 text-sm">{topGenderStats.nursery.T}</span>
+          </div>
+          <div>
+            <GenderSummary
+              B={topGenderStats.nursery.B}
+              G={topGenderStats.nursery.G}
+              T={topGenderStats.nursery.T}
+              total={students.length}
+              size="xs"
+            />
+          </div>
+        </div>
+
+        {/* Primary */}
+        <div className="bg-white p-3.5 rounded-xl border border-emerald-200 shadow-xs space-y-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-emerald-900 flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+              Primary (Std 1 - 7)
+            </span>
+            <span className="font-black text-emerald-950 text-sm">{topGenderStats.primary.T}</span>
+          </div>
+          <div>
+            <GenderSummary
+              B={topGenderStats.primary.B}
+              G={topGenderStats.primary.G}
+              T={topGenderStats.primary.T}
+              total={students.length}
+              size="xs"
+            />
+          </div>
+        </div>
+
+        {/* Secondary */}
+        <div className="bg-white p-3.5 rounded-xl border border-blue-200 shadow-xs space-y-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-blue-900 flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+              Secondary (Form 1 - 6)
+            </span>
+            <span className="font-black text-blue-950 text-sm">{topGenderStats.secondary.T}</span>
+          </div>
+          <div>
+            <GenderSummary
+              B={topGenderStats.secondary.B}
+              G={topGenderStats.secondary.G}
+              T={topGenderStats.secondary.T}
+              total={students.length}
+              size="xs"
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Sub-Navigation Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
         <div className="flex items-center gap-2">
@@ -719,6 +865,18 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                     className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white"
                   />
                 </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-600 uppercase block mb-1">Parent Phone Number *</label>
+                  <input
+                    type="tel"
+                    placeholder="e.g. 0754 000 111 / +255 7..."
+                    value={parentPhone}
+                    onChange={e => setParentPhone(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white"
+                    required
+                  />
+                </div>
               </div>
             </div>
 
@@ -835,6 +993,19 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
             <p className="text-xs text-slate-500 mt-0.5">
               Accredited enrollment register arranged by registration order (Reg No) with passport photos and class streams.
             </p>
+            {/* Class / Stream Cohort Gender Summary (Requirement 3: B = 15 (45%) G = 18 (55%) T = 33) */}
+            <div className="mt-1.5 flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-600">
+                {classFilter !== 'ALL' ? classFilter : 'Class Cohort'} {streamFilter !== 'ALL' ? `(${streamFilter})` : ''}:
+              </span>
+              <GenderSummary
+                B={filteredCohortGenderStats.B}
+                G={filteredCohortGenderStats.G}
+                T={filteredCohortGenderStats.T}
+                total={students.length}
+                size="xs"
+              />
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
@@ -889,6 +1060,8 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
               <option value="regNo_asc">Registration Order (S0001 →)</option>
               <option value="regNo_desc">Latest Registered First</option>
               <option value="name_asc">Alphabetical (A - Z)</option>
+              <option value="girls_first_asc">All Girls A-Z first, then All Boys A-Z</option>
+              <option value="boys_first_asc">All Boys A-Z first, then All Girls A-Z</option>
             </select>
 
             {/* Multi-Delete Action Button */}
@@ -1026,6 +1199,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                 <th className="p-2.5 border-r border-slate-200">Full Name</th>
                 <th className="p-2.5 border-r border-slate-200 text-center">Gender</th>
                 <th className="p-2.5 border-r border-slate-200">Class & Stream</th>
+                <th className="p-2.5 border-r border-slate-200">Parent Phone</th>
                 <th className="p-2.5 border-r border-slate-200">Level</th>
                 <th className="p-2.5 border-r border-slate-200">Subjects Enrolled</th>
                 <th className="p-2.5 text-center no-print">Actions</th>
@@ -1034,7 +1208,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
             <tbody>
               {sortedFilteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="p-8 text-center text-slate-400">
+                  <td colSpan={11} className="p-8 text-center text-slate-400">
                     No registered students found matching your criteria.
                   </td>
                 </tr>
@@ -1074,10 +1248,13 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                       <td className="p-2.5 border-r border-slate-200 font-mono font-bold text-blue-700">
                         {s.regNo || `S${String(idx + 1).padStart(4, '0')}`}
                       </td>
-                      <td className="p-2.5 border-r border-slate-200 font-bold text-slate-800">{s.name}</td>
+                      <td className="p-2.5 border-r border-slate-200 font-medium text-slate-800">{s.name}</td>
                       <td className="p-2.5 border-r border-slate-200 text-center">{s.gender}</td>
-                      <td className="p-2.5 border-r border-slate-200 font-semibold text-slate-700">
+                      <td className="p-2.5 border-r border-slate-200 font-medium text-slate-700">
                         {s.className} - {s.stream || s.combination || 'Standard'}
+                      </td>
+                      <td className="p-2.5 border-r border-slate-200 font-mono text-slate-600 text-[11px]">
+                        {s.parentPhone || s.phone || '-'}
                       </td>
                       <td className="p-2.5 border-r border-slate-200">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -1225,6 +1402,28 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                       <option value="Male">Male</option>
                       <option value="Female">Female</option>
                     </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 block mb-1">Parent Phone Number</label>
+                    <input
+                      type="tel"
+                      value={editingStudent.parentPhone || ''}
+                      onChange={e => setEditingStudent({ ...editingStudent, parentPhone: e.target.value })}
+                      placeholder="e.g. 0754 000 111"
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 block mb-1">Date of Birth</label>
+                    <input
+                      type="date"
+                      value={editingStudent.dob || '2010-01-01'}
+                      onChange={e => setEditingStudent({ ...editingStudent, dob: e.target.value })}
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white"
+                    />
                   </div>
                 </div>
               </div>

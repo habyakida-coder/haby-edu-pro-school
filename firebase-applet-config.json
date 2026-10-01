@@ -1,12 +1,12 @@
 {
   "projectId": "habyedupro",
-  "appId": "1:1026303809661:web:59587d6985353faa153914",
-  "apiKey": "AIzaSyBK85dEKNW7ygv8d_Go-lBnXBuuxX_dodM",
+  "appId": "1:1026303809661:web:f9c580a09a28156a153914",
+  "apiKey": "AIzaSyBK85dEKWN7ygv8d_Go-lBnXBuuxX_dodM",
   "authDomain": "habyedupro.firebaseapp.com",
-  "firestoreDatabaseId": "(default)",
+  "firestoreDatabaseId": "ai-studio-habyeduproschool-cc2fceae-da7d-4432-aa72-125fe8c21f75",
   "storageBucket": "habyedupro.firebasestorage.app",
   "messagingSenderId": "1026303809661",
-  "measurementId": "G-GNL3ENVQ9X",
-  "oauthClientId": "",
+  "measurementId": "",
+  "oAuthClientId": "1026303809661-8idc152alge50fetkfcl0ad2umt8no9e.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }

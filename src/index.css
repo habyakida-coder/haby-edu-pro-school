@@ -1,1 +1,37 @@
 @import "tailwindcss";
+
+@layer utilities {
+  @media print {
+    @page {
+      size: A4 landscape;
+      margin: 6mm 6mm;
+    }
+    body {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      background: white !important;
+      color: black !important;
+    }
+    .no-print, header, nav, aside, .print\:hidden {
+      display: none !important;
+    }
+    /* Full-width unclipped exam report printable modal */
+    #results-pdf-print-area {
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100% !important;
+      margin: 0 !important;
+      padding: 4mm !important;
+      background: white !important;
+      z-index: 999999 !important;
+      overflow: visible !important;
+      page-break-after: avoid;
+    }
+    /* ID card print layout */
+    .id-card-print-badge {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+  }
+}

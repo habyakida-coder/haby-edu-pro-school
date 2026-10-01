@@ -1,4 +1,5 @@
 import { LessonPlan } from './types/lessonPlan';
+import { SchemeOfWork } from './types/schemeOfWork';
 
 export interface CharacterTrait {
   id: string;
@@ -85,6 +86,7 @@ export interface Teacher {
   id: number;
   name: string;
   initial: string;
+  gender?: 'Male' | 'Female' | '';
   subjects: string[];
   excludeInvigilation: boolean;
   color?: string; // Custom or auto-assigned color for the teacher/invigilator
@@ -488,6 +490,8 @@ export interface AppData {
   teacherAssignments?: TeacherAssignment[];
   usalRecords?: UsalRecord[];
   lessonPlans?: LessonPlan[];
+  schemesOfWork?: SchemeOfWork[];
+  dailyAttendance?: Record<string, Record<number, 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED'>>;
   gradeCutoffs?: Record<string, any>;
 }
 
