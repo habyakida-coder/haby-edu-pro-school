@@ -209,7 +209,7 @@ class QueryBuilder {
       const inserted: any[] = [];
 
       for (const rec of records) {
-        const schoolId = rec.school_id || rec.schoolId || (typeof window !== 'undefined' ? sessionStorage.getItem('haby_school_id') : null) || 'DEMO_SCHOOL';
+       const schoolId = rec.school_id || rec.schoolId || (typeof window !== 'undefined' ? (localStorage.getItem('currentSchoolId') || localStorage.getItem('school_id') || localStorage.getItem('schoolId') || sessionStorage.getItem('currentSchoolId') || sessionStorage.getItem('school_id') || '') : '');
         console.log(`[SupabaseClient] Saving to '${this.collectionName}' | Current school_id:`, schoolId);
 
         const recId = rec.id ? String(rec.id) : (this.collectionName === 'sms_wallet' ? schoolId : `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
