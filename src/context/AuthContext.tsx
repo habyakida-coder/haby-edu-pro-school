@@ -9,6 +9,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, getDocs, addDoc, serverTimestamp, query, where } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../lib/firebase';
+import { supabase } from '../lib/supabaseClient';
 import { UserAccount, UserRole } from '../types';
 
 interface AuthContextType {
@@ -52,6 +53,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const isSuperAdmin = isAdmin || normEmail === 'habibuakida@gmail.com';
 
     try {
+      // 0. Fetch user profile from users collection via supabase client
+      let supaSchoolId: string | null = null;
+      try {
+        const { data: supaProfile } = await supabase.from('users').select('school_id').eq('id', fbUser.uid).single();
+        if (supaProfile && (supaProfile.school_id || supaProfile.schoolId)) {
+          supaSchoolId = supaProfile.school_id || supaProfile.schoolId;
+        }
+      } catch (err) {
+        console.warn("Supabase user profile fetch:", err);
+      }
+
       // 1. Check users doc by UID first
       const userRef = doc(db, 'users', fbUser.uid);
       let userDoc = await getDoc(userRef);
@@ -66,7 +78,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (userDoc.exists()) {
         const data = userDoc.data();
-        const resolvedSchoolId = data.schoolId || (isAdmin ? 'DEMO_SCHOOL' : 'DEFAULT_SCHOOL');
+        const storedSessionSchool = sessionStorage.getItem('haby_school_id');
+        const resolvedSchoolId = supaSchoolId || data.school_id || data.schoolId || storedSessionSchool || 'DEMO_SCHOOL';
+        console.log("Current school_id:", resolvedSchoolId);
+        sessionStorage.setItem('haby_school_id', resolvedSchoolId);
+
         const account: UserAccount = {
           id: fbUser.uid,
           email: fbUser.email || normEmail,
@@ -79,6 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Update user record with current UID & last login timestamp
         await setDoc(userRef, {
           ...account,
+          school_id: resolvedSchoolId,
           schoolId: resolvedSchoolId,
           lastLoginAt: serverTimestamp()
         }, { merge: true });
@@ -90,7 +107,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // If user doc doesn't exist yet, bootstrap with DEMO_SCHOOL where candidate records exist
-      const schoolId = 'DEMO_SCHOOL';
+      const storedSessionSchool = sessionStorage.getItem('haby_school_id');
+      const schoolId = storedSessionSchool || 'DEMO_SCHOOL';
+      console.log("Current school_id:", schoolId);
+      sessionStorage.setItem('haby_school_id', schoolId);
+
       const newAccount: UserAccount = {
         id: fbUser.uid,
         email: fbUser.email || normEmail,
@@ -102,6 +123,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       await setDoc(userRef, {
         ...newAccount,
+        school_id: schoolId,
+        schoolId,
         createdAt: serverTimestamp()
       }, { merge: true });
 
@@ -109,12 +132,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserAccount(newAccount);
     } catch (error) {
       console.error("Error fetching or creating user account:", error);
+      const fallbackSchoolId = sessionStorage.getItem('haby_school_id') || 'DEMO_SCHOOL';
+      console.log("Current school_id (fallback):", fallbackSchoolId);
       const fallbackAccount: UserAccount = {
         id: fbUser.uid,
         email: fbUser.email || normEmail,
         fullName: fbUser.displayName || (isAdmin ? 'Administrator (Dr. Habibu Akida)' : 'Authorized User'),
         role: isSuperAdmin ? 'HEADMASTER' : 'ACADEMIC',
-        schoolId: 'DEMO_SCHOOL',
+        schoolId: fallbackSchoolId,
         isSuperAdmin
       };
       sessionStorage.setItem('haby_demo_user', JSON.stringify(fallbackAccount));
@@ -214,15 +239,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         // Fetch real schoolId from users collection if exists
-        let schoolId = 'DEMO_SCHOOL';
+        let schoolId = sessionStorage.getItem('haby_school_id') || 'DEMO_SCHOOL';
         try {
           const uSnap = await getDocs(query(collection(db, 'users'), where('email', '==', normalizedEmail)));
-          if (!uSnap.empty && uSnap.docs[0].data().schoolId) {
-            schoolId = uSnap.docs[0].data().schoolId;
+          if (!uSnap.empty && (uSnap.docs[0].data().school_id || uSnap.docs[0].data().schoolId)) {
+            schoolId = uSnap.docs[0].data().school_id || uSnap.docs[0].data().schoolId;
           }
         } catch (e) {
           console.warn("Could not query admin user doc:", e);
         }
+
+        console.log("Current school_id:", schoolId);
+        sessionStorage.setItem('haby_school_id', schoolId);
 
         const adminAccount: UserAccount = {
           id: fbUser?.uid || 'admin_haby_root',
@@ -237,6 +265,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           await setDoc(doc(db, 'users', adminAccount.id), {
             ...adminAccount,
+            school_id: schoolId,
+            schoolId,
             updatedAt: serverTimestamp()
           }, { merge: true });
         } catch (e) {
@@ -269,15 +299,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
 
-        let schoolId = 'DEMO_SCHOOL';
+        let schoolId = sessionStorage.getItem('haby_school_id') || 'DEMO_SCHOOL';
         try {
           const uSnap = await getDocs(query(collection(db, 'users'), where('email', '==', normalizedEmail)));
-          if (!uSnap.empty && uSnap.docs[0].data().schoolId) {
-            schoolId = uSnap.docs[0].data().schoolId;
+          if (!uSnap.empty && (uSnap.docs[0].data().school_id || uSnap.docs[0].data().schoolId)) {
+            schoolId = uSnap.docs[0].data().school_id || uSnap.docs[0].data().schoolId;
           }
         } catch (e) {
           console.warn("Could not query admin user doc:", e);
         }
+
+        console.log("Current school_id:", schoolId);
+        sessionStorage.setItem('haby_school_id', schoolId);
 
         const adminAccount: UserAccount = {
           id: fbUser?.uid || 'admin_haby_root',
@@ -318,12 +351,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Verify password
         if (uData.password && uData.password === inputPass) {
+          const resolvedSchool = uData.school_id || uData.schoolId || sessionStorage.getItem('haby_school_id') || 'DEMO_SCHOOL';
+          console.log("Current school_id:", resolvedSchool);
+          sessionStorage.setItem('haby_school_id', resolvedSchool);
+
           const memberAccount: UserAccount = {
             id: userDoc.id,
             email: uData.email,
             fullName: uData.fullName || 'Authorized Staff',
             role: uData.role || 'TEACHER',
-            schoolId: uData.schoolId || 'DEFAULT_SCHOOL',
+            schoolId: resolvedSchool,
             assignedSubjects: uData.assignedSubjects || [],
             isSuperAdmin: !!uData.isSuperAdmin
           };
@@ -356,6 +393,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (demoAccounts[normalizedEmail]) {
         const acc = demoAccounts[normalizedEmail];
+        console.log("Current school_id:", acc.schoolId);
+        sessionStorage.setItem('haby_school_id', acc.schoolId);
         sessionStorage.setItem('haby_demo_user', JSON.stringify(acc));
         setUserAccount(acc);
         return;
@@ -369,16 +408,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const switchSchool = async (schoolId: string) => {
     if (!userAccount) return;
+    console.log("Current school_id (switchSchool):", schoolId);
+    sessionStorage.setItem('haby_school_id', schoolId);
     const updated: UserAccount = {
       ...userAccount,
-      schoolId
+      schoolId,
+      school_id: schoolId
     };
     sessionStorage.setItem('haby_demo_user', JSON.stringify(updated));
     setUserAccount(updated);
 
     try {
       if (userAccount.id && userAccount.id !== 'admin_haby_root') {
-        await setDoc(doc(db, 'users', userAccount.id), { schoolId }, { merge: true });
+        await setDoc(doc(db, 'users', userAccount.id), { schoolId, school_id: schoolId }, { merge: true });
       }
     } catch (e) {
       console.warn("Could not sync schoolId to Firestore user doc:", e);
@@ -393,6 +435,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fullName: 'Mwl. Peter Mwita (Headmaster Demo)',
         role: 'HEADMASTER',
         schoolId: 'DEMO_SCHOOL',
+        school_id: 'DEMO_SCHOOL',
         isSuperAdmin: false
       },
       ACADEMIC: {
@@ -400,7 +443,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: 'academic@kiomonisec.ac.tz',
         fullName: 'David Mwakipesile (Academic Master)',
         role: 'ACADEMIC',
-        schoolId: 'DEMO_SCHOOL'
+        schoolId: 'DEMO_SCHOOL',
+        school_id: 'DEMO_SCHOOL'
       },
       TEACHER: {
         id: 'usr_teacher',
@@ -408,11 +452,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fullName: 'Grace Mchome (Staff Teacher)',
         role: 'TEACHER',
         schoolId: 'DEMO_SCHOOL',
+        school_id: 'DEMO_SCHOOL',
         assignedSubjects: ['English Language', 'ENG']
       }
     };
 
     const account = demoAccounts[role];
+    console.log("Current school_id (loginAsDemo):", account.schoolId);
+    sessionStorage.setItem('haby_school_id', account.schoolId);
     sessionStorage.setItem('haby_demo_user', JSON.stringify(account));
     setUserAccount(account);
   };

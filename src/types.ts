@@ -234,6 +234,7 @@ export interface UserAccount {
   fullName: string;
   role: UserRole;
   schoolId: string;
+  school_id?: string;
   password?: string;
   assignedSubjects?: string[];
   lastLogin?: string;
@@ -493,5 +494,52 @@ export interface AppData {
   schemesOfWork?: SchemeOfWork[];
   dailyAttendance?: Record<string, Record<number, 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED'>>;
   gradeCutoffs?: Record<string, any>;
+  parents?: ParentContact[];
+  smsWallet?: SmsWallet;
+  smsLogs?: SmsLog[];
+}
+
+export interface ExamRecordRow {
+  id: string;
+  school_id: string;
+  student_cno: string;
+  student_name: string;
+  sex?: string;
+  class_level: string;
+  exam_type: 'STNA' | 'SFNA' | 'PSLE' | 'FTNA' | 'CSEE' | 'ACSEE' | 'MIDTERM' | 'ANNUAL' | string;
+  term: string;
+  AGGT: number | string;
+  DIV: string;
+  subjects_json: Record<string, string>;
+  year: string | number;
+  created_at?: string;
+}
+
+export interface ParentContact {
+  id: string;
+  school_id: string;
+  student_cno: string;
+  phone_255: string;
+  student_name?: string;
+  class_level?: string;
+  created_at?: string;
+}
+
+export interface SmsWallet {
+  id?: string;
+  school_id: string;
+  balance: number;
+  updated_at?: string;
+}
+
+export interface SmsLog {
+  id: string;
+  school_id: string;
+  student_cno: string;
+  phone: string;
+  message: string;
+  status: 'SENT' | 'FAILED' | 'QUEUED';
+  created_at?: string;
+  error?: string;
 }
 

@@ -23,7 +23,9 @@ import {
   Users,
   ChevronDown,
   X,
-  MessageSquare
+  MessageSquare,
+  Smartphone,
+  Send
 } from 'lucide-react';
 import { 
   ExaminationRecord, 
@@ -60,6 +62,8 @@ interface ExaminationRecordsViewProps {
   onUpdatePromotionHistory: (history: PromotionHistory[]) => void;
   onUpdateTransferHistory: (history: TransferHistory[]) => void;
   currentUserName?: string;
+  onNavigateToSms?: (examType?: string, year?: string) => void;
+  onNavigateToNectaAnalyzer?: () => void;
 }
 
 export type ViewToggleMode = 'marks' | 'grade' | 'both';
@@ -85,7 +89,9 @@ export const ExaminationRecordsView: React.FC<ExaminationRecordsViewProps> = ({
   onUpdateExaminationRecords,
   onUpdatePromotionHistory,
   onUpdateTransferHistory,
-  currentUserName = 'Academic Master'
+  currentUserName = 'Academic Master',
+  onNavigateToSms,
+  onNavigateToNectaAnalyzer
 }) => {
   // Filters
   const [selectedYear, setSelectedYear] = useState<string>('2026');
@@ -418,6 +424,30 @@ Total: ${rec.totalMarks} Avg: ${rec.averageMarks}% Points: ${pointsStr} Div: ${d
 
           {/* Action Center Buttons */}
           <div className="flex items-center gap-2.5 flex-wrap">
+            {onNavigateToSms && (
+              <button
+                type="button"
+                onClick={() => onNavigateToSms(selectedExamType !== 'All' ? selectedExamType : undefined, selectedYear !== 'All' ? selectedYear : undefined)}
+                className="px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black rounded-xl text-xs shadow-md flex items-center gap-2 transition cursor-pointer active:scale-[0.98] border border-emerald-400"
+                title="Tuma matokeo haya kwa wazazi kupitia SMS (Beem Africa)"
+              >
+                <Smartphone className="w-4 h-4 text-emerald-200" />
+                <span>Tuma kwa Wazazi via SMS</span>
+              </button>
+            )}
+
+            {onNavigateToNectaAnalyzer && (
+              <button
+                type="button"
+                onClick={onNavigateToNectaAnalyzer}
+                className="px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white font-black rounded-xl text-xs shadow-md flex items-center gap-2 transition cursor-pointer active:scale-[0.98] border border-indigo-400"
+                title="Chakata matokeo ya NECTA kwa jinsia na uhamishe kwenda Excel"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-indigo-200" />
+                <span>NECTA Analyzer</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => setIsPdfExportModalOpen(true)}

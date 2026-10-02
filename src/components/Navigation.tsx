@@ -20,7 +20,8 @@ import {
   RotateCw,
   Save,
   FileSpreadsheet,
-  BookOpen
+  BookOpen,
+  Smartphone
 } from 'lucide-react';
 import { SchoolInfo, UserAccount } from '../types';
 import { HabyEduProLogo } from './common/HabyEduProLogo';
@@ -30,6 +31,8 @@ export type ActiveView =
   | 'students'
   | 'results'
   | 'examrecords'
+  | 'nectaanalyzer'
+  | 'sms'
   | 'schemes'
   | 'lessonplans'
   | 'attendance'
@@ -66,6 +69,8 @@ export const Navigation: React.FC<NavigationProps> = ({
     { id: 'students', label: 'Registration', icon: <UserPlus className="w-4 h-4" /> },
     { id: 'results', label: 'Academic', icon: <Award className="w-4 h-4" /> },
     { id: 'examrecords', label: 'Exam Records', icon: <FileSpreadsheet className="w-4 h-4" /> },
+    { id: 'nectaanalyzer', label: 'NECTA Analyzer', icon: <Award className="w-4 h-4 text-amber-400" /> },
+    { id: 'sms', label: 'SMS Module', icon: <Smartphone className="w-4 h-4 text-emerald-400" /> },
     { id: 'schemes', label: 'Scheme of Work', icon: <FileText className="w-4 h-4" /> },
     { id: 'lessonplans', label: 'Lesson Plans', icon: <BookOpen className="w-4 h-4" /> },
     { id: 'attendance', label: 'Attendance', icon: <CalendarCheck className="w-4 h-4" /> },
@@ -85,6 +90,8 @@ export const Navigation: React.FC<NavigationProps> = ({
         'students', 
         'results', 
         'examrecords', 
+        'nectaanalyzer',
+        'sms',
         'schemes', 
         'lessonplans', 
         'attendance', 

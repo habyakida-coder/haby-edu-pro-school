@@ -35,7 +35,8 @@ import {
   X,
   Check,
   RefreshCw,
-  BarChart3
+  BarChart3,
+  Smartphone
 } from 'lucide-react';
 import { Student, SchoolInfo, UserAccount, Exam, ExaminationRecord, Teacher, UsalRecord, ExamTerm, RecordExamType } from '../types';
 import { printReportCardDocument } from '../utils/export';
@@ -78,6 +79,7 @@ interface ResultsViewProps {
   onAutoSaveExaminationRecords?: (records: ExaminationRecord[]) => void;
   onReleaseResultsToRecords?: (records: ExaminationRecord[], className: string, examName: string) => Promise<void> | void;
   onNavigateToExamRecords?: () => void;
+  onNavigateToSms?: () => void;
   usalRecords?: UsalRecord[];
   onSaveUsalRecord?: (record: UsalRecord) => void;
   onNavigateToMarkEntry?: (examName?: string, className?: string) => void;
@@ -171,6 +173,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
   onAutoSaveExaminationRecords,
   onReleaseResultsToRecords,
   onNavigateToExamRecords,
+  onNavigateToSms,
   usalRecords = [],
   onSaveUsalRecord,
   onNavigateToMarkEntry,
@@ -1523,6 +1526,18 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                 )}
                 <span>SAVE &amp; ROLL TO RESULTS</span>
               </button>
+
+              {onNavigateToSms && (
+                <button
+                  type="button"
+                  onClick={onNavigateToSms}
+                  className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-md transition-all active:scale-95"
+                  title="Tuma matokeo haya kwa wazazi kupitia SMS (Beem Africa)"
+                >
+                  <Smartphone className="w-4 h-4 text-emerald-200" />
+                  <span>Tuma kwa Wazazi via SMS</span>
+                </button>
+              )}
             </div>
           </div>
 

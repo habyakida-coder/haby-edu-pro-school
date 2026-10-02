@@ -8,6 +8,8 @@ import { StudentsView } from './components/StudentsView';
 import { TeachersView } from './components/TeachersView';
 import { ResultsView } from './components/ResultsView';
 import { ExaminationRecordsView } from './components/ExaminationRecords/ExaminationRecordsView';
+import NectaAnalyzer from './components/NectaAnalyzer.jsx';
+import { SmsModule } from './components/SmsModule';
 import { ExamsView } from './components/ExamsView';
 import { TimetableContainer } from './components/Timetable/TimetableContainer';
 import { InvigilationContainer } from './components/InvigilationContainer';
@@ -23,6 +25,7 @@ import { AuthScreen } from './components/auth/AuthScreen';
 import { useAuth } from './context/AuthContext';
 import { doc, onSnapshot, setDoc, updateDoc, deleteDoc, collection, query, where, getDocs, getDoc } from 'firebase/firestore';
 import { db } from './lib/firebase';
+import { supabase } from './lib/supabaseClient';
 import { Loader2, Shield } from 'lucide-react';
 
 export default function App() {
@@ -36,6 +39,7 @@ export default function App() {
   const [isCloudSynced, setIsCloudSynced] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [syncToast, setSyncToast] = useState<string | null>(null);
+  const [smsTargetExam, setSmsTargetExam] = useState<{ examType?: string; year?: string }>({});
 
   // Sync with Firestore & Real-Time Single Source of Truth
   useEffect(() => {
@@ -45,7 +49,38 @@ export default function App() {
     }
 
     const schoolId = userAccount.schoolId;
+    console.log("Current school_id:", schoolId);
     const schoolKey = `haby_school_data_${schoolId}`;
+
+    // 0. Primary Database Load via Supabase Query Client (Per Specification: supabase.from('students').select().eq('school_id', currentSchoolId))
+    const loadFromDatabase = async () => {
+      console.log("Current school_id (loadFromDatabase):", schoolId);
+      try {
+        const [studRes, recRes, teachRes] = await Promise.all([
+          supabase.from('students').select().eq('school_id', schoolId),
+          supabase.from('exam_records').select().eq('school_id', schoolId),
+          supabase.from('teachers').select().eq('school_id', schoolId)
+        ]);
+
+        setData(prev => ({
+          ...prev,
+          students: (studRes.data && Array.isArray(studRes.data) && studRes.data.length > 0)
+            ? studRes.data.map((s: any) => ({ ...s, id: s.id ?? (isNaN(Number(s.id)) ? s.id : Number(s.id)) }))
+            : prev.students,
+          examinationRecords: (recRes.data && Array.isArray(recRes.data) && recRes.data.length > 0)
+            ? recRes.data
+            : prev.examinationRecords,
+          teachers: (teachRes.data && Array.isArray(teachRes.data) && teachRes.data.length > 0)
+            ? teachRes.data.map((t: any) => ({ ...t, id: t.id ?? (isNaN(Number(t.id)) ? t.id : Number(t.id)) }))
+            : prev.teachers
+        }));
+        setIsCloudSynced(true);
+        setDataLoading(false);
+      } catch (err) {
+        console.warn("Error in loadFromDatabase:", err);
+      }
+    };
+    loadFromDatabase();
 
     const schoolRef = doc(db, 'schools', schoolId);
     const docRef = doc(db, 'schoolData', schoolId);
@@ -55,6 +90,8 @@ export default function App() {
     const examRecordsCol = collection(db, 'schools', schoolId, 'examinationRecords');
     const usalRecordsCol = collection(db, 'schools', schoolId, 'usalRecords');
     const usersQuery = query(collection(db, 'users'), where('schoolId', '==', schoolId));
+    const topStudentsQuery = query(collection(db, 'students'), where('school_id', '==', schoolId));
+    const topExamRecordsQuery = query(collection(db, 'exam_records'), where('school_id', '==', schoolId));
 
     // 1. Check School Status
     const unsubscribeStatus = onSnapshot(schoolRef, (snapshot) => {
@@ -64,7 +101,20 @@ export default function App() {
       }
     }, (err) => console.warn("School status snapshot error:", err));
 
-    // 2. Real-time Students subcollection listener (Single Source of Truth)
+    // 2. Real-time Top-level Students query listener
+    const unsubscribeTopStudents = onSnapshot(topStudentsQuery, (snapshot) => {
+      if (!snapshot.empty) {
+        const studentList: Student[] = snapshot.docs.map(docSnap => ({
+          ...docSnap.data(),
+          id: docSnap.data().id ?? (isNaN(Number(docSnap.id)) ? docSnap.id : Number(docSnap.id))
+        } as Student));
+        setData(prev => ({ ...prev, students: studentList }));
+        setIsCloudSynced(true);
+        setDataLoading(false);
+      }
+    }, (err) => console.warn("Top students query snapshot error:", err));
+
+    // 2b. Real-time Students subcollection listener (Single Source of Truth)
     const unsubscribeStudents = onSnapshot(studentsCol, (snapshot) => {
       if (!snapshot.empty) {
         const studentList: Student[] = snapshot.docs.map(docSnap => ({
@@ -100,7 +150,18 @@ export default function App() {
       }
     }, (err) => console.warn("Exams subcollection snapshot error:", err));
 
-    // 5. Real-time Examination Records subcollection listener
+    // 5. Real-time Top-level Examination Records listener
+    const unsubscribeTopExamRecords = onSnapshot(topExamRecordsQuery, (snapshot) => {
+      if (!snapshot.empty) {
+        const recList: ExaminationRecord[] = snapshot.docs.map(docSnap => ({
+          id: docSnap.id,
+          ...docSnap.data()
+        } as ExaminationRecord));
+        setData(prev => ({ ...prev, examinationRecords: recList }));
+      }
+    }, (err) => console.warn("Top exam records snapshot error:", err));
+
+    // 5b. Real-time Examination Records subcollection listener
     const unsubscribeExamRecords = onSnapshot(examRecordsCol, (snapshot) => {
       if (!snapshot.empty) {
         const recList: ExaminationRecord[] = snapshot.docs.map(docSnap => ({
@@ -130,22 +191,21 @@ export default function App() {
           const merged: AppData = {
             ...prev,
             ...remoteData,
-            // Prioritize the fullest student list between subcollection onSnapshot and remoteData
-            students: prev.students.length >= (remoteData.students?.length || 0) && prev.students.length > 11
-              ? prev.students 
-              : ((remoteData.students && remoteData.students.length > 0) ? remoteData.students : prev.students),
-            teachers: prev.teachers.length >= (remoteData.teachers?.length || 0) && prev.teachers.length > 0
-              ? prev.teachers
-              : ((remoteData.teachers && remoteData.teachers.length > 0) ? remoteData.teachers : prev.teachers),
-            exams: prev.exams.length >= (remoteData.exams?.length || 0) && prev.exams.length > 0
-              ? prev.exams
-              : ((remoteData.exams && remoteData.exams.length > 0) ? remoteData.exams : prev.exams),
-            examinationRecords: prev.examinationRecords && prev.examinationRecords.length > 0 
-              ? prev.examinationRecords 
-              : (remoteData.examinationRecords || prev.examinationRecords || []),
-            usalRecords: prev.usalRecords && prev.usalRecords.length > 0
-              ? prev.usalRecords
-              : (remoteData.usalRecords || prev.usalRecords || []),
+            students: (remoteData.students && Array.isArray(remoteData.students) && remoteData.students.length > 0)
+              ? remoteData.students 
+              : prev.students,
+            teachers: (remoteData.teachers && Array.isArray(remoteData.teachers) && remoteData.teachers.length > 0)
+              ? remoteData.teachers 
+              : prev.teachers,
+            exams: (remoteData.exams && Array.isArray(remoteData.exams) && remoteData.exams.length > 0)
+              ? remoteData.exams 
+              : prev.exams,
+            examinationRecords: (remoteData.examinationRecords && Array.isArray(remoteData.examinationRecords) && remoteData.examinationRecords.length > 0)
+              ? remoteData.examinationRecords 
+              : (prev.examinationRecords || []),
+            usalRecords: remoteData.usalRecords !== undefined
+              ? remoteData.usalRecords
+              : (prev.usalRecords || []),
             schoolInfo: remoteData.schoolInfo || prev.schoolInfo,
             activityLogs: remoteData.activityLogs || prev.activityLogs || []
           };
@@ -156,10 +216,10 @@ export default function App() {
         });
         setIsCloudSynced(true);
       } else {
-        // Initialize doc if not exists
+        // Initialize doc without overwriting user data
         setDoc(docRef, {
           schoolId: schoolId,
-          ...DEFAULT_APP_DATA,
+          school_id: schoolId,
           updatedAt: new Date().toISOString()
         }, { merge: true }).catch(e => console.warn("Init doc error:", e));
       }
@@ -182,9 +242,11 @@ export default function App() {
 
     return () => {
       unsubscribeStatus();
+      unsubscribeTopStudents();
       unsubscribeStudents();
       unsubscribeTeachers();
       unsubscribeExams();
+      unsubscribeTopExamRecords();
       unsubscribeExamRecords();
       unsubscribeUsals();
       unsubscribeData();
@@ -276,6 +338,7 @@ export default function App() {
     }
 
     const schoolId = userAccount.schoolId;
+    console.log("Current school_id (updateRemoteData):", schoolId);
     const docRef = doc(db, 'schoolData', schoolId);
     try {
       // 2. Sanitize undefined fields to prevent Firestore serialization errors
@@ -284,14 +347,46 @@ export default function App() {
       }));
       await setDoc(docRef, {
         ...sanitized,
+        school_id: schoolId,
+        schoolId: schoolId,
         updatedAt: new Date().toISOString()
       }, { merge: true });
 
-      // 3. Mirror subcollection writes when applicable
+      // 3. Mirror students to schools/{schoolId}/students
+      if (updates.students && Array.isArray(updates.students)) {
+        for (const st of updates.students) {
+          if (st.id) {
+            await setDoc(doc(db, 'schools', schoolId, 'students', String(st.id)), {
+              ...st,
+              school_id: schoolId,
+              schoolId: schoolId
+            }, { merge: true });
+          }
+        }
+      }
+
+      // 4. Mirror teachers to schools/{schoolId}/teachers
+      if (updates.teachers && Array.isArray(updates.teachers)) {
+        for (const t of updates.teachers) {
+          if (t.id) {
+            await setDoc(doc(db, 'schools', schoolId, 'teachers', String(t.id)), {
+              ...t,
+              school_id: schoolId,
+              schoolId: schoolId
+            }, { merge: true });
+          }
+        }
+      }
+
+      // 5. Mirror subcollection writes when applicable
       if (updates.examinationRecords && Array.isArray(updates.examinationRecords)) {
         for (const rec of updates.examinationRecords) {
           if (rec.id) {
-            await setDoc(doc(db, 'schools', schoolId, 'examinationRecords', rec.id), rec, { merge: true });
+            await setDoc(doc(db, 'schools', schoolId, 'examinationRecords', rec.id), {
+              ...rec,
+              school_id: schoolId,
+              schoolId: schoolId
+            }, { merge: true });
           }
         }
       }
@@ -429,7 +524,22 @@ export default function App() {
     updateRemoteData({ students, activityLogs });
   };
 
-  const handleAddStudent = (student: Student) => {
+  const handleAddStudent = async (student: Student) => {
+    const schoolId = userAccount?.schoolId || 'DEMO_SCHOOL';
+    console.log("Current school_id (handleAddStudent):", schoolId);
+    try {
+      await setDoc(doc(db, 'schools', schoolId, 'students', String(student.id)), {
+        ...student,
+        school_id: schoolId,
+        schoolId
+      }, { merge: true });
+      await supabase.from('students').insert({
+        ...student,
+        school_id: schoolId
+      });
+    } catch (e) {
+      console.warn("Error inserting student doc:", e);
+    }
     const activityLogs = logActivity(
       'STUDENT_ADDED',
       'students',
@@ -439,7 +549,21 @@ export default function App() {
     updateRemoteData({ students: [...data.students, student], activityLogs });
   };
 
-  const handleBulkAddStudents = (newStudents: Student[]) => {
+  const handleBulkAddStudents = async (newStudents: Student[]) => {
+    const schoolId = userAccount?.schoolId || 'DEMO_SCHOOL';
+    console.log("Current school_id (handleBulkAddStudents):", schoolId);
+    try {
+      for (const s of newStudents) {
+        await setDoc(doc(db, 'schools', schoolId, 'students', String(s.id)), {
+          ...s,
+          school_id: schoolId,
+          schoolId
+        }, { merge: true });
+      }
+      await supabase.from('students').insert(newStudents.map(s => ({ ...s, school_id: schoolId })));
+    } catch (e) {
+      console.warn("Error bulk inserting students:", e);
+    }
     const activityLogs = logActivity(
       'STUDENTS_BULK_UPDATE',
       'students',
@@ -485,7 +609,22 @@ export default function App() {
     }
   };
 
-  const handleUpdateStudent = (student: Student) => {
+  const handleUpdateStudent = async (student: Student) => {
+    const schoolId = userAccount?.schoolId || 'DEMO_SCHOOL';
+    console.log("Current school_id (handleUpdateStudent):", schoolId);
+    try {
+      await setDoc(doc(db, 'schools', schoolId, 'students', String(student.id)), {
+        ...student,
+        school_id: schoolId,
+        schoolId
+      }, { merge: true });
+      await supabase.from('students').update({
+        ...student,
+        school_id: schoolId
+      }).eq('id', student.id);
+    } catch (e) {
+      console.warn("Error updating student doc:", e);
+    }
     const activityLogs = logActivity(
       'STUDENT_UPDATED',
       'students',
@@ -498,7 +637,15 @@ export default function App() {
     });
   };
 
-  const handleDeleteStudent = (id: number) => {
+  const handleDeleteStudent = async (id: number) => {
+    const schoolId = userAccount?.schoolId || 'DEMO_SCHOOL';
+    console.log("Current school_id (handleDeleteStudent):", schoolId);
+    try {
+      await deleteDoc(doc(db, 'schools', schoolId, 'students', String(id)));
+      await supabase.from('students').delete().eq('id', id);
+    } catch (e) {
+      console.warn("Error deleting student doc:", e);
+    }
     const target = data.students.find(s => s.id === id);
     const activityLogs = logActivity(
       'STUDENT_DELETED',
@@ -512,10 +659,20 @@ export default function App() {
     });
   };
 
-  const handleBulkDeleteStudents = (ids: number[]) => {
+  const handleBulkDeleteStudents = async (ids: number[]) => {
     if (!ids || ids.length === 0) return;
+    const schoolId = userAccount?.schoolId || 'DEMO_SCHOOL';
+    console.log("Current school_id (handleBulkDeleteStudents):", schoolId);
     const idSet = new Set(ids);
     const count = ids.length;
+    try {
+      for (const id of ids) {
+        await deleteDoc(doc(db, 'schools', schoolId, 'students', String(id)));
+        await supabase.from('students').delete().eq('id', id);
+      }
+    } catch (e) {
+      console.warn("Error bulk deleting students:", e);
+    }
     const activityLogs = logActivity(
       'STUDENT_DELETED',
       'students',
@@ -528,7 +685,18 @@ export default function App() {
     });
   };
 
-  const handleAddTeacher = (teacher: Teacher) => {
+  const handleAddTeacher = async (teacher: Teacher) => {
+    const schoolId = userAccount?.schoolId || 'DEMO_SCHOOL';
+    console.log("Current school_id (handleAddTeacher):", schoolId);
+    try {
+      await setDoc(doc(db, 'schools', schoolId, 'teachers', String(teacher.id)), {
+        ...teacher,
+        school_id: schoolId,
+        schoolId
+      }, { merge: true });
+    } catch (e) {
+      console.warn("Error inserting teacher doc:", e);
+    }
     const activityLogs = logActivity(
       'TEACHER_ADDED',
       'teachers',
@@ -542,7 +710,18 @@ export default function App() {
     });
   };
 
-  const handleUpdateTeacher = (teacher: Teacher) => {
+  const handleUpdateTeacher = async (teacher: Teacher) => {
+    const schoolId = userAccount?.schoolId || 'DEMO_SCHOOL';
+    console.log("Current school_id (handleUpdateTeacher):", schoolId);
+    try {
+      await setDoc(doc(db, 'schools', schoolId, 'teachers', String(teacher.id)), {
+        ...teacher,
+        school_id: schoolId,
+        schoolId
+      }, { merge: true });
+    } catch (e) {
+      console.warn("Error updating teacher doc:", e);
+    }
     const activityLogs = logActivity(
       'TEACHER_UPDATED',
       'teachers',
@@ -555,7 +734,14 @@ export default function App() {
     });
   };
 
-  const handleDeleteTeacher = (id: number) => {
+  const handleDeleteTeacher = async (id: number) => {
+    const schoolId = userAccount?.schoolId || 'DEMO_SCHOOL';
+    console.log("Current school_id (handleDeleteTeacher):", schoolId);
+    try {
+      await deleteDoc(doc(db, 'schools', schoolId, 'teachers', String(id)));
+    } catch (e) {
+      console.warn("Error deleting teacher doc:", e);
+    }
     const target = data.teachers.find(t => t.id === id);
     const newInvigAssignments = { ...data.invigilationAssignments };
     Object.keys(newInvigAssignments).forEach(key => {
@@ -892,6 +1078,7 @@ export default function App() {
                 updateRemoteData({ examinationRecords, activityLogs });
               }}
               onNavigateToExamRecords={() => setActiveView('examrecords')}
+              onNavigateToSms={() => setActiveView('sms')}
               usalRecords={data.usalRecords || []}
               onSaveUsalRecord={handleSaveUsalRecord}
               onNavigateToMarkEntry={(examName, className) => {
@@ -937,6 +1124,27 @@ export default function App() {
                 updateRemoteData({ transferHistory, activityLogs });
               }}
               currentUserName={userAccount?.fullName || 'Academic Master'}
+              onNavigateToSms={(examType, year) => {
+                setSmsTargetExam({ examType, year });
+                setActiveView('sms');
+              }}
+              onNavigateToNectaAnalyzer={() => setActiveView('nectaanalyzer')}
+            />
+          )}
+
+          {activeView === 'nectaanalyzer' && (
+            <NectaAnalyzer
+              schoolId={userAccount?.schoolId || 'DEMO_SCHOOL'}
+            />
+          )}
+
+          {activeView === 'sms' && (
+            <SmsModule
+              schoolId={userAccount?.schoolId || 'DEMO_SCHOOL'}
+              schoolInfo={data.schoolInfo}
+              initialExamType={smsTargetExam.examType || 'CSEE'}
+              initialYear={smsTargetExam.year || '2026'}
+              onNavigateToAnalyzer={() => setActiveView('nectaanalyzer')}
             />
           )}
 
