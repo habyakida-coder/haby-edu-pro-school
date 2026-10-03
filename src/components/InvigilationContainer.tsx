@@ -52,6 +52,7 @@ interface InvigilationContainerProps {
   onUpdateSelectedInvigilators: (ids: number[]) => void;
   onUpdateInvigilationAssignments: (assignments: Record<string, number>) => void;
   onToggleRelease: () => void;
+  onNavigateToSittingPlan?: () => void;
 }
 
 export const InvigilationContainer: React.FC<InvigilationContainerProps> = ({
@@ -67,7 +68,8 @@ export const InvigilationContainer: React.FC<InvigilationContainerProps> = ({
   onUpdateSupervisors,
   onUpdateSelectedInvigilators,
   onUpdateInvigilationAssignments,
-  onToggleRelease
+  onToggleRelease,
+  onNavigateToSittingPlan
 }) => {
   // Navigation tabs matching TimetableContainer aesthetic
   const [activeTab, setActiveTab] = useState<'general' | 'sessions' | 'invigilators' | 'supervisors' | 'class' | 'personal'>('general');
@@ -451,6 +453,17 @@ export const InvigilationContainer: React.FC<InvigilationContainerProps> = ({
           <Users className="w-4 h-4" />
           Personal Duty Slip
         </button>
+
+        {onNavigateToSittingPlan && (
+          <button
+            onClick={onNavigateToSittingPlan}
+            className="ml-auto px-4 py-2.5 rounded-lg text-xs sm:text-sm font-black bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-700 hover:to-amber-600 text-white transition-all flex items-center gap-2 cursor-pointer shadow-xs"
+            title="Open Official NECTA Sitting Plan Generator"
+          >
+            <Grid className="w-4 h-4" />
+            NECTA Sitting Plan
+          </button>
+        )}
       </div>
 
       {/* 2. SUMMARY METRICS CARDS (Just like Timetable stats) */}

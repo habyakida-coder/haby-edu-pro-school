@@ -15,6 +15,30 @@
     .no-print, header, nav, aside, .print\:hidden {
       display: none !important;
     }
+    /* Printable Records Area */
+    .print-area {
+      position: absolute !important;
+      left: 0 !important;
+      top: 0 !important;
+      width: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      background: white !important;
+      z-index: 999999 !important;
+    }
+    table.printable-records-table {
+      font-size: 8px !important;
+      border-collapse: collapse !important;
+      width: 100% !important;
+    }
+    table.printable-records-table th, 
+    table.printable-records-table td {
+      border: 1px solid black !important;
+      padding: 2px 2.5px !important;
+      font-size: 8px !important;
+      line-height: 1.15 !important;
+      color: black !important;
+    }
     /* Full-width unclipped exam report printable modal */
     #results-pdf-print-area {
       position: absolute !important;

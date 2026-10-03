@@ -104,6 +104,41 @@ export const ExaminationRecordsView: React.FC<ExaminationRecordsViewProps> = ({
   // 3 Instant View Toggles: Marks (78), Grade (B), Both (78 B)
   const [viewToggle, setViewToggle] = useState<ViewToggleMode>('both');
 
+  // Grid and Printable Controls (Requirements: Show All Subjects toggle, 45deg rotation, compact printable)
+  const [showAllSubjects, setShowAllSubjects] = useState<boolean>(false);
+  const [rotateHeaders, setRotateHeaders] = useState<boolean>(false);
+  const [useSubjectAbbr, setUseSubjectAbbr] = useState<boolean>(true);
+  const [printFontSize, setPrintFontSize] = useState<'7px' | '8px' | '9px'>('8px');
+
+  // NECTA Subject Code Helper (e.g. Kiomoni Secondary School with 12+ subjects)
+  const getSubjectAbbr = (fullName: string): string => {
+    const lower = fullName.toLowerCase().trim();
+    if (lower.includes('kiswahili')) return 'KISW';
+    if (lower.includes('english')) return 'ENG';
+    if (lower.includes('basic math') || lower.includes('mathematics') || lower === 'math') return 'MATH';
+    if (lower.includes('biology')) return 'BIO';
+    if (lower.includes('chemistry')) return 'CHEM';
+    if (lower.includes('physics')) return 'PHY';
+    if (lower.includes('geography')) return 'GEO';
+    if (lower.includes('history')) return 'HIST';
+    if (lower.includes('civics')) return 'CIV';
+    if (lower.includes('bookkeeping') || lower.includes('book keeping') || lower.includes('book-keeping')) return 'BKP';
+    if (lower.includes('commerce')) return 'COMM';
+    if (lower.includes('applied math') || lower.includes('bam')) return 'BAM';
+    if (lower.includes('bible') || lower.includes('christian')) return 'BK';
+    if (lower.includes('dini') || lower.includes('islamic') || lower.includes('edk')) return 'EDK';
+    if (lower.includes('agriculture') || lower.includes('kilimo')) return 'AGR';
+    if (lower.includes('computer') || lower.includes('ict')) return 'ICT';
+    if (lower.includes('french')) return 'FREN';
+    if (lower.includes('arabic')) return 'ARAB';
+    if (lower.includes('general studies') || lower === 'gs') return 'G.ST';
+    return fullName.length > 5 ? fullName.substring(0, 4).toUpperCase() : fullName.toUpperCase();
+  };
+
+  const handlePrintReport = () => {
+    window.print();
+  };
+
   // Instant Sorting
   const [sortBy, setSortBy] = useState<SortOption>('rank_asc');
 
@@ -768,241 +803,487 @@ Total: ${rec.totalMarks} Avg: ${rec.averageMarks}% Points: ${pointsStr} Div: ${d
         </div>
       </div>
 
-      {/* Main Examination Records Table */}
+      {/* Official A4 Landscape Print Styling */}
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          .print-area, .print-area * {
+            visibility: visible !important;
+          }
+          .print-area {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            z-index: 999999 !important;
+          }
+          .no-print, .no-print * {
+            display: none !important;
+            visibility: hidden !important;
+          }
+          table.printable-records-table {
+            font-size: ${printFontSize} !important;
+            border-collapse: collapse !important;
+            width: 100% !important;
+            table-layout: auto !important;
+          }
+          table.printable-records-table th,
+          table.printable-records-table td {
+            border: 1px solid #000000 !important;
+            padding: 2px 2.5px !important;
+            line-height: 1.15 !important;
+            font-size: ${printFontSize} !important;
+            color: #000000 !important;
+          }
+          table.printable-records-table thead {
+            display: table-header-group !important;
+            background-color: #f1f5f9 !important;
+            color: #000000 !important;
+          }
+          table.printable-records-table tr {
+            page-break-inside: avoid !important;
+            page-break-after: auto !important;
+          }
+          .th-rotated {
+            height: 52px !important;
+            vertical-align: bottom !important;
+            padding-bottom: 3px !important;
+            white-space: nowrap !important;
+          }
+          .th-rotated > div {
+            transform: rotate(-45deg) !important;
+            transform-origin: bottom left !important;
+            width: 26px !important;
+          }
+          @page {
+            size: A4 landscape;
+            margin: 8mm 6mm;
+          }
+        }
+      `}</style>
+
+      {/* Main Examination Records Section with Print Area */}
       <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
-        <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2">
+        {/* Top Control Bar with the 2 New Buttons & Grid Toggles (no-print) */}
+        <div className="no-print p-4 bg-slate-50 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="font-black text-slate-800 text-sm">
               Examination Records ({filteredRecords.length})
             </span>
-            <span className="text-xs text-slate-500">
-              {selectedYear !== 'All' ? `Year ${selectedYear}` : ''} 
-              {selectedClass !== 'All' ? ` • ${selectedClass}` : ''}
-              {selectedTerm !== 'All' ? ` • ${selectedTerm}` : ''}
+            <span className="px-2 py-0.5 bg-blue-100 text-[#1f4d8b] rounded-lg text-xs font-bold">
+              {selectedClass !== 'All' ? selectedClass : 'All Classes'} {selectedStream !== 'All' ? `(${selectedStream})` : ''}
             </span>
+            <span className="px-2 py-0.5 bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold">
+              {selectedTerm !== 'All' ? selectedTerm : 'All Terms'} • {selectedYear}
+            </span>
+            {selectedExamType !== 'All' && (
+              <span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-lg text-xs font-semibold">
+                {selectedExamType}
+              </span>
+            )}
           </div>
 
-          <div className="text-xs text-slate-500 flex items-center gap-2">
-            <span>Grade Scale:</span>
-            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-bold">A: 80-100</span>
-            <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-bold">B: 60-79</span>
-            <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded font-bold">C: 45-59</span>
-            <span className="px-2 py-0.5 bg-orange-100 text-orange-800 rounded font-bold">D: 30-44</span>
-            <span className="px-2 py-0.5 bg-rose-100 text-rose-800 rounded font-bold">F: 0-29</span>
+          {/* Action Buttons & View Toggles */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* BUTTON 1: Print Report (A4 Landscape) */}
+            <button
+              type="button"
+              onClick={handlePrintReport}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs shadow-xs flex items-center gap-2 transition cursor-pointer active:scale-95"
+              title="Print examination broadsheet on A4 Landscape (fits on 1-2 pages per class)"
+            >
+              <Printer className="w-4 h-4 text-emerald-100" />
+              <span>Print Report (A4 Landscape)</span>
+            </button>
+
+            {/* BUTTON 2: Export PDF */}
+            <button
+              type="button"
+              onClick={() => setIsPdfExportModalOpen(true)}
+              className="px-4 py-2 bg-[#1f4d8b] hover:bg-blue-800 text-white font-black rounded-xl text-xs shadow-xs flex items-center gap-2 transition cursor-pointer active:scale-95"
+              title="Export official results ledger as customizable PDF"
+            >
+              <Download className="w-4 h-4 text-blue-200" />
+              <span>Export PDF</span>
+            </button>
+
+            {/* TOGGLE: Show All Subjects / Essential Columns Only */}
+            <button
+              type="button"
+              onClick={() => setShowAllSubjects(prev => !prev)}
+              className={`px-3 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer ${
+                showAllSubjects
+                  ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
+                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+              }`}
+              title={showAllSubjects ? 'Currently showing all subject columns. Click to switch to Essential Columns.' : 'Click to show all subjects columns.'}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>{showAllSubjects ? `Hide Subjects (${activeSubjectKeys.length})` : `Show All Subjects (${activeSubjectKeys.length})`}</span>
+            </button>
+
+            {/* Subject Extra Controls when Show All Subjects is ON */}
+            {showAllSubjects && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setRotateHeaders(prev => !prev)}
+                  className={`px-2.5 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-1 cursor-pointer ${
+                    rotateHeaders
+                      ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                      : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                  }`}
+                  title="Rotate subject headers by 45 degrees (perfect for 10-14 subjects on A4)"
+                >
+                  <RotateCcw className={`w-3.5 h-3.5 ${rotateHeaders ? 'rotate-45' : ''}`} />
+                  <span>{rotateHeaders ? 'Headers: 45° Rotated' : 'Rotate Headers 45°'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setUseSubjectAbbr(prev => !prev)}
+                  className={`px-2.5 py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                    useSubjectAbbr ? 'bg-blue-50 border-blue-200 text-blue-800' : 'bg-white border-slate-300 text-slate-700'
+                  }`}
+                  title="Toggle subject codes abbreviation (e.g. KISW, ENG, MATH)"
+                >
+                  <span>{useSubjectAbbr ? 'Code (KISW)' : 'Full Name'}</span>
+                </button>
+              </>
+            )}
+
+            {/* Print Font Size Selector */}
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
+              <span className="text-[10px] font-bold text-slate-500 uppercase px-1">Print Font:</span>
+              {(['7px', '8px', '9px'] as const).map(fs => (
+                <button
+                  key={fs}
+                  type="button"
+                  onClick={() => setPrintFontSize(fs)}
+                  className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition cursor-pointer ${
+                    printFontSize === fs ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                  title={`Print font size ${fs}`}
+                >
+                  {fs}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        {filteredRecords.length === 0 ? (
-          <div className="text-center py-16 text-slate-400">
-            <FileSpreadsheet className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-            <p className="text-sm font-bold text-slate-600">No examination records found matching current filters.</p>
-            <p className="text-xs text-slate-400 mt-1">
-              Records are added automatically when academic staff calculate and click 'Release Results to Examination Records'.
-            </p>
+        {/* Printable Area - Isolates Table, Letterhead & Signatures during window.print() */}
+        <div className="print-area p-0 sm:p-2">
+          {/* Official Letterhead Header (Visible ONLY during print: hidden print:block) */}
+          <div className="hidden print:block mb-3 border-b-2 border-slate-900 pb-2">
+            <div className="flex items-center justify-between gap-4">
+              {schoolInfo.logo ? (
+                <img src={schoolInfo.logo} alt="Logo" className="w-12 h-12 object-contain shrink-0" />
+              ) : (
+                <div className="w-12 h-12 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center shrink-0">
+                  <GraduationCap className="w-6 h-6 text-blue-800" />
+                </div>
+              )}
+              <div className="text-center flex-1">
+                <h4 className="text-[10px] font-bold tracking-widest uppercase text-slate-700">
+                  THE UNITED REPUBLIC OF TANZANIA
+                </h4>
+                <h4 className="text-[9px] font-bold uppercase text-slate-600">
+                  PRESIDENT'S OFFICE - REGIONAL ADMINISTRATION AND LOCAL GOVERNMENT
+                </h4>
+                <h1 className="text-base font-black uppercase tracking-wide text-slate-950 mt-0.5">
+                  {schoolInfo.name || 'HABY EDU PRO SECONDARY SCHOOL'}
+                </h1>
+                <p className="text-[9px] font-bold text-slate-700 uppercase">
+                  OFFICIAL EXAMINATION LEDGER & CANDIDATE RESULTS BROADSHEET (NECTA FORMAT)
+                </p>
+              </div>
+              <div className="text-right text-[8px] text-slate-700 shrink-0 font-medium">
+                <div><strong>CTR No:</strong> {schoolInfo.schoolNumber || 'S.0123'}</div>
+                <div><strong>Print Date:</strong> {new Date().toLocaleDateString('en-GB')}</div>
+                <div><strong>Time:</strong> {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+              </div>
+            </div>
+
+            {/* Official Exam Metadata Bar */}
+            <div className="mt-2 pt-1.5 border-t border-slate-400 grid grid-cols-6 gap-2 text-[9px] font-bold text-slate-900">
+              <div><span className="text-slate-600 font-normal">Class: </span>{selectedClass !== 'All' ? selectedClass : 'All Classes'} {selectedStream !== 'All' ? `(${selectedStream})` : ''}</div>
+              <div><span className="text-slate-600 font-normal">Academic Year: </span>{selectedYear}</div>
+              <div><span className="text-slate-600 font-normal">Term: </span>{selectedTerm}</div>
+              <div><span className="text-slate-600 font-normal">Exam Type: </span>{selectedExamType}</div>
+              <div><span className="text-slate-600 font-normal">Total Candidates: </span>{rankedRecords.length} Students</div>
+              <div><span className="text-slate-600 font-normal">Gender: </span>B: {genderSummary.totalBoys} | G: {genderSummary.totalGirls}</div>
+            </div>
+
+            {/* Division Breakdown for Secondary */}
+            <div className="mt-1 pt-1 border-t border-dashed border-slate-300 flex items-center justify-between text-[8px] font-semibold text-slate-800">
+              <span><strong>NECTA Division Summary:</strong> Div I: {genderSummary.divBreakdown['I'].T} • Div II: {genderSummary.divBreakdown['II'].T} • Div III: {genderSummary.divBreakdown['III'].T} • Div IV: {genderSummary.divBreakdown['IV'].T} • Div 0: {genderSummary.divBreakdown['0'].T}</span>
+              <span><strong>Grade Summary:</strong> A: {genderSummary.gradeBreakdown['A'].T} | B: {genderSummary.gradeBreakdown['B'].T} | C: {genderSummary.gradeBreakdown['C'].T} | D: {genderSummary.gradeBreakdown['D'].T} | F: {genderSummary.gradeBreakdown['F'].T}</span>
+            </div>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-[#1f4d8b] text-white uppercase text-[10px] tracking-wider sticky top-0 font-medium">
-                <tr>
-                  <th className="p-2.5 w-12 text-center font-medium">Rank</th>
-                  <th className="p-2.5 font-medium">Student Name</th>
-                  <th className="p-2.5 font-medium">Class & Stream</th>
-                  <th className="p-2.5 font-medium">Term & Exam</th>
-                  {/* Subject headers - all active subjects entered for this exam without duplicate */}
-                  {activeSubjectKeys.map(sub => (
-                    <th key={sub} className="p-2.5 text-center font-medium truncate max-w-[120px]" title={sub}>
-                      {sub}
-                    </th>
-                  ))}
-                  <th className="p-2.5 text-center font-medium">Total</th>
-                  <th className="p-2.5 text-center font-medium">Average</th>
-                  <th className="p-2.5 text-center font-medium">Grade & Div</th>
-                  <th className="p-2.5 text-left min-w-[200px] font-medium">Teacher Remarks</th>
-                  <th className="p-2.5 text-center font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-normal text-slate-700">
-                {rankedRecords.map((rec) => {
-                  const matchingStudent: Student = students.find(s => s.id === rec.studentId) || {
-                    id: rec.studentId,
-                    name: rec.studentName,
-                    gender: (rec.gender as any) || 'Male',
-                    regNo: `REG${rec.studentId}`,
-                    className: rec.className,
-                    stream: rec.stream,
-                    level: 'PRIMARY' as any,
-                    dob: '2015-01-01',
-                    subjects: Object.keys(rec.subjects || {})
-                  };
 
-                  const gradeStyle = getGradeColor(rec.overallGrade);
+          {filteredRecords.length === 0 ? (
+            <div className="text-center py-16 text-slate-400">
+              <FileSpreadsheet className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-sm font-bold text-slate-600">No examination records found matching current filters.</p>
+              <p className="text-xs text-slate-400 mt-1">
+                Records are added automatically when academic staff calculate and click 'Release Results to Examination Records'.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto w-full max-h-[70vh] print:max-h-none print:overflow-visible">
+              <table className="printable-records-table w-full text-left text-xs border-collapse">
+                <thead className="bg-[#1f4d8b] text-white uppercase text-[10px] tracking-wider sticky top-0 z-20 font-bold print:bg-slate-100 print:text-black">
+                  <tr>
+                    <th className="p-2 w-10 text-center font-bold border border-slate-300 print:border-black">Pos</th>
+                    <th className="p-2 font-bold min-w-[140px] border border-slate-300 print:border-black">Candidate Name</th>
+                    <th className="p-2 text-center w-8 font-bold border border-slate-300 print:border-black">Sex</th>
+                    <th className="p-2 text-center w-16 font-bold border border-slate-300 print:border-black">Class</th>
+                    
+                    {/* Dynamic Subjects - only shown if showAllSubjects is enabled */}
+                    {showAllSubjects && activeSubjectKeys.map(sub => {
+                      const displayTitle = useSubjectAbbr ? getSubjectAbbr(sub) : sub;
+                      return (
+                        <th
+                          key={sub}
+                          className={`p-1.5 text-center font-bold border border-slate-300 print:border-black ${
+                            rotateHeaders
+                              ? 'th-rotated align-bottom min-w-[28px] max-w-[36px] overflow-visible'
+                              : 'truncate max-w-[85px]'
+                          }`}
+                          title={sub}
+                        >
+                          {rotateHeaders ? (
+                            <div className="transform -rotate-45 origin-bottom-left whitespace-nowrap text-[8px] font-black tracking-tight pl-1">
+                              {displayTitle}
+                            </div>
+                          ) : (
+                            <span>{displayTitle}</span>
+                          )}
+                        </th>
+                      );
+                    })}
 
-                  return (
-                    <tr key={rec.id} className="hover:bg-blue-50/30 transition-colors font-normal">
-                      {/* Rank in class - light and clear */}
-                      <td className="p-2.5 text-center font-normal">
-                        <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-normal ${
-                          rec.computedRank === 1
-                            ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                            : rec.computedRank === 2
-                            ? 'bg-slate-100 text-slate-800 border border-slate-300'
-                            : rec.computedRank === 3
-                            ? 'bg-orange-50 text-orange-800 border border-orange-200'
-                            : 'bg-white text-slate-600 border border-slate-200'
-                        }`}>
-                          {rec.computedRank}
-                        </span>
-                      </td>
+                    <th className="p-2 text-center w-12 font-bold border border-slate-300 print:border-black">Total</th>
+                    <th className="p-2 text-center w-12 font-bold border border-slate-300 print:border-black">Avg%</th>
+                    <th className="p-2 text-center w-12 font-bold border border-slate-300 print:border-black">Grade</th>
+                    <th className="p-2 text-center w-14 font-bold border border-slate-300 print:border-black">Div</th>
+                    <th className="p-2 text-center w-10 font-bold border border-slate-300 print:border-black">Rank</th>
+                    <th className="p-2 text-left min-w-[140px] font-bold border border-slate-300 print:border-black">Remarks</th>
+                    <th className="p-2 text-center w-28 font-bold border border-slate-300 print:border-black no-print">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-normal text-slate-700">
+                  {rankedRecords.map((rec) => {
+                    const matchingStudent: Student = students.find(s => s.id === rec.studentId) || {
+                      id: rec.studentId,
+                      name: rec.studentName,
+                      gender: (rec.gender as any) || 'Male',
+                      regNo: `REG${rec.studentId}`,
+                      className: rec.className,
+                      stream: rec.stream,
+                      level: 'PRIMARY' as any,
+                      dob: '2015-01-01',
+                      subjects: Object.keys(rec.subjects || {})
+                    };
 
-                      {/* Student info - normal font */}
-                      <td className="p-2.5 font-normal">
-                        <div className="font-normal text-slate-900 text-xs">{rec.studentName}</div>
-                        <div className="text-[10px] text-slate-400 font-mono font-normal">ID: {rec.studentId}</div>
-                      </td>
+                    const gradeStyle = getGradeColor(rec.overallGrade);
 
-                      {/* Class & Calendar */}
-                      <td className="p-2.5 font-normal">
-                        <span className="font-normal text-slate-800 block text-xs">
-                          {rec.className} {rec.stream ? `(${rec.stream})` : ''}
-                        </span>
-                        <span className={`inline-block px-1.5 py-0.2 rounded text-[9px] font-normal ${
-                          rec.academicCalendarType === 'JULY-JUNE'
-                            ? 'bg-purple-50 text-purple-700'
-                            : 'bg-blue-50 text-blue-700'
-                        }`}>
-                          {rec.academicCalendarType}
-                        </span>
-                      </td>
+                    return (
+                      <tr key={rec.id} className="hover:bg-blue-50/30 transition-colors font-normal">
+                        {/* Position */}
+                        <td className="p-1.5 text-center font-bold border border-slate-200 print:border-black">
+                          <span className="print:font-bold text-slate-900 font-bold text-xs print:text-[8px]">
+                            {rec.computedRank || rec.positionInClass}
+                          </span>
+                        </td>
 
-                      {/* Term & Exam Type */}
-                      <td className="p-2.5 font-normal">
-                        <span className="font-normal text-slate-900 text-xs">{rec.term}</span>
-                        <div className="text-[10px] text-slate-500 font-normal">{rec.examType} ({rec.academicYear})</div>
-                      </td>
+                        {/* Student Name */}
+                        <td className="p-1.5 font-bold border border-slate-200 print:border-black">
+                          <div className="font-bold text-slate-950 text-xs print:text-[8px]">{rec.studentName}</div>
+                          <div className="text-[10px] text-slate-400 font-mono no-print">ID: {rec.studentId}</div>
+                        </td>
 
-                      {/* Subject Marks with View Toggle - All active subjects */}
-                      {activeSubjectKeys.map(sub => {
-                        const info = getSubjectMarkInfo(rec, sub);
-                        if (!info) {
-                          return <td key={sub} className="p-2.5 text-center text-slate-300 font-normal">-</td>;
-                        }
+                        {/* Sex */}
+                        <td className="p-1.5 text-center font-bold border border-slate-200 print:border-black">
+                          <span className={`text-xs print:text-[8px] ${rec.gender?.toLowerCase().startsWith('f') ? 'text-rose-700 font-bold' : 'text-blue-700 font-bold'}`}>
+                            {rec.gender?.toLowerCase().startsWith('f') ? 'F' : 'M'}
+                          </span>
+                        </td>
 
-                        const subGradeStyle = getGradeColor(info.grade);
+                        {/* Class */}
+                        <td className="p-1.5 text-center font-medium border border-slate-200 print:border-black">
+                          <span className="font-medium text-slate-800 text-xs print:text-[8px] whitespace-nowrap">
+                            {rec.className} {rec.stream ? `(${rec.stream})` : ''}
+                          </span>
+                        </td>
 
-                        return (
-                          <td key={sub} className="p-2.5 text-center font-normal">
-                            {viewToggle === 'marks' && (
-                              <span className="font-normal text-slate-800">{info.marks}</span>
-                            )}
-                            {viewToggle === 'grade' && (
-                              <span className={`px-1.5 py-0.5 rounded text-[11px] font-normal ${subGradeStyle.bg}`}>
-                                {info.grade}
-                              </span>
-                            )}
-                            {viewToggle === 'both' && (
-                              <div className="inline-flex items-center gap-1 text-xs font-normal">
-                                <span className="font-normal text-slate-800">{info.marks}</span>
-                                <span className={`px-1 rounded text-[10px] font-normal ${subGradeStyle.bg}`}>
+                        {/* Dynamic Subjects */}
+                        {showAllSubjects && activeSubjectKeys.map(sub => {
+                          const info = getSubjectMarkInfo(rec, sub);
+                          if (!info) {
+                            return <td key={sub} className="p-1 text-center text-slate-300 border border-slate-200 print:border-black font-normal">-</td>;
+                          }
+                          const subGradeStyle = getGradeColor(info.grade);
+                          return (
+                            <td key={sub} className="p-1 text-center border border-slate-200 print:border-black font-medium">
+                              {viewToggle === 'marks' && (
+                                <span className="font-bold text-slate-900 text-xs print:text-[8px]">{info.marks}</span>
+                              )}
+                              {viewToggle === 'grade' && (
+                                <span className={`px-1 py-0.5 rounded text-[11px] print:text-[8px] font-bold ${subGradeStyle.bg} print:bg-transparent`}>
                                   {info.grade}
                                 </span>
-                              </div>
-                            )}
-                          </td>
-                        );
-                      })}
+                              )}
+                              {viewToggle === 'both' && (
+                                <div className="inline-flex items-center justify-center gap-0.5 text-xs print:text-[8px]">
+                                  <span className="font-bold text-slate-900">{info.marks}</span>
+                                  <span className="text-[9px] print:text-[7.5px] text-slate-500 font-bold">({info.grade})</span>
+                                </div>
+                              )}
+                            </td>
+                          );
+                        })}
 
-                      {/* Total Marks - normal font */}
-                      <td className="p-2.5 text-center font-normal text-slate-900">
-                        {rec.totalMarks}
-                      </td>
+                        {/* Total Marks */}
+                        <td className="p-1.5 text-center font-black text-slate-950 border border-slate-200 print:border-black text-xs print:text-[8px]">
+                          {rec.totalMarks}
+                        </td>
 
-                      {/* Average Marks - normal font */}
-                      <td className="p-2.5 text-center font-normal text-emerald-800">
-                        {rec.averageMarks}%
-                      </td>
+                        {/* Average Marks */}
+                        <td className="p-1.5 text-center font-black text-emerald-800 print:text-black border border-slate-200 print:border-black text-xs print:text-[8px]">
+                          {rec.averageMarks}%
+                        </td>
 
-                      {/* Overall Grade & Division - clean normal badges */}
-                      <td className="p-2.5 text-center font-normal">
-                        <span className={`inline-block px-2 py-0.5 rounded text-xs font-normal ${gradeStyle.bg}`}>
-                          Grade {rec.overallGrade}
-                        </span>
-                        {rec.division && (
-                          <span className="block text-[10px] text-blue-700 font-normal mt-0.5">
-                            Div {rec.division} {rec.points !== undefined && rec.points !== null ? `(${rec.points} pts)` : ''}
+                        {/* Overall Grade */}
+                        <td className="p-1.5 text-center font-black border border-slate-200 print:border-black text-xs print:text-[8px]">
+                          <span className={`inline-block px-1.5 py-0.5 rounded text-xs print:text-[8px] font-black ${gradeStyle.bg} print:bg-transparent print:p-0`}>
+                            {rec.overallGrade}
                           </span>
-                        )}
-                      </td>
+                        </td>
 
-                      {/* Inline Annotatable Teacher Remarks */}
-                      <td className="p-2 min-w-[200px] font-normal">
-                        <div className="space-y-1">
-                          <input
-                            type="text"
-                            placeholder="Add remark inline..."
-                            value={rec.teacherRemarks || ''}
-                            onChange={(e) => handleUpdateRemarks(rec.id, e.target.value)}
-                            className="w-full px-2 py-1 text-xs border border-slate-300 rounded-lg bg-white focus:bg-amber-50 focus:border-amber-400 focus:ring-1 focus:ring-amber-300 outline-none font-normal transition"
-                            title="Click to edit teacher remark inline"
-                          />
-                          <div className="flex items-center gap-1 flex-wrap">
-                            {['Excellent', 'Very Good', 'Good Effort', 'Needs Improvement', 'Amefaulu'].map(badge => (
-                              <button
-                                key={badge}
-                                type="button"
-                                onClick={() => handleUpdateRemarks(rec.id, badge)}
-                                className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-900 border border-slate-200 cursor-pointer font-normal transition"
-                              >
-                                {badge}
-                              </button>
-                            ))}
+                        {/* Division */}
+                        <td className="p-1.5 text-center font-bold border border-slate-200 print:border-black text-blue-900 print:text-black text-xs print:text-[8px] whitespace-nowrap">
+                          {rec.division ? `Div ${rec.division}` : '-'}
+                          {rec.points !== undefined && rec.points !== null && (
+                            <span className="text-[9px] print:text-[7px] text-slate-500 block">({rec.points}pts)</span>
+                          )}
+                        </td>
+
+                        {/* Position in Class */}
+                        <td className="p-1.5 text-center font-bold text-slate-800 border border-slate-200 print:border-black text-xs print:text-[8px]">
+                          {rec.computedRank || rec.positionInClass}
+                        </td>
+
+                        {/* Teacher Remarks */}
+                        <td className="p-1.5 text-left border border-slate-200 print:border-black">
+                          {/* Screen Editable Form */}
+                          <div className="no-print space-y-1">
+                            <input
+                              type="text"
+                              placeholder="Add remark..."
+                              value={rec.teacherRemarks || ''}
+                              onChange={(e) => handleUpdateRemarks(rec.id, e.target.value)}
+                              className="w-full px-2 py-1 text-xs border border-slate-300 rounded-lg bg-white focus:bg-amber-50 focus:border-amber-400 outline-none font-normal transition"
+                              title="Click to edit remark inline"
+                            />
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {['Excellent', 'Very Good', 'Good Effort', 'Needs Improvement', 'Amefaulu'].map(badge => (
+                                <button
+                                  key={badge}
+                                  type="button"
+                                  onClick={() => handleUpdateRemarks(rec.id, badge)}
+                                  className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-900 border border-slate-200 cursor-pointer font-normal transition"
+                                >
+                                  {badge}
+                                </button>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      </td>
+                          {/* Print Static Text */}
+                          <div className="hidden print:block text-[8px] leading-tight text-slate-900 max-w-[130px] truncate">
+                            {rec.teacherRemarks || 'Good progress.'}
+                          </div>
+                        </td>
 
-                      {/* Action buttons */}
-                      <td className="p-3 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          {/* View Report */}
-                          <button
-                            type="button"
-                            title="View Yearly Student Profile & Report"
-                            onClick={() => setProfileModalStudent(matchingStudent)}
-                            className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span className="hidden md:inline">Report</span>
-                          </button>
+                        {/* Action buttons (Screen Only - no-print) */}
+                        <td className="p-2 text-center no-print border border-slate-200">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              title="View Yearly Student Profile & Report"
+                              onClick={() => setProfileModalStudent(matchingStudent)}
+                              className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span className="hidden xl:inline">Report</span>
+                            </button>
 
-                          {/* Transfer */}
-                          <button
-                            type="button"
-                            title="Transfer Student to Another Class or Stream"
-                            onClick={() => setTransferModalStudent(matchingStudent)}
-                            className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-                          >
-                            <ArrowRightLeft className="w-3.5 h-3.5" />
-                            <span className="hidden md:inline">Transfer</span>
-                          </button>
+                            <button
+                              type="button"
+                              title="Transfer Student to Another Class or Stream"
+                              onClick={() => setTransferModalStudent(matchingStudent)}
+                              className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                            >
+                              <ArrowRightLeft className="w-3.5 h-3.5" />
+                              <span className="hidden xl:inline">Transfer</span>
+                            </button>
 
-                          {/* WhatsApp */}
-                          <button
-                            type="button"
-                            title="Send Results to Parent via WhatsApp"
-                            onClick={() => handleWhatsAppStudent(rec)}
-                            className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition cursor-pointer"
-                          >
-                            <Share2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                            <button
+                              type="button"
+                              title="Send Results to Parent via WhatsApp"
+                              onClick={() => handleWhatsAppStudent(rec)}
+                              className="p-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition cursor-pointer"
+                            >
+                              <Share2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Official Signatures Block (Visible ONLY during print: hidden print:block) */}
+          <div className="hidden print:block mt-5 pt-4 border-t-2 border-slate-900 text-[8px] leading-normal">
+            <div className="grid grid-cols-3 gap-6">
+              <div>
+                <span className="block font-bold text-slate-800 uppercase">Mwalimu wa Darasa (Class Teacher):</span>
+                <div className="mt-7 border-b border-slate-500"></div>
+                <div className="flex justify-between text-slate-700 mt-1">
+                  <span>Jina: ___________________________</span>
+                  <span>Saini & Tarehe</span>
+                </div>
+              </div>
+
+              <div>
+                <span className="block font-bold text-slate-800 uppercase">Mwalimu wa Taaluma (Academic Master):</span>
+                <div className="mt-7 border-b border-slate-500"></div>
+                <div className="flex justify-between text-slate-700 mt-1">
+                  <span>Jina: {currentUserName}</span>
+                  <span>Saini & Tarehe</span>
+                </div>
+              </div>
+
+              <div>
+                <span className="block font-bold text-slate-800 uppercase">Mkuu wa Shule (Head of School):</span>
+                <div className="mt-7 border-b border-slate-500"></div>
+                <div className="flex justify-between text-slate-700 mt-1">
+                  <span>Muhuri Rasmi na Saini</span>
+                  <span>Tarehe: {new Date().toLocaleDateString('en-GB')}</span>
+                </div>
+              </div>
+            </div>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Bulk WhatsApp Modal */}
@@ -1179,66 +1460,67 @@ Total: ${rec.totalMarks} Avg: ${rec.averageMarks}% Points: ${pointsStr} Div: ${d
                 </div>
               </div>
 
-              {/* Results Table - 100% width, 10px font, border-collapse, visible overflow, font-normal */}
+              {/* Results Table - 100% width, compact 8px font, border-collapse, visible overflow */}
               <div className="w-full overflow-x-visible border border-slate-300 rounded-xl">
-                <table className={`w-full text-left border-collapse overflow-visible font-normal ${
-                  activeSubjectKeys.length > 7 ? 'text-[9px]' : 'text-[10px]'
-                }`}>
-                  <thead className="bg-[#1f4d8b] text-white uppercase tracking-wider font-medium text-[9px]">
+                <table className="printable-records-table w-full text-left border-collapse overflow-visible font-normal text-[8px]">
+                  <thead className="bg-[#1f4d8b] text-white uppercase tracking-wider font-bold text-[8px]">
                     <tr>
-                      <th className="p-2 text-center w-8 border-r border-blue-900 font-medium">Pos</th>
-                      <th className="p-2 border-r border-blue-900 min-w-[120px] font-medium">Student Name</th>
-                      <th className="p-2 text-center w-10 border-r border-blue-900 font-medium">Sex</th>
-                      <th className="p-2 text-center border-r border-blue-900 font-medium">Class</th>
+                      <th className="p-1.5 text-center w-8 border border-blue-900 font-bold">Pos</th>
+                      <th className="p-1.5 border border-blue-900 min-w-[120px] font-bold">Student Name</th>
+                      <th className="p-1.5 text-center w-8 border border-blue-900 font-bold">Sex</th>
+                      <th className="p-1.5 text-center border border-blue-900 font-bold">Class</th>
                       {activeSubjectKeys.map(sub => (
-                        <th key={sub} className="p-1.5 text-center border-r border-blue-900 font-medium" title={sub}>
-                          {sub}
+                        <th key={sub} className="p-1 text-center border border-blue-900 font-bold text-[8px] max-w-[42px] truncate" title={sub}>
+                          {useSubjectAbbr ? getSubjectAbbr(sub) : sub}
                         </th>
                       ))}
-                      <th className="p-2 text-center border-r border-blue-900 w-12 font-medium">Total</th>
-                      <th className="p-2 text-center border-r border-blue-900 w-12 font-medium">Avg%</th>
-                      <th className="p-2 text-center border-r border-blue-900 w-16 font-medium">Grade/Div</th>
-                      <th className="p-2 min-w-[140px] font-medium">Teacher Remarks</th>
+                      <th className="p-1.5 text-center border border-blue-900 w-10 font-bold">Total</th>
+                      <th className="p-1.5 text-center border border-blue-900 w-10 font-bold">Avg%</th>
+                      <th className="p-1.5 text-center border border-blue-900 w-12 font-bold">Grade</th>
+                      <th className="p-1.5 text-center border border-blue-900 w-12 font-bold">Div</th>
+                      <th className="p-1.5 min-w-[110px] font-bold border border-blue-900">Teacher Remarks</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200 font-normal text-slate-800">
+                  <tbody className="divide-y divide-slate-200 font-normal text-slate-800 text-[8px]">
                     {rankedRecords.map((rec, i) => (
                       <tr key={rec.id} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}>
-                        <td className="p-1.5 text-center font-normal border-r border-slate-200">
+                        <td className="p-1 text-center font-bold border border-slate-300">
                           {rec.computedRank || rec.positionInClass}
                         </td>
-                        <td className="p-1.5 font-normal text-slate-900 border-r border-slate-200">
+                        <td className="p-1 font-bold text-slate-900 border border-slate-300">
                           {rec.studentName}
                         </td>
-                        <td className="p-1.5 text-center border-r border-slate-200 font-normal">
+                        <td className="p-1 text-center border border-slate-300 font-bold">
                           {rec.gender?.toLowerCase().startsWith('f') ? 'F' : 'M'}
                         </td>
-                        <td className="p-1.5 text-center border-r border-slate-200 text-slate-700 font-normal">
+                        <td className="p-1 text-center border border-slate-300 text-slate-700 font-medium">
                           {rec.className} {rec.stream ? `(${rec.stream})` : ''}
                         </td>
                         {activeSubjectKeys.map(sub => {
                           const subInfo = getSubjectMarkInfo(rec, sub);
                           return (
-                            <td key={sub} className="p-1.5 text-center border-r border-slate-200 font-normal">
+                            <td key={sub} className="p-1 text-center border border-slate-300 font-medium">
                               {subInfo ? (
-                                <span className="font-normal">
-                                  {subInfo.marks} <span className="text-slate-500 font-normal">({subInfo.grade})</span>
+                                <span>
+                                  {subInfo.marks} <span className="text-slate-500 font-bold">({subInfo.grade})</span>
                                 </span>
                               ) : '-'}
                             </td>
                           );
                         })}
-                        <td className="p-1.5 text-center font-normal text-slate-900 border-r border-slate-200">
+                        <td className="p-1 text-center font-black text-slate-900 border border-slate-300">
                           {rec.totalMarks}
                         </td>
-                        <td className="p-1.5 text-center font-normal text-blue-900 border-r border-slate-200">
+                        <td className="p-1 text-center font-black text-blue-900 border border-slate-300">
                           {rec.averageMarks}%
                         </td>
-                        <td className="p-1.5 text-center border-r border-slate-200 font-normal">
-                          <div>Grade {rec.overallGrade}</div>
-                          {rec.division && <div className="text-[9px] text-blue-700 font-normal">Div {rec.division}</div>}
+                        <td className="p-1 text-center border border-slate-300 font-black">
+                          {rec.overallGrade}
                         </td>
-                        <td className="p-1.5 text-slate-700 font-normal">
+                        <td className="p-1 text-center border border-slate-300 font-bold text-blue-800">
+                          {rec.division ? `Div ${rec.division}` : '-'}
+                        </td>
+                        <td className="p-1 text-slate-700 border border-slate-300 truncate max-w-[120px]">
                           {rec.teacherRemarks || 'Good progress.'}
                         </td>
                       </tr>

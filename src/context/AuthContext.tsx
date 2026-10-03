@@ -7,8 +7,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, getDocs, addDoc, serverTimestamp, query, where } from 'firebase/firestore';
-import { auth, db, googleProvider } from '../lib/firebase';
+import { auth, googleProvider } from '../lib/firebase';
 import { supabase } from '../lib/supabaseClient';
 import { UserAccount, UserRole } from '../types';
 
@@ -55,29 +54,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // 0. Fetch user profile from users collection via supabase client
       let supaSchoolId: string | null = null;
+      let existingUser: any = null;
       try {
-        const { data: supaProfile } = await supabase.from('users').select('school_id').eq('id', fbUser.uid).single();
-        if (supaProfile && (supaProfile.school_id || supaProfile.schoolId)) {
-          supaSchoolId = supaProfile.school_id || supaProfile.schoolId;
+        const { data: byId } = await supabase.from('users').select('*').eq('id', fbUser.uid).single();
+        if (byId) {
+          existingUser = byId;
+          supaSchoolId = byId.school_id || byId.schoolId;
+        } else if (normEmail) {
+          const { data: byEmail } = await supabase.from('users').select('*').eq('email', normEmail).single();
+          if (byEmail) {
+            existingUser = byEmail;
+            supaSchoolId = byEmail.school_id || byEmail.schoolId;
+          }
         }
       } catch (err) {
         console.warn("Supabase user profile fetch:", err);
       }
 
-      // 1. Check users doc by UID first
-      const userRef = doc(db, 'users', fbUser.uid);
-      let userDoc = await getDoc(userRef);
-
-      // 2. If not found by UID, check if user exists by email
-      if (!userDoc.exists() && normEmail) {
-        const usersByEmail = await getDocs(query(collection(db, 'users'), where('email', '==', normEmail)));
-        if (!usersByEmail.empty) {
-          userDoc = usersByEmail.docs[0];
-        }
-      }
-
-      if (userDoc.exists()) {
-        const data = userDoc.data();
+      if (existingUser) {
+        const data = existingUser;
         const storedSessionSchool = sessionStorage.getItem('haby_school_id');
         const resolvedSchoolId = supaSchoolId || data.school_id || data.schoolId || storedSessionSchool || 'DEMO_SCHOOL';
         console.log("Current school_id:", resolvedSchoolId);
@@ -93,12 +88,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
 
         // Update user record with current UID & last login timestamp
-        await setDoc(userRef, {
+        await supabase.from('users').update({
           ...account,
           school_id: resolvedSchoolId,
           schoolId: resolvedSchoolId,
-          lastLoginAt: serverTimestamp()
-        }, { merge: true });
+          last_login_at: new Date().toISOString()
+        }).eq('id', fbUser.uid);
 
         sessionStorage.setItem('haby_demo_user', JSON.stringify(account));
         setUserAccount(account);
@@ -106,7 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      // If user doc doesn't exist yet, bootstrap with DEMO_SCHOOL where candidate records exist
+      // If user doesn't exist yet, bootstrap with DEMO_SCHOOL
       const storedSessionSchool = sessionStorage.getItem('haby_school_id');
       const schoolId = storedSessionSchool || 'DEMO_SCHOOL';
       console.log("Current school_id:", schoolId);
@@ -121,12 +116,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isSuperAdmin
       };
 
-      await setDoc(userRef, {
+      await supabase.from('users').insert({
         ...newAccount,
         school_id: schoolId,
         schoolId,
-        createdAt: serverTimestamp()
-      }, { merge: true });
+        created_at: new Date().toISOString()
+      });
 
       sessionStorage.setItem('haby_demo_user', JSON.stringify(newAccount));
       setUserAccount(newAccount);
@@ -238,15 +233,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
 
-        // Fetch real schoolId from users collection if exists
+        // Fetch real schoolId from users table if exists
         let schoolId = sessionStorage.getItem('haby_school_id') || 'DEMO_SCHOOL';
         try {
-          const uSnap = await getDocs(query(collection(db, 'users'), where('email', '==', normalizedEmail)));
-          if (!uSnap.empty && (uSnap.docs[0].data().school_id || uSnap.docs[0].data().schoolId)) {
-            schoolId = uSnap.docs[0].data().school_id || uSnap.docs[0].data().schoolId;
+          const { data: supaUsers } = await supabase.from('users').select('*').eq('email', normalizedEmail);
+          if (supaUsers && supaUsers.length > 0 && (supaUsers[0].school_id || supaUsers[0].schoolId)) {
+            schoolId = supaUsers[0].school_id || supaUsers[0].schoolId;
           }
         } catch (e) {
-          console.warn("Could not query admin user doc:", e);
+          console.warn("Could not query admin user from supabase:", e);
         }
 
         console.log("Current school_id:", schoolId);
@@ -263,12 +258,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
 
         try {
-          await setDoc(doc(db, 'users', adminAccount.id), {
+          await supabase.from('users').insert({
             ...adminAccount,
             school_id: schoolId,
             schoolId,
-            updatedAt: serverTimestamp()
-          }, { merge: true });
+            updated_at: new Date().toISOString()
+          });
         } catch (e) {
           console.warn("Could not sync superadmin doc:", e);
         }
@@ -301,12 +296,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         let schoolId = sessionStorage.getItem('haby_school_id') || 'DEMO_SCHOOL';
         try {
-          const uSnap = await getDocs(query(collection(db, 'users'), where('email', '==', normalizedEmail)));
-          if (!uSnap.empty && (uSnap.docs[0].data().school_id || uSnap.docs[0].data().schoolId)) {
-            schoolId = uSnap.docs[0].data().school_id || uSnap.docs[0].data().schoolId;
+          const { data: supaUsers } = await supabase.from('users').select('*').eq('email', normalizedEmail);
+          if (supaUsers && supaUsers.length > 0 && (supaUsers[0].school_id || supaUsers[0].schoolId)) {
+            schoolId = supaUsers[0].school_id || supaUsers[0].schoolId;
           }
         } catch (e) {
-          console.warn("Could not query admin user doc:", e);
+          console.warn("Could not query admin user from supabase:", e);
         }
 
         console.log("Current school_id:", schoolId);
@@ -341,13 +336,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      // 3. Check Firestore User Accounts (Registered by School Admins with assigned password)
-      const usersQuery = query(collection(db, 'users'), where('email', '==', normalizedEmail));
-      const usersSnap = await getDocs(usersQuery);
+      // 3. Check Supabase User Accounts (Registered by School Admins with assigned password)
+      const { data: usersSnap } = await supabase.from('users').select('*').eq('email', normalizedEmail);
 
-      if (!usersSnap.empty) {
-        const userDoc = usersSnap.docs[0];
-        const uData = userDoc.data();
+      if (usersSnap && usersSnap.length > 0) {
+        const uData = usersSnap[0];
         
         // Verify password
         if (uData.password && uData.password === inputPass) {
@@ -356,7 +349,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           sessionStorage.setItem('haby_school_id', resolvedSchool);
 
           const memberAccount: UserAccount = {
-            id: userDoc.id,
+            id: uData.id || `usr_${Date.now()}`,
             email: uData.email,
             fullName: uData.fullName || 'Authorized Staff',
             role: uData.role || 'TEACHER',
@@ -420,10 +413,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       if (userAccount.id && userAccount.id !== 'admin_haby_root') {
-        await setDoc(doc(db, 'users', userAccount.id), { schoolId, school_id: schoolId }, { merge: true });
+        await supabase.from('users').update({ schoolId, school_id: schoolId }).eq('id', userAccount.id);
       }
     } catch (e) {
-      console.warn("Could not sync schoolId to Firestore user doc:", e);
+      console.warn("Could not sync schoolId to supabase user table:", e);
     }
   };
 

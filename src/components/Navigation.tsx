@@ -21,7 +21,9 @@ import {
   Save,
   FileSpreadsheet,
   BookOpen,
-  Smartphone
+  Smartphone,
+  Grid,
+  Wallet
 } from 'lucide-react';
 import { SchoolInfo, UserAccount } from '../types';
 import { HabyEduProLogo } from './common/HabyEduProLogo';
@@ -32,6 +34,8 @@ export type ActiveView =
   | 'results'
   | 'examrecords'
   | 'nectaanalyzer'
+  | 'sittingplan'
+  | 'finance'
   | 'sms'
   | 'schemes'
   | 'lessonplans'
@@ -70,6 +74,8 @@ export const Navigation: React.FC<NavigationProps> = ({
     { id: 'results', label: 'Academic', icon: <Award className="w-4 h-4" /> },
     { id: 'examrecords', label: 'Exam Records', icon: <FileSpreadsheet className="w-4 h-4" /> },
     { id: 'nectaanalyzer', label: 'NECTA Analyzer', icon: <Award className="w-4 h-4 text-amber-400" /> },
+    { id: 'sittingplan', label: 'Sitting Plan', icon: <Grid className="w-4 h-4 text-sky-400" /> },
+    { id: 'finance', label: 'SaaS Finance', icon: <Wallet className="w-4 h-4 text-emerald-400" /> },
     { id: 'sms', label: 'SMS Module', icon: <Smartphone className="w-4 h-4 text-emerald-400" /> },
     { id: 'schemes', label: 'Scheme of Work', icon: <FileText className="w-4 h-4" /> },
     { id: 'lessonplans', label: 'Lesson Plans', icon: <BookOpen className="w-4 h-4" /> },
@@ -83,7 +89,7 @@ export const Navigation: React.FC<NavigationProps> = ({
     { id: 'settings', label: 'Settings', icon: <SettingsIcon className="w-4 h-4" /> },
     { id: 'markentry', label: 'Mark Entry', icon: <CheckCircle2 className="w-4 h-4" /> }
   ] as { id: ActiveView; label: string; icon: React.ReactNode }[]).filter(item => {
-    // Teachers have full unrestricted access to all academic, planning, records, and timetable tools
+    // Teachers have access to academic, planning, records, sitting plans, and timetable tools
     if (isTeacher) {
       return ([
         'dashboard', 
@@ -91,6 +97,7 @@ export const Navigation: React.FC<NavigationProps> = ({
         'results', 
         'examrecords', 
         'nectaanalyzer',
+        'sittingplan',
         'sms',
         'schemes', 
         'lessonplans', 

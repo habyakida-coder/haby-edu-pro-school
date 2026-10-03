@@ -1,2 +1,12 @@
-// Re-export supabase client for JS compatibility
-export { supabase, default } from './supabaseClient.ts';
+// Re-export supabase client and helpers for JS compatibility
+export { 
+  supabase, 
+  default, 
+  getCurrentSchoolId,
+  isConfiguredWithRealSupabase,
+  getAll, 
+  insertRecord, 
+  updateRecord, 
+  deleteRecord, 
+  createClient 
+} from './supabaseClient.ts';

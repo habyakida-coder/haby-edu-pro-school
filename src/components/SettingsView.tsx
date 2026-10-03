@@ -12,8 +12,7 @@ import {
   InstitutionalLevel
 } from '../types';
 import { PeriodSettingsManager } from './Timetable/PeriodSettingsManager';
-import { db } from '../lib/firebase';
-import { collection, query, onSnapshot, doc, updateDoc, addDoc, setDoc } from 'firebase/firestore';
+import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { SUBJECT_LIST, DEFAULT_SCHOOL_LOGO, PRESET_SCHOOL_LOGOS } from '../constants/defaults';
 
@@ -82,17 +81,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     if (!currentUser?.isSuperAdmin || activeTab !== 'network') return;
 
     setSchoolsLoading(true);
-    const q = query(collection(db, 'schools'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const schools: SchoolType[] = [];
-      snapshot.forEach((doc) => {
-        schools.push({ id: doc.id, ...doc.data() } as SchoolType);
-      });
-      setAllSchools(schools.sort((a, b) => (a.name || '').localeCompare(b.name || '')));
-      setSchoolsLoading(false);
-    });
-
-    return unsubscribe;
+    const fetchSchools = async () => {
+      try {
+        const { data } = await supabase.from('schools').select('*');
+        if (data && Array.isArray(data)) {
+          setAllSchools([...data].sort((a, b) => (a.name || '').localeCompare(b.name || '')));
+        }
+      } catch (err) {
+        console.warn("Error fetching schools from supabase:", err);
+      } finally {
+        setSchoolsLoading(false);
+      }
+    };
+    fetchSchools();
   }, [currentUser, activeTab]);
 
   const handleCreateSchool = async (e: React.FormEvent) => {
@@ -101,7 +102,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
     setCreatingSchool(true);
     try {
-      const schoolRef = await addDoc(collection(db, 'schools'), {
+      const newSchoolId = `school_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      await supabase.from('schools').insert({
+        id: newSchoolId,
         name: newSchoolName.trim(),
         address: newSchoolAddress.trim() || 'P.O. Box, Tanzania',
         phone: newSchoolPhone.trim() || '+255',
@@ -109,12 +112,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         principal: newSchoolPrincipal.trim() || 'Headmaster',
         motto: newSchoolMotto.trim() || 'Education & Excellence',
         status: 'ACTIVE',
-        createdAt: new Date()
+        created_at: new Date().toISOString()
       });
 
       // Initialize schoolData
-      await setDoc(doc(db, 'schoolData', schoolRef.id), {
-        schoolId: schoolRef.id,
+      await supabase.from('school_data').insert({
+        id: newSchoolId,
+        school_id: newSchoolId,
+        schoolId: newSchoolId,
         schoolInfo: {
           name: newSchoolName.trim(),
           address: newSchoolAddress.trim() || 'P.O. Box, Tanzania',
@@ -126,15 +131,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         },
         teachers: [],
         students: [],
-        timetableAssignments: [],
-        periodSettings: [],
-        streamSettings: [],
-        invigilationAssignments: {},
-        sessions: [],
-        supervisors: [],
-        selectedInvigilators: [],
-        updatedAt: new Date()
+        updated_at: new Date().toISOString()
       });
+
+      const { data: updatedList } = await supabase.from('schools').select('*');
+      if (updatedList) {
+        setAllSchools([...updatedList].sort((a, b) => (a.name || '').localeCompare(b.name || '')));
+      }
 
       setNewSchoolName('');
       setNewSchoolAddress('');
@@ -142,22 +145,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setNewSchoolEmail('');
       setNewSchoolPrincipal('');
       setNewSchoolMotto('');
-      alert(`School "${newSchoolName}" registered successfully with ID: ${schoolRef.id}`);
+      setUserMsg(`School "${newSchoolName}" registered successfully with ID: ${newSchoolId}`);
+      setTimeout(() => setUserMsg(null), 4000);
     } catch (err) {
       console.error("Error creating school:", err);
-      alert("Failed to register school profile.");
+      setUserMsg("Failed to register school profile.");
+      setTimeout(() => setUserMsg(null), 4000);
     } finally {
       setCreatingSchool(false);
     }
   };
 
   const updateSchoolStatus = async (schoolId: string, status: SchoolStatus) => {
-    if (!confirm(`Change school status to ${status}?`)) return;
     try {
-      await updateDoc(doc(db, 'schools', schoolId), { status });
+      await supabase.from('schools').update({ status }).eq('id', schoolId);
+      setAllSchools(prev => prev.map(s => s.id === schoolId ? { ...s, status } : s));
+      setUserMsg(`School status updated to ${status}`);
+      setTimeout(() => setUserMsg(null), 3000);
     } catch (err) {
       console.error("Error updating school status:", err);
-      alert("Failed to update status");
+      setUserMsg("Failed to update status");
+      setTimeout(() => setUserMsg(null), 3000);
     }
   };
 
@@ -297,12 +305,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     };
 
     try {
-      await setDoc(doc(db, 'users', newUser.id), {
+      await supabase.from('users').insert({
         ...newUser,
-        createdAt: new Date()
+        school_id: newUser.schoolId,
+        created_at: new Date().toISOString()
       });
     } catch (e) {
-      console.warn("Could not save to firestore users doc:", e);
+      console.warn("Could not save to supabase users table:", e);
     }
 
     const updated = [...users, newUser];
@@ -404,16 +413,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         isSuperAdmin: false
       };
 
-      await setDoc(doc(db, 'users', newAdminUser.id), {
+      await supabase.from('users').insert({
         ...newAdminUser,
-        createdAt: new Date()
+        school_id: targetSchoolId,
+        created_at: new Date().toISOString()
       });
 
-      await updateDoc(doc(db, 'schools', targetSchoolId), {
+      await supabase.from('schools').update({
         adminUid: newAdminUser.id,
         adminEmail: normalizedEmail,
         principal: adminFullName.trim()
-      });
+      }).eq('id', targetSchoolId);
 
       setAdminRegisterMsg({
         type: 'success',
