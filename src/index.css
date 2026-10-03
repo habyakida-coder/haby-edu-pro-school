@@ -3,7 +3,6 @@
 @layer utilities {
   @media print {
     @page {
-      size: A4 landscape;
       margin: 6mm 6mm;
     }
     body {

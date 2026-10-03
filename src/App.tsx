@@ -511,6 +511,32 @@ export default function App() {
     });
   };
 
+  const handleBulkAddTeachers = async (newTeachers: Teacher[]) => {
+    if (!newTeachers || newTeachers.length === 0) return;
+    const schoolId = userAccount?.schoolId || 'DEMO_SCHOOL';
+    console.log("Current school_id (handleBulkAddTeachers):", schoolId);
+    try {
+      await supabase.from('teachers').insert(newTeachers.map(t => ({
+        ...t,
+        school_id: schoolId
+      })));
+    } catch (e) {
+      console.warn("Error inserting bulk teachers in Supabase:", e);
+    }
+    const activityLogs = logActivity(
+      'TEACHER_BULK_ADDED',
+      'teachers',
+      'Multiple Teachers Registered',
+      `Registered ${newTeachers.length} staff members in bulk`
+    );
+    const newInvigIds = newTeachers.filter(t => !t.excludeInvigilation).map(t => t.id);
+    updateRemoteData({
+      teachers: [...data.teachers, ...newTeachers],
+      selectedInvigilators: [...data.selectedInvigilators, ...newInvigIds],
+      activityLogs
+    });
+  };
+
   const handleUpdateTeacher = async (teacher: Teacher) => {
     const schoolId = userAccount?.schoolId || 'DEMO_SCHOOL';
     console.log("Current school_id (handleUpdateTeacher):", schoolId);
@@ -841,6 +867,7 @@ export default function App() {
             <TeachersView
               teachers={data.teachers}
               onAddTeacher={handleAddTeacher}
+              onBulkAddTeachers={handleBulkAddTeachers}
               onUpdateTeacher={handleUpdateTeacher}
               onDeleteTeacher={handleDeleteTeacher}
               teacherEvaluations={data.teacherEvaluations || []}

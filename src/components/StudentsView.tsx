@@ -35,6 +35,10 @@ import { downloadFile, escapeCSV, printFormattedSection } from '../utils/export'
 import { formatStudentRegNo, getNextStudentRegNo } from '../utils/studentRegUtils';
 import { GenderSummary } from './common/GenderSummary';
 import { HabyEduProLogo } from './common/HabyEduProLogo';
+import { PhoneInputPlugin } from './common/PhoneInputPlugin';
+import { StudentPhoneBadge } from './common/StudentPhoneBadge';
+import { StudentCsvImportModal } from './Students/StudentCsvImportModal';
+import { getTanzanianCarrier, formatPhoneNumber } from '../utils/phoneUtils';
 
 interface StudentsViewProps {
   students: Student[];
@@ -70,6 +74,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   ]);
   const [subjectSearch, setSubjectSearch] = useState('');
   const [showAutoFillNotice, setShowAutoFillNotice] = useState(false);
+  const [showCsvImportModal, setShowCsvImportModal] = useState(false);
 
   // Active sub-tab: 'form' | 'register_list'
   const [activeTab, setActiveTab] = useState<'form' | 'register_list'>('form');
@@ -275,6 +280,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
       combination: level === 'ACSEE' ? combination : undefined,
       dob,
       parentPhone: parentPhone.trim() || undefined,
+      phone: parentPhone.trim() || undefined,
       passportPhoto: passportPhoto || undefined,
       subjects: selectedSubjects,
       marks: {},
@@ -294,18 +300,29 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   };
 
   const exportTemplate = () => {
-    const headers = ['Full Name', 'Gender', 'Class', 'Level', 'Stream or Combination', 'Date of Birth', 'Subjects (comma separated)', 'Assigned Token Reg No (Optional)'];
+    const headers = [
+      'Full Name',
+      'Gender',
+      'Class',
+      'Level',
+      'Stream or Combination',
+      'Parent Phone Number',
+      'Date of Birth',
+      'Subjects (semicolon separated)',
+      'Assigned Token Reg No (Optional)'
+    ];
     const sample = [
       'Juma Ally Mrisho',
       'Male',
       'Form 1',
       'CSEE',
       'STREAM A',
+      '0754123456',
       '2010-05-14',
       'English Language; Kiswahili; Mathematics; Physics; Chemistry; Biology',
       formatStudentRegNo(schoolInfo?.schoolNumber, 1)
     ];
-    downloadFile('student_registration_template.csv', [headers.join(','), sample.map(escapeCSV).join(',')].join('\n'));
+    downloadFile('student_registration_with_phone_template.csv', [headers.map(escapeCSV).join(','), sample.map(escapeCSV).join(',')].join('\n'));
   };
 
   const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -315,20 +332,56 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
     const reader = new FileReader();
     reader.onload = evt => {
       const text = String(evt.target?.result || '');
-      const lines = text.split('\n').filter(l => l.trim().length > 0);
+      const lines = text.split(/\r\n|\n/).filter(l => l.trim().length > 0);
+      if (lines.length < 2) {
+        alert('CSV file does not have enough rows.');
+        return;
+      }
       const newStudentsBatch: Student[] = [];
 
+      const parseCSVLine = (textLine: string) => {
+        const delimiter = (textLine.match(/;/g) || []).length > (textLine.match(/,/g) || []).length ? ';' : ',';
+        const result: string[] = [];
+        let cur = '';
+        let inQuotes = false;
+        for (let i = 0; i < textLine.length; i++) {
+          const char = textLine[i];
+          if (char === '"') inQuotes = !inQuotes;
+          else if (char === delimiter && !inQuotes) {
+            result.push(cur.trim());
+            cur = '';
+          } else cur += char;
+        }
+        result.push(cur.trim());
+        return result;
+      };
+
+      const headerTokens = parseCSVLine(lines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
+      const nameIdx = headerTokens.findIndex(h => h.includes('name') || h.includes('jina'));
+      const genderIdx = headerTokens.findIndex(h => h.includes('gender') || h.includes('jinsi') || h.includes('sex'));
+      const classIdx = headerTokens.findIndex(h => h.includes('class') || h.includes('darasa') || h.includes('grade'));
+      const levelIdx = headerTokens.findIndex(h => h.includes('level') || h.includes('ngazi'));
+      const streamIdx = headerTokens.findIndex(h => h.includes('stream') || h.includes('mkondo') || h.includes('combination'));
+      const phoneIdx = headerTokens.findIndex(h => h.includes('phone') || h.includes('simu') || h.includes('contact'));
+      const dobIdx = headerTokens.findIndex(h => h.includes('dob') || h.includes('birth') || h.includes('kuzaliwa'));
+      const subsIdx = headerTokens.findIndex(h => h.includes('subject') || h.includes('masomo'));
+      const regIdx = headerTokens.findIndex(h => h.includes('reg') || h.includes('token') || h.includes('namba'));
+
       lines.slice(1).forEach((line, index) => {
-        const parts = line.split(',');
-        if (parts.length >= 5) {
-          const sName = parts[0]?.replace(/"/g, '').trim();
-          const sGender = (parts[1]?.replace(/"/g, '').trim() as 'Male' | 'Female') || 'Male';
-          const sClass = parts[2]?.replace(/"/g, '').trim() || 'Form 1';
-          const sLevel = (parts[3]?.replace(/"/g, '').trim() as 'CSEE' | 'ACSEE') || 'CSEE';
-          const sStream = parts[4]?.replace(/"/g, '').trim() || 'STREAM A';
-          const sDob = parts[5]?.replace(/"/g, '').trim() || '2010-01-01';
-          const sSubs = parts[6] ? parts[6].replace(/"/g, '').split(';').map(s => s.trim()) : ['English Language', 'Mathematics'];
-          const explicitRegNo = parts[7]?.replace(/"/g, '').trim();
+        const parts = parseCSVLine(line);
+        if (parts.length >= 1 && parts[0]) {
+          const sName = (nameIdx >= 0 ? parts[nameIdx] : parts[0])?.trim();
+          const sGender = ((genderIdx >= 0 ? parts[genderIdx] : parts[1])?.trim() as 'Male' | 'Female') || 'Male';
+          const sClass = (classIdx >= 0 ? parts[classIdx] : parts[2])?.trim() || 'Form 1';
+          const sLevel = ((levelIdx >= 0 ? parts[levelIdx] : parts[3])?.trim() as 'CSEE' | 'ACSEE') || 'CSEE';
+          const sStream = (streamIdx >= 0 ? parts[streamIdx] : parts[4])?.trim() || 'STREAM A';
+          const sPhoneRaw = (phoneIdx >= 0 ? parts[phoneIdx] : parts[5])?.trim() || '';
+          const sDob = (dobIdx >= 0 ? parts[dobIdx] : parts[6])?.trim() || '2010-01-01';
+          const sSubsRaw = (subsIdx >= 0 ? parts[subsIdx] : parts[7])?.trim() || '';
+          const explicitRegNo = (regIdx >= 0 ? parts[regIdx] : parts[8])?.trim();
+
+          const sPhone = sPhoneRaw ? formatPhoneNumber(sPhoneRaw) : undefined;
+          const sSubs = sSubsRaw ? sSubsRaw.split(/[;,]/).map(s => s.trim()).filter(Boolean) : ['English Language', 'Mathematics'];
 
           if (sName) {
             const isBatchPrimary = (sLevel as string) === 'PRIMARY' || (sLevel as string) === 'PRE_PRIMARY' || 
@@ -342,6 +395,8 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
               level: sLevel,
               stream: sLevel === 'CSEE' ? sStream : undefined,
               combination: sLevel === 'ACSEE' ? sStream : undefined,
+              parentPhone: sPhone,
+              phone: sPhone,
               dob: sDob,
               subjects: sSubs
             });
@@ -355,7 +410,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
         } else {
           newStudentsBatch.forEach(s => onAddStudent(s));
         }
-        alert(`Imported ${newStudentsBatch.length} students successfully!`);
+        alert(`Imported ${newStudentsBatch.length} students successfully from CSV!`);
       } else {
         alert('No valid student rows found in the uploaded CSV.');
       }
@@ -365,19 +420,36 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   };
 
   const handleExportRegisteredListCSV = () => {
-    const headers = ['Registration Order', 'Reg No', 'Student Full Name', 'Gender', 'Class', 'Level', 'Stream / Combination', 'Parent Phone', 'DOB', 'Total Subjects Enrolled'];
-    const rows = sortedFilteredStudents.map((s, idx) => [
-      String(idx + 1),
-      s.regNo || '',
-      s.name,
-      s.gender || '',
-      s.className,
-      s.level,
-      s.stream || s.combination || '',
-      s.parentPhone || s.phone || '',
-      s.dob || '',
-      String(s.subjects.length)
-    ]);
+    const headers = [
+      'Registration Order', 
+      'Reg No', 
+      'Student Full Name', 
+      'Gender', 
+      'Class', 
+      'Level', 
+      'Stream / Combination', 
+      'Parent Phone Number', 
+      'Carrier Network',
+      'Date of Birth', 
+      'Total Subjects Enrolled'
+    ];
+    const rows = sortedFilteredStudents.map((s, idx) => {
+      const ph = s.parentPhone || s.phone || '';
+      const carrier = ph ? getTanzanianCarrier(ph)?.name || '' : '';
+      return [
+        String(idx + 1),
+        s.regNo || '',
+        s.name,
+        s.gender || '',
+        s.className,
+        s.level,
+        s.stream || s.combination || '',
+        ph,
+        carrier,
+        s.dob || '',
+        String(s.subjects.length)
+      ];
+    });
     const csvContent = [headers.map(escapeCSV).join(','), ...rows.map(r => r.map(escapeCSV).join(','))].join('\n');
     downloadFile('Official_Registered_Students_List.csv', csvContent, 'text/csv;charset=utf-8');
   };
@@ -398,7 +470,11 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   // Filter and sort registered students according to registration
   const sortedFilteredStudents = [...students].filter(s => {
     const q = searchFilter.toLowerCase();
-    const matchSearch = !q || s.name.toLowerCase().includes(q) || (s.regNo && s.regNo.toLowerCase().includes(q));
+    const matchSearch = !q || 
+      s.name.toLowerCase().includes(q) || 
+      (s.regNo && s.regNo.toLowerCase().includes(q)) ||
+      (s.parentPhone && s.parentPhone.toLowerCase().includes(q)) ||
+      (s.phone && s.phone.toLowerCase().includes(q));
     if (!matchSearch) return false;
     if (classFilter !== 'ALL' && s.className !== classFilter) return false;
     if (streamFilter !== 'ALL') {
@@ -866,17 +942,13 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                   />
                 </div>
 
-                <div>
-                  <label className="text-xs font-bold text-slate-600 uppercase block mb-1">Parent Phone Number *</label>
-                  <input
-                    type="tel"
-                    placeholder="e.g. 0754 000 111 / +255 7..."
-                    value={parentPhone}
-                    onChange={e => setParentPhone(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white"
-                    required
-                  />
-                </div>
+                <PhoneInputPlugin
+                  value={parentPhone}
+                  onChange={setParentPhone}
+                  label="Parent / Guardian Phone Number"
+                  required
+                  studentName={name}
+                />
               </div>
             </div>
 
