@@ -260,7 +260,7 @@ export const AuthScreen: React.FC = () => {
             <form onSubmit={handleParentSubmit} className="space-y-4 pt-2">
               <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 text-xs text-emerald-900 space-y-1">
                 <p className="font-black">Portal ya Wazazi (Parent Portal)</p>
-                <p className="text-[11px] text-emerald-700">Weka namba ya simu na nenosiri lako kuingia kwenye portal ya mwanao.</p>
+                <p className="text-[11px] text-emerald-700">Ingia kuona maendeleo ya mwanao. Neno la siri la awali ni <span className="font-bold text-emerald-900">123456</span>.</p>
               </div>
 
               {parentError && (

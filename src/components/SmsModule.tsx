@@ -54,6 +54,7 @@ interface ParentItem {
   phone_255: string;
   student_name?: string;
   class_level?: string;
+  password?: string;
 }
 
 interface SmsLogItem {
@@ -461,7 +462,8 @@ export const SmsModule: React.FC<SmsModuleProps> = ({
         school_id: schoolId,
         student_cno: cno.toUpperCase().trim(),
         phone_255: phone.trim(),
-        student_name: name || cno
+        student_name: name || cno,
+        password: '123456'
       };
 
       console.log("Current school_id (Saving parent):", schoolId);
@@ -1044,6 +1046,7 @@ export const SmsModule: React.FC<SmsModuleProps> = ({
                     <th className="px-3 py-2.5 border-r border-slate-200">CNO ya Mwanafunzi</th>
                     <th className="px-3 py-2.5 border-r border-slate-200">Jina</th>
                     <th className="px-3 py-2.5 border-r border-slate-200">Namba ya Simu</th>
+                    <th className="px-3 py-2.5 border-r border-slate-200 text-center">Nenosiri</th>
                     <th className="px-3 py-2.5 border-r border-slate-200">Darasa</th>
                     <th className="px-3 py-2.5 text-center">Kitendo</th>
                   </tr>
@@ -1069,6 +1072,11 @@ export const SmsModule: React.FC<SmsModuleProps> = ({
                         </td>
                         <td className="px-3 py-2 font-mono font-bold text-blue-700 border-r border-slate-200">
                           {p.phone_255}
+                        </td>
+                        <td className="px-3 py-2 text-center border-r border-slate-200">
+                          <span className="bg-slate-100 px-1.5 py-0.5 rounded font-mono font-bold text-slate-700">
+                            {p.password || '123456'}
+                          </span>
                         </td>
                         <td className="px-3 py-2 text-slate-600 border-r border-slate-200">
                           {p.class_level || 'All'}
