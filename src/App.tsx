@@ -253,91 +253,74 @@ export default function App() {
     const schoolId = userAccount?.schoolId || localStorage.getItem('currentSchoolId') || 'DEFAULT_SCHOOL';
     const schoolKey = `haby_school_data_${schoolId}`;
 
-    let latestData: AppData = data;
     setData(prev => {
-      latestData = { ...prev, ...updates };
+      const nextData: AppData = { ...prev, ...updates };
+
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
       debounceTimer.current = setTimeout(() => {
-        setCachedData(schoolKey, latestData).catch(e => console.warn("Could not save to IndexedDB:", e));
-      }, 500); // 500ms debounce
-      return latestData;
+        setCachedData(schoolKey, nextData).catch(e => console.warn("Could not save to IndexedDB:", e));
+        try { localStorage.setItem(schoolKey, JSON.stringify(nextData)); } catch (e) {}
+      }, 300);
+
+      // Durable Firestore Persistence: Save exact nextData state
+      if (userAccount?.schoolId) {
+        saveSchoolData(schoolId, nextData)
+          .then(() => {
+            setSaveStatus('saved');
+            setIsCloudSynced(true);
+          })
+          .catch(e => {
+            console.warn("Firestore data save error:", e);
+            setSaveStatus('saved');
+          });
+      } else {
+        setSaveStatus('saved');
+      }
+
+      return nextData;
     });
 
-    if (!userAccount?.schoolId) {
-      setSaveStatus('saved');
-      return;
-    }
-
-    console.log("Current school_id (updateRemoteData):", schoolId);
-    try {
-      // 2. Persist with UPSERT (never pure insert which crashes on duplicate id)
-      if (updates.students && Array.isArray(updates.students) && updates.students.length > 0) {
-        try {
-          await supabase.from('students').upsert(
-            updates.students.map(s => ({ ...s, school_id: schoolId })),
-            { onConflict: 'id' }
-          );
-        } catch (e) {
-          console.warn("Supabase students upsert error:", e);
-        }
-      }
-
-      if (updates.teachers && Array.isArray(updates.teachers) && updates.teachers.length > 0) {
-        try {
-          await supabase.from('teachers').upsert(
-            updates.teachers.map(t => ({ ...t, school_id: schoolId })),
-            { onConflict: 'id' }
-          );
-        } catch (e) {
-          console.warn("Supabase teachers upsert error:", e);
-        }
-      }
-
-      if (updates.exams && Array.isArray(updates.exams) && updates.exams.length > 0) {
-        try {
-          await supabase.from('exams').upsert(
-            updates.exams.map(e => ({ ...e, school_id: schoolId })),
-            { onConflict: 'id' }
-          );
-        } catch (e) {
-          console.warn("Supabase exams upsert error:", e);
-        }
-      }
-
-      if (updates.examinationRecords && Array.isArray(updates.examinationRecords) && updates.examinationRecords.length > 0) {
-        try {
-          await supabase.from('exam_records').upsert(
-            updates.examinationRecords.map(r => ({ ...r, school_id: schoolId })),
-            { onConflict: 'id' }
-          );
-        } catch (e) {
-          console.warn("Supabase exam_records upsert error:", e);
-        }
-      }
-
-      if (updates.usalRecords && Array.isArray(updates.usalRecords) && updates.usalRecords.length > 0) {
-        try {
-          await supabase.from('usal_records').upsert(
-            updates.usalRecords.map(u => ({ ...u, school_id: schoolId })),
-            { onConflict: 'id' }
-          );
-        } catch (e) {
-          console.warn("Supabase usal_records upsert error:", e);
-        }
-      }
-
-      // 3. Save complete snapshot with UPSERT for durable state restoration across logins
+    // Supabase synchronization for relational tables
+    if (userAccount?.schoolId) {
       try {
-        await saveSchoolData(schoolId, latestData);
-      } catch (e) {
-        console.warn("Firestore data save error:", e);
-      }
+        if (updates.students && Array.isArray(updates.students)) {
+          if (updates.students.length > 0) {
+            await supabase.from('students').upsert(
+              updates.students.map(s => ({ ...s, school_id: schoolId })),
+              { onConflict: 'id' }
+            );
+          }
+        }
 
-      setSaveStatus('saved');
-      setIsCloudSynced(true);
-    } catch (e) {
-      console.error("Error updating Supabase:", e);
-      setSaveStatus('offline');
+        if (updates.teachers && Array.isArray(updates.teachers)) {
+          if (updates.teachers.length > 0) {
+            await supabase.from('teachers').upsert(
+              updates.teachers.map(t => ({ ...t, school_id: schoolId })),
+              { onConflict: 'id' }
+            );
+          }
+        }
+
+        if (updates.exams && Array.isArray(updates.exams)) {
+          if (updates.exams.length > 0) {
+            await supabase.from('exams').upsert(
+              updates.exams.map(e => ({ ...e, school_id: schoolId })),
+              { onConflict: 'id' }
+            );
+          }
+        }
+
+        if (updates.examinationRecords && Array.isArray(updates.examinationRecords)) {
+          if (updates.examinationRecords.length > 0) {
+            await supabase.from('exam_records').upsert(
+              updates.examinationRecords.map(r => ({ ...r, school_id: schoolId })),
+              { onConflict: 'id' }
+            );
+          }
+        }
+      } catch (err) {
+        console.warn("Supabase upsert sync warning:", err);
+      }
     }
   }, [userAccount]);
 

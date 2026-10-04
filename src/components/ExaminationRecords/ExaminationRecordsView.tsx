@@ -25,7 +25,8 @@ import {
   X,
   MessageSquare,
   Smartphone,
-  Send
+  Send,
+  Trash2
 } from 'lucide-react';
 import { 
   ExaminationRecord, 
@@ -1241,6 +1242,20 @@ Total: ${rec.totalMarks} Avg: ${rec.averageMarks}% Points: ${pointsStr} Div: ${d
                               className="p-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition cursor-pointer"
                             >
                               <Share2 className="w-3.5 h-3.5" />
+                            </button>
+
+                            <button
+                              type="button"
+                              title="Delete Examination Record"
+                              onClick={() => {
+                                if (window.confirm(`Delete examination record for ${rec.studentName} (${rec.className} ${rec.examType})?`)) {
+                                  const updated = examinationRecords.filter(r => r.id !== rec.id);
+                                  onUpdateExaminationRecords(updated);
+                                }
+                              }}
+                              className="p-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </td>
