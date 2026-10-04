@@ -1327,10 +1327,19 @@ export default function SittingPlan({ schoolId = 'DEMO_SCHOOL', schoolInfo = {},
                               </div>
 
                               {/* Candidate Roll Number */}
-                              <div className="flex-1 flex items-center justify-center">
-                                <span className={`font-mono tracking-widest text-slate-900 ${numberSizeClass}`}>
+                              <div className="flex-1 flex items-center justify-center relative">
+                                <span className={`font-mono tracking-tighter text-slate-900 ${numberSizeClass} break-all`}>
                                   {seat.seatNo}
                                 </span>
+                                
+                                {/* Checkbox for Attendance */}
+                                <div className="absolute top-0.5 right-0.5">
+                                  <input 
+                                    type="checkbox" 
+                                    className="w-3 h-3 cursor-pointer accent-blue-600"
+                                    title="Tiki kama mtahiniwa amehudhuria"
+                                  />
+                                </div>
                               </div>
 
                               {/* Desk Bottom Sub-tag */}

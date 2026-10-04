@@ -113,6 +113,20 @@ export const RemedialDailyTracker: React.FC<RemedialDailyTrackerProps> = ({ scho
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
+          
+          <button
+            onClick={async () => {
+              if (confirm('Weka vipindi vyote vya remedial vya leo kuwa VILIFUNDISHWA?')) {
+                for (const period of timetable) {
+                  await handleMark(period, 'taught');
+                }
+              }
+            }}
+            disabled={loading || timetable.length === 0}
+            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black rounded-lg shadow-sm transition flex items-center gap-1.5 uppercase disabled:opacity-50"
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" /> Auto-Fill All
+          </button>
         </div>
 
         <div className="p-6">

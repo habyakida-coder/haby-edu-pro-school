@@ -518,7 +518,18 @@ export const INITIAL_TIMETABLE_ASSIGNMENTS = [
   { id: 222, className: 'Form 1', stream: 'STREAM A', day: 'Friday', period: 'Period 6 (12:00-12:40)', teacherId: 101, subject: 'Weekly Test', activityType: 'weekly_test' as const, room: 'Exam Hall / Class 1A', customNote: 'Weekly evaluation test' }
 ];
 
-export const INITIAL_STUDENTS: Student[] = [];
+export const INITIAL_STUDENTS: Student[] = [
+  { id: 1, name: 'Amina Juma Mohamed', regNo: 'S0123/0001/2026', sex: 'F', className: 'Form 1', stream: 'STREAM A', subjects: ['Mathematics', 'English Language', 'Biology', 'History'], dob: '2010-05-15', status: 'ACTIVE' },
+  { id: 2, name: 'Baraka Saidi Ally', regNo: 'S0123/0002/2026', sex: 'M', className: 'Form 1', stream: 'STREAM A', subjects: ['Mathematics', 'English Language', 'Biology', 'History'], dob: '2010-08-22', status: 'ACTIVE' },
+  { id: 3, name: 'Catherine Joseph Shirima', regNo: 'S0123/0003/2026', sex: 'F', className: 'Form 1', stream: 'STREAM B', subjects: ['Mathematics', 'English Language', 'Biology', 'History'], dob: '2011-01-10', status: 'ACTIVE' },
+  { id: 4, name: 'Daudi Hamisi Mvungi', regNo: 'S0123/0004/2026', sex: 'M', className: 'Form 2', stream: 'STREAM A', subjects: ['Physics', 'Chemistry', 'Biology', 'Civics'], dob: '2009-11-30', status: 'ACTIVE' },
+  { id: 5, name: 'Ester Richard Mushi', regNo: 'S0123/0005/2026', sex: 'F', className: 'Form 2', stream: 'STREAM A', subjects: ['Physics', 'Chemistry', 'Biology', 'Civics'], dob: '2009-04-05', status: 'ACTIVE' },
+  { id: 6, name: 'Faraja Emmanuel Masawe', regNo: 'S0123/0006/2026', sex: 'M', className: 'Form 3', stream: 'STREAM A', subjects: ['History', 'Geography', 'English', 'Kiswahili'], dob: '2008-07-18', status: 'ACTIVE' },
+  { id: 7, name: 'Grace Peter Mmbaga', regNo: 'S0123/0007/2026', sex: 'F', className: 'Form 3', stream: 'STREAM A', subjects: ['History', 'Geography', 'English', 'Kiswahili'], dob: '2008-12-12', status: 'ACTIVE' },
+  { id: 8, name: 'Hamisi Omari Kipande', regNo: 'S0123/0008/2026', sex: 'M', className: 'Form 4', stream: 'STREAM B', subjects: ['Book Keeping', 'Commerce', 'Mathematics', 'Civics'], dob: '2007-09-09', status: 'ACTIVE' },
+  { id: 9, name: 'Irene John Lyimo', regNo: 'S0123/0009/2026', sex: 'F', className: 'Standard 7', stream: 'STREAM A', subjects: ['Science', 'Mathematics', 'Social Studies'], dob: '2012-03-25', status: 'ACTIVE' },
+  { id: 10, name: 'John Peter Temu', regNo: 'S0123/0010/2026', sex: 'M', className: 'Standard 4', stream: 'STREAM C', subjects: ['Reading', 'Writing', 'Arithmetic'], dob: '2015-06-14', status: 'ACTIVE' }
+];
 
 export const INITIAL_EXAMS = [
   { id: 1, name: 'Midterm I Examination', type: 'Midterm I', level: 'CSEE' as const, className: 'All', date: '2026-03-15', status: 'Active' as const },
@@ -635,7 +646,83 @@ export const DEFAULT_TEACHER_ASSIGNMENTS: TeacherAssignment[] = [
   { id: 'ta_8', teacherId: 108, teacherName: 'Hamisi Juma', level: 'NURSERY', subjects: ['Sanaa, Muziki na Michezo ya Awali', 'Afya na Mazingira ya Mtoto'], streams: ['Baby Class - STREAM A', 'Nursery - STREAM A'] }
 ];
 
-export const INITIAL_EXAMINATION_RECORDS: ExaminationRecord[] = [];
+export const INITIAL_EXAMINATION_RECORDS: ExaminationRecord[] = [
+  { 
+    id: 'rec_1', 
+    studentId: 1, 
+    studentName: 'Amina Juma Mohamed', 
+    regNo: 'S0123/0001/2026', 
+    className: 'Form 1', 
+    academicYear: '2026', 
+    academicCalendarType: 'JAN-DEC', 
+    term: 'Term 1', 
+    examType: 'Midterm', 
+    subjects: { 
+      'Mathematics': { marks: 85, grade: 'A' }, 
+      'English Language': { marks: 78, grade: 'A' }, 
+      'Biology': { marks: 92, grade: 'A' }, 
+      'History': { marks: 80, grade: 'A' } 
+    }, 
+    totalMarks: 335, 
+    averageMarks: 83.8, 
+    overallGrade: 'A', 
+    division: 'I', 
+    points: 7, 
+    positionInClass: 1, 
+    totalStudents: 10, 
+    createdAt: '2026-03-01T00:00:00Z' 
+  },
+  { 
+    id: 'rec_2', 
+    studentId: 2, 
+    studentName: 'Baraka Saidi Ally', 
+    regNo: 'S0123/0002/2026', 
+    className: 'Form 1', 
+    academicYear: '2026', 
+    academicCalendarType: 'JAN-DEC', 
+    term: 'Term 1', 
+    examType: 'Midterm', 
+    subjects: { 
+      'Mathematics': { marks: 65, grade: 'B' }, 
+      'English Language': { marks: 60, grade: 'B' }, 
+      'Biology': { marks: 70, grade: 'B' }, 
+      'History': { marks: 68, grade: 'B' } 
+    }, 
+    totalMarks: 263, 
+    averageMarks: 65.75, 
+    overallGrade: 'B', 
+    division: 'I', 
+    points: 15, 
+    positionInClass: 2, 
+    totalStudents: 10, 
+    createdAt: '2026-03-01T00:00:00Z' 
+  },
+  { 
+    id: 'rec_3', 
+    studentId: 3, 
+    studentName: 'Catherine Joseph Shirima', 
+    regNo: 'S0123/0003/2026', 
+    className: 'Form 1', 
+    academicYear: '2026', 
+    academicCalendarType: 'JAN-DEC', 
+    term: 'Term 1', 
+    examType: 'Midterm', 
+    subjects: { 
+      'Mathematics': { marks: 45, grade: 'C' }, 
+      'English Language': { marks: 55, grade: 'C' }, 
+      'Biology': { marks: 48, grade: 'C' }, 
+      'History': { marks: 52, grade: 'C' } 
+    }, 
+    totalMarks: 200, 
+    averageMarks: 50, 
+    overallGrade: 'C', 
+    division: 'II', 
+    points: 21, 
+    positionInClass: 3, 
+    totalStudents: 10, 
+    createdAt: '2026-03-01T00:00:00Z' 
+  }
+];
 
 export const INITIAL_PROMOTION_HISTORY: PromotionHistory[] = [];
 

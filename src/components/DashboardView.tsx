@@ -101,29 +101,35 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Key Metrics */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
-          <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/70 text-center">
-            <Users className="w-5 h-5 text-blue-700 mx-auto mb-1.5" />
-            <div className="text-2xl sm:text-3xl font-extrabold text-[#1d4182]">{students.length}</div>
-            <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mt-1">Total Students</div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+          <div className="p-5 rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100 shadow-sm flex items-center gap-4">
+            <div className="p-3 bg-blue-600 rounded-lg text-white">
+              <Users className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="text-3xl font-black text-blue-900">{students.length}</div>
+              <div className="text-xs font-bold text-blue-700 uppercase tracking-wider">Total Students</div>
+            </div>
           </div>
 
-          <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/70 text-center">
-            <GraduationCap className="w-5 h-5 text-emerald-700 mx-auto mb-1.5" />
-            <div className="text-2xl sm:text-3xl font-extrabold text-[#065f46]">{teachers.length}</div>
-            <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mt-1">Teaching Staff</div>
+          <div className="p-5 rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-100 shadow-sm flex items-center gap-4">
+            <div className="p-3 bg-emerald-600 rounded-lg text-white">
+              <GraduationCap className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="text-3xl font-black text-emerald-900">{teachers.length}</div>
+              <div className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Teaching Staff</div>
+            </div>
           </div>
 
-          <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/70 text-center">
-            <FileText className="w-5 h-5 text-amber-700 mx-auto mb-1.5" />
-            <div className="text-2xl sm:text-3xl font-extrabold text-[#92400e]">{exams.length}</div>
-            <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mt-1">Registered Exams</div>
-          </div>
-
-          <div className="p-4 rounded-xl border border-purple-200 bg-purple-50/70 text-center">
-            <Clock className="w-5 h-5 text-purple-700 mx-auto mb-1.5" />
-            <div className="text-2xl sm:text-3xl font-extrabold text-[#5b21b6]">{sessions.length}</div>
-            <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mt-1">Exam Sessions</div>
+          <div className="p-5 rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-amber-100 shadow-sm flex items-center gap-4">
+            <div className="p-3 bg-amber-600 rounded-lg text-white">
+              <FileText className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="text-3xl font-black text-amber-900">{exams.length}</div>
+              <div className="text-xs font-bold text-amber-700 uppercase tracking-wider">Active Examinations</div>
+            </div>
           </div>
         </div>
 

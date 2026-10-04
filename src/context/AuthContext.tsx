@@ -91,10 +91,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Update user record with current UID & last login timestamp
         await supabase.from('users').update({
-          ...account,
+          email: account.email,
+          full_name: account.fullName,
+          role: account.role,
           school_id: resolvedSchoolId,
-          schoolId: resolvedSchoolId,
-          last_login_at: new Date().toISOString()
+          created_at: new Date().toISOString() // Or last_login if you prefer
         }).eq('id', fbUser.uid);
 
         sessionStorage.setItem('haby_demo_user', JSON.stringify(account));
@@ -121,9 +122,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
 
       await supabase.from('users').insert({
-        ...newAccount,
+        id: fbUser.uid,
+        email: fbUser.email || normEmail,
+        full_name: fbUser.displayName || (isAdmin ? 'Administrator (Mwl. Habibu Akida)' : 'Academic Master'),
+        role: isSuperAdmin ? 'HEADMASTER' : 'ACADEMIC',
         school_id: schoolId,
-        schoolId,
         created_at: new Date().toISOString()
       });
 

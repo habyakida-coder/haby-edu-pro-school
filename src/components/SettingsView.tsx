@@ -14,7 +14,15 @@ import {
 import { PeriodSettingsManager } from './Timetable/PeriodSettingsManager';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
-import { SUBJECT_LIST, DEFAULT_SCHOOL_LOGO, PRESET_SCHOOL_LOGOS } from '../constants/defaults';
+import { SUBJECT_LIST, DEFAULT_SCHOOL_LOGO, PRESET_SCHOOL_LOGOS, DEFAULT_APP_DATA } from '../constants/defaults';
+import { saveSchoolData } from '../lib/firestoreService';
+
+const generateUUID = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
 
 interface SettingsViewProps {
   schoolInfo: SchoolInfo;
@@ -102,24 +110,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
     setCreatingSchool(true);
     try {
-      const newSchoolId = `school_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-      await supabase.from('schools').insert({
+      const newSchoolId = generateUUID();
+      
+      // 1. Insert into Supabase 'schools' table (valid columns only)
+      const { error: schoolError } = await supabase.from('schools').insert({
         id: newSchoolId,
         name: newSchoolName.trim(),
-        address: newSchoolAddress.trim() || 'P.O. Box, Tanzania',
-        phone: newSchoolPhone.trim() || '+255',
-        email: newSchoolEmail.trim() || 'info@school.ac.tz',
-        principal: newSchoolPrincipal.trim() || 'Headmaster',
-        motto: newSchoolMotto.trim() || 'Education & Excellence',
-        status: 'ACTIVE',
+        code: `CTR-${Date.now().toString().slice(-4)}`,
+        district: newSchoolAddress.trim() || 'Tanzania',
         created_at: new Date().toISOString()
       });
 
-      // Initialize schoolData
-      await supabase.from('school_data').insert({
-        id: newSchoolId,
-        school_id: newSchoolId,
-        schoolId: newSchoolId,
+      if (schoolError) throw new Error(`Supabase School Error: ${schoolError.message}`);
+
+      // 2. Initialize school snapshot in Firestore (durable store)
+      const fullSchoolData = {
+        ...DEFAULT_APP_DATA,
         schoolInfo: {
           name: newSchoolName.trim(),
           address: newSchoolAddress.trim() || 'P.O. Box, Tanzania',
@@ -127,12 +133,37 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           email: newSchoolEmail.trim() || 'info@school.ac.tz',
           principal: newSchoolPrincipal.trim() || 'Headmaster',
           motto: newSchoolMotto.trim() || 'Education & Excellence',
-          logo: ''
-        },
-        teachers: [],
-        students: [],
-        updated_at: new Date().toISOString()
-      });
+          logo: DEFAULT_SCHOOL_LOGO,
+          institutionalLevels: ['NURSERY', 'PRIMARY', 'SECONDARY']
+        }
+      };
+      
+      await saveSchoolData(newSchoolId, fullSchoolData);
+
+      // 3. Pre-populate Supabase core tables (mapped correctly)
+      if (DEFAULT_APP_DATA.students && DEFAULT_APP_DATA.students.length > 0) {
+        const mappedStudents = DEFAULT_APP_DATA.students.map(s => ({
+          id: generateUUID(),
+          school_id: newSchoolId,
+          name: s.name,
+          class: s.className || 'Form 1',
+          stream: s.stream || 'STREAM A',
+          gender: s.sex === 'F' ? 'Female' : 'Male',
+          created_at: new Date().toISOString()
+        }));
+        await supabase.from('students').insert(mappedStudents);
+      }
+
+      if (DEFAULT_APP_DATA.teachers && DEFAULT_APP_DATA.teachers.length > 0) {
+        const mappedTeachers = DEFAULT_APP_DATA.teachers.map(t => ({
+          id: generateUUID(),
+          school_id: newSchoolId,
+          name: t.name,
+          subject: t.subjects[0] || 'General',
+          created_at: new Date().toISOString()
+        }));
+        await supabase.from('teachers').insert(mappedTeachers);
+      }
 
       const { data: updatedList } = await supabase.from('schools').select('*');
       if (updatedList) {
@@ -145,12 +176,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setNewSchoolEmail('');
       setNewSchoolPrincipal('');
       setNewSchoolMotto('');
-      setUserMsg(`School "${newSchoolName}" registered successfully with ID: ${newSchoolId}`);
+      setUserMsg(`School "${newSchoolName}" registered successfully!`);
       setTimeout(() => setUserMsg(null), 4000);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error creating school:", err);
-      setUserMsg("Failed to register school profile.");
-      setTimeout(() => setUserMsg(null), 4000);
+      setUserMsg(`Failed to register school: ${err.message}`);
+      setTimeout(() => setUserMsg(null), 5000);
     } finally {
       setCreatingSchool(false);
     }
@@ -158,7 +189,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const updateSchoolStatus = async (schoolId: string, status: SchoolStatus) => {
     try {
-      await supabase.from('schools').update({ status }).eq('id', schoolId);
+      await supabase.from('schools').update({ code: status }).eq('id', schoolId);
       setAllSchools(prev => prev.map(s => s.id === schoolId ? { ...s, status } : s));
       setUserMsg(`School status updated to ${status}`);
       setTimeout(() => setUserMsg(null), 3000);
@@ -403,26 +434,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       const schoolDisplayName = targetSchool ? targetSchool.name : targetSchoolId;
       const normalizedEmail = adminEmail.trim().toLowerCase();
 
-      const newAdminUser: UserAccount = {
-        id: `usr_head_${Date.now()}`,
+      const newAdminUserId = generateUUID();
+      const newAdminUser = {
+        id: newAdminUserId,
         email: normalizedEmail,
-        fullName: adminFullName.trim(),
+        full_name: adminFullName.trim(),
         role: 'HEADMASTER',
-        password: adminPassword.trim(),
-        schoolId: targetSchoolId,
-        isSuperAdmin: false
-      };
-
-      await supabase.from('users').insert({
-        ...newAdminUser,
         school_id: targetSchoolId,
         created_at: new Date().toISOString()
-      });
+      };
+
+      const { error: userError } = await supabase.from('users').insert(newAdminUser);
+      if (userError) throw new Error(`Supabase User Error: ${userError.message}`);
 
       await supabase.from('schools').update({
-        adminUid: newAdminUser.id,
-        adminEmail: normalizedEmail,
-        principal: adminFullName.trim()
+        code: `ADM-${newAdminUserId.slice(0, 4)}`, // Optional: update something if needed
       }).eq('id', targetSchoolId);
 
       setAdminRegisterMsg({

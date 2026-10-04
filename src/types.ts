@@ -39,9 +39,11 @@ export interface Student {
   id: number;
   regNo: string;
   name: string;
-  gender: 'Male' | 'Female' | '';
+  gender?: 'Male' | 'Female' | '';
+  sex?: string;
+  status?: string;
   className: string; // "Baby Class", "Standard 1" to "Standard 7", "Form 1" to "Form 6"
-  level: EducationLevel;
+  level?: EducationLevel;
   dob: string;
   stream?: string;
   combination?: string;
@@ -385,6 +387,7 @@ export interface ExaminationRecord {
   id: string; // unique key `${studentId}_${academicYear}_${term}_${examType}`
   studentId: number;
   studentName: string;
+  regNo?: string;
   className: string;
   stream?: string;
   gender?: string;

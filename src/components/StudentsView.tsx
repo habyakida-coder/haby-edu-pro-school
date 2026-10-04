@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   UserPlus, 
   Download, 
@@ -76,10 +76,26 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   const [showAutoFillNotice, setShowAutoFillNotice] = useState(false);
   const [showCsvImportModal, setShowCsvImportModal] = useState(false);
 
-  // Active sub-tab: 'form' | 'register_list'
-  const [activeTab, setActiveTab] = useState<'form' | 'register_list'>('form');
+  // Recent Searches State
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  
+  useEffect(() => {
+    const saved = localStorage.getItem('haby_recent_searches');
+    if (saved) setRecentSearches(JSON.parse(saved));
+  }, []);
 
-  // Dynamic streams collected from all registered students
+  const saveSearch = (term: string) => {
+    if (!term.trim()) return;
+    const updated = [term, ...recentSearches.filter(s => s !== term)].slice(0, 5);
+    setRecentSearches(updated);
+    localStorage.setItem('haby_recent_searches', JSON.stringify(updated));
+  };
+
+  // Modified Search Handler
+  const handleSearch = (term: string) => {
+    setSearchFilter(term);
+    saveSearch(term);
+  };
   const allRegisteredStreams: string[] = useMemo(() => {
     const set = new Set<string>();
     ['A', 'B', 'C', 'D', 'E'].forEach((st: string) => set.add(st));
@@ -93,6 +109,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   }, [students]);
 
   // List filters & sorting (with gender-grouped alphabetical arrangement per user request)
+  const [activeTab, setActiveTab] = useState<'form' | 'register_list'>('register_list');
   const [searchFilter, setSearchFilter] = useState('');
   const [classFilter, setClassFilter] = useState('ALL');
   const [streamFilter, setStreamFilter] = useState('ALL');
@@ -1261,6 +1278,50 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
           </div>
         )}
 
+        {/* Student List Filters */}
+        <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex flex-wrap items-center gap-3 mb-4 no-print">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by name, reg, phone..."
+              value={searchFilter}
+              onChange={e => handleSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+            />
+            {recentSearches.length > 0 && !searchFilter && (
+              <div className="absolute top-full left-0 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 z-50">
+                <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase">Recent Searches</div>
+                {recentSearches.map((term, i) => (
+                  <button 
+                    key={i} 
+                    onClick={() => handleSearch(term)}
+                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-slate-50 cursor-pointer"
+                  >
+                    {term}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <select
+            value={classFilter}
+            onChange={e => setClassFilter(e.target.value)}
+            className="px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white"
+          >
+            <option value="ALL">All Classes</option>
+            {['Form 1', 'Form 2', 'Form 3', 'Form 4', 'Form 5', 'Form 6', 'Std 1', 'Std 2', 'Std 3', 'Std 4', 'Std 5', 'Std 6', 'Std 7'].map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select
+            value={streamFilter}
+            onChange={e => setStreamFilter(e.target.value)}
+            className="px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white"
+          >
+            <option value="ALL">All Streams</option>
+            {allRegisteredStreams.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+
         {/* Printable Section with Increased Font Size */}
         <div id="registered-students-print-table" className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
@@ -1449,7 +1510,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                       value={editingStudent.className}
                       onChange={e => {
                         const newClass = e.target.value;
-                        let newLevel: EducationLevel = editingStudent.level;
+                        let newLevel: EducationLevel = editingStudent.level || 'CSEE';
                         if (NURSERY_CLASSES.includes(newClass)) newLevel = 'PRE_PRIMARY';
                         else if (PRIMARY_CLASSES.includes(newClass)) newLevel = 'PRIMARY';
                         else if (['Form 1', 'Form 2', 'Form 3', 'Form 4'].includes(newClass)) newLevel = 'CSEE';

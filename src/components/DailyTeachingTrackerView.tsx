@@ -153,6 +153,20 @@ export const DailyTeachingTrackerView: React.FC<DailyTeachingTrackerViewProps> =
               ))}
             </select>
           </div>
+
+          <button
+            onClick={async () => {
+              if (confirm('Weka vipindi vyote vya leo kuwa VILIFUNDISHWA?')) {
+                for (const slot of timetableSlots) {
+                  await handleMarkAttendance(slot, 'taught');
+                }
+              }
+            }}
+            disabled={loading || timetableSlots.length === 0}
+            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl shadow-sm transition flex items-center gap-2 uppercase disabled:opacity-50"
+          >
+            <CheckCircle className="w-4 h-4" /> Auto-Fill (Taught All)
+          </button>
         </div>
 
         <div className="flex items-center gap-3 w-full sm:w-auto">
