@@ -25,6 +25,9 @@ import { AuthScreen } from './components/auth/AuthScreen';
 import { ParentPortalView } from './components/ParentPortalView';
 import { DailyTeachingTrackerView } from './components/DailyTeachingTrackerView';
 import { EvaluationAnalysisView } from './components/EvaluationAnalysisView';
+import { RemedialTimetableSetup } from './components/Remedial/RemedialTimetableSetup';
+import { RemedialDailyTracker } from './components/Remedial/RemedialDailyTracker';
+import { RemedialPaymentAnalyzer } from './components/Remedial/RemedialPaymentAnalyzer';
 import { useAuth } from './context/AuthContext';
 import SittingPlan from './components/SittingPlan.jsx';
 import SaasFinance from './components/SaasFinance.jsx';
@@ -1234,12 +1237,37 @@ export default function App() {
             <DailyTeachingTrackerView
               currentUser={userAccount}
               schoolInfo={data.schoolInfo}
+              timetableAssignments={data.timetableAssignments || []}
+              periodSettings={data.periodSettings || []}
             />
           )}
 
           {activeView === 'evaluationanalysis' && (
             <EvaluationAnalysisView
               currentUser={userAccount}
+              schoolInfo={data.schoolInfo}
+              timetableAssignments={data.timetableAssignments || []}
+              teachers={data.teachers}
+            />
+          )}
+
+          {activeView === 'remedialtimetable' && (
+            <RemedialTimetableSetup
+              schoolId={userAccount?.schoolId || DEFAULT_PRIMARY_SCHOOL_ID}
+              teachers={data.teachers}
+            />
+          )}
+
+          {activeView === 'remedialdaily' && (
+            <RemedialDailyTracker
+              schoolId={userAccount?.schoolId || DEFAULT_PRIMARY_SCHOOL_ID}
+              currentUser={userAccount}
+            />
+          )}
+
+          {activeView === 'remedialanalyzer' && (
+            <RemedialPaymentAnalyzer
+              schoolId={userAccount?.schoolId || DEFAULT_PRIMARY_SCHOOL_ID}
               schoolInfo={data.schoolInfo}
             />
           )}
@@ -1422,6 +1450,29 @@ export default function App() {
             />
           )}
         </main>
+
+        {/* System Provider Footer */}
+        <footer className="mt-12 pb-8 border-t border-slate-200 pt-8 text-center">
+          <div className="flex flex-col items-center gap-2">
+            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">System Provided & Managed By</p>
+            <h3 className="text-sm font-black text-slate-900 uppercase">MWL HABIBU AKIDA</h3>
+            <div className="flex items-center gap-4 mt-2">
+              <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
+                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                habibuakida@gmail.com
+              </div>
+              <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
+                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                +255 717 616 343
+              </div>
+              <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
+                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+                Software Developer & Academic Consultant
+              </div>
+            </div>
+            <p className="text-[9px] text-slate-300 font-medium mt-4 uppercase">© 2026 HABY EDU PRO • Comprehensive School Management System</p>
+          </div>
+        </footer>
       </div>
     </div>
   );

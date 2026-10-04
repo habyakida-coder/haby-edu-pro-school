@@ -16,7 +16,7 @@ export const getSchoolData = async (schoolId: string) => {
 };
 
 export const markPeriodAttendance = async (schoolId: string, record: any) => {
-  const recordId = `${schoolId}_${record.date}_${record.class_name}_${record.period_number}`;
+  const recordId = `${schoolId}_${record.date}_${record.class_name}_${record.stream}_${record.period_number}`;
   const docRef = doc(db, 'period_attendance', recordId);
   await setDoc(docRef, {
     ...record,

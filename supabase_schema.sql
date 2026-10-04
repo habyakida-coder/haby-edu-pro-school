@@ -53,7 +53,7 @@ ALTER TABLE public.users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
 UPDATE public.users 
 SET 
   school_id = '02dff10d-78fb-4af6-ab5a-db1d275d7e06',
-  full_name = 'Dr. Habibu Akida (Super Admin)',
+  full_name = 'Mwl. Habibu Akida (Super Admin)',
   role = 'super_admin'
 WHERE email = 'habibuakida@gmail.com';
 
@@ -232,7 +232,45 @@ CREATE TABLE IF NOT EXISTS public.parent_messages (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 12. ROW LEVEL SECURITY (RLS) POLICIES
+-- 12. REMEDIAL PAYMENT MODULE TABLES
+CREATE TABLE IF NOT EXISTS public.remedial_timetable (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_id UUID REFERENCES public.schools(id) ON DELETE CASCADE,
+  day_of_week TEXT NOT NULL,
+  period_time TEXT NOT NULL,
+  class_name TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  teacher_name TEXT NOT NULL,
+  stream TEXT DEFAULT 'A',
+  term TEXT DEFAULT 'Term 1',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.remedial_attendance (
+  id TEXT PRIMARY KEY, -- Composite: school_id_date_time_class
+  school_id UUID REFERENCES public.schools(id) ON DELETE CASCADE,
+  date DATE NOT NULL,
+  day_of_week TEXT NOT NULL,
+  period_time TEXT NOT NULL,
+  class_name TEXT NOT NULL,
+  subject TEXT,
+  teacher_name TEXT,
+  stream TEXT,
+  status TEXT DEFAULT 'taught',
+  rate_per_period NUMERIC DEFAULT 5000,
+  marked_by TEXT,
+  marked_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.remedial_payment_settings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_id UUID REFERENCES public.schools(id) ON DELETE CASCADE,
+  class_name TEXT,
+  rate_per_period NUMERIC DEFAULT 5000,
+  effective_date DATE DEFAULT CURRENT_DATE
+);
+
+-- 13. ROW LEVEL SECURITY (RLS) POLICIES
 ALTER TABLE public.schools ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
@@ -246,6 +284,9 @@ ALTER TABLE public.parents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.parent_students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.parent_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.remedial_timetable ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.remedial_attendance ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.remedial_payment_settings ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Allow public all access on schools" ON public.schools FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public all access on users" ON public.users FOR ALL USING (true) WITH CHECK (true);
@@ -260,6 +301,9 @@ CREATE POLICY "Allow public all access on parents" ON public.parents FOR ALL USI
 CREATE POLICY "Allow public all access on parent_students" ON public.parent_students FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public all access on announcements" ON public.announcements FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public all access on parent_messages" ON public.parent_messages FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public all access on remedial_timetable" ON public.remedial_timetable FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public all access on remedial_attendance" ON public.remedial_attendance FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public all access on remedial_payment_settings" ON public.remedial_payment_settings FOR ALL USING (true) WITH CHECK (true);
 
 -- 13. HIGH SPEED PERFORMANCE INDEXES
 CREATE INDEX IF NOT EXISTS idx_students_school ON public.students(school_id);
@@ -268,3 +312,5 @@ CREATE INDEX IF NOT EXISTS idx_exams_school ON public.exams(school_id);
 CREATE INDEX IF NOT EXISTS idx_exam_records_school ON public.exam_records(school_id);
 CREATE INDEX IF NOT EXISTS idx_users_school ON public.users(school_id);
 CREATE INDEX IF NOT EXISTS idx_parents_phone ON public.parents(phone);
+CREATE INDEX IF NOT EXISTS idx_remedial_tt_school ON public.remedial_timetable(school_id);
+CREATE INDEX IF NOT EXISTS idx_remedial_att_school ON public.remedial_attendance(school_id, date);

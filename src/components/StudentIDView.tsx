@@ -324,7 +324,7 @@ export const StudentIDView: React.FC<StudentIDViewProps> = ({
                   {/* Stamp / Signature */}
                   <div className="text-right">
                     <div className="text-[9px] text-slate-400 font-serif italic mb-0.5">
-                      {schoolInfo.principal || 'Dr. H. Akida'}
+                      {schoolInfo.principal || 'Mwl. H. Akida'}
                     </div>
                     <div className="text-[8px] font-bold text-slate-600 uppercase border-t border-slate-400 pt-0.5 tracking-tighter">
                       Head of School Stamp

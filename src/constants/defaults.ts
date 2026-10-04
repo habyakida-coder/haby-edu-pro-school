@@ -39,7 +39,7 @@ export const INITIAL_USERS: UserAccount[] = [
   {
     id: 'usr_head',
     email: 'headmaster@school.edu',
-    fullName: 'Dr. Habibu Akida',
+    fullName: 'Mwl. Habibu Akida',
     role: 'HEADMASTER',
     schoolId: 'DEMO_SCHOOL'
   },
@@ -670,7 +670,7 @@ export const DEFAULT_APP_DATA: AppData = {
     phone: '0717616343',
     email: 'info@kiomonisec.ac.tz',
     motto: 'Education for Development & Integrity',
-    principal: 'Dr. H. Akida',
+    principal: 'Mwl. H. Akida',
     logo: DEFAULT_SCHOOL_LOGO,
     institutionalLevels: ['NURSERY', 'PRIMARY', 'SECONDARY']
   },
@@ -686,7 +686,7 @@ export const DEFAULT_APP_DATA: AppData = {
       id: 'log_init_1',
       timestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
       userId: 'usr_head',
-      userName: 'Dr. Habibu Akida',
+      userName: 'Mwl. Habibu Akida',
       userEmail: 'habibuakida@gmail.com',
       userRole: 'HEADMASTER',
       action: 'SYSTEM_RESET',

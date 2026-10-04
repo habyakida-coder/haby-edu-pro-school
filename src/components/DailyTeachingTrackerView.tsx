@@ -7,10 +7,18 @@ import { DEFAULT_CLASSES } from '../constants/defaults';
 interface DailyTeachingTrackerViewProps {
   currentUser?: any;
   schoolInfo?: any;
+  timetableAssignments: any[];
+  periodSettings: any[];
 }
 
-export const DailyTeachingTrackerView: React.FC<DailyTeachingTrackerViewProps> = ({ currentUser, schoolInfo }) => {
+export const DailyTeachingTrackerView: React.FC<DailyTeachingTrackerViewProps> = ({ 
+  currentUser, 
+  schoolInfo,
+  timetableAssignments = [],
+  periodSettings = []
+}) => {
   const [selectedClass, setSelectedClass] = useState('Form Two');
+  const [selectedStream, setSelectedStream] = useState('A');
   const [todayDate, setTodayDate] = useState(new Date().toISOString().split('T')[0]);
   const [dayName, setDayName] = useState(() => {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -26,26 +34,38 @@ export const DailyTeachingTrackerView: React.FC<DailyTeachingTrackerViewProps> =
 
   useEffect(() => {
     fetchTodayTimetableAndAttendance();
-  }, [selectedClass, todayDate]);
+  }, [selectedClass, selectedStream, todayDate, timetableAssignments]);
 
   const fetchTodayTimetableAndAttendance = async () => {
     setLoading(true);
     try {
-      // 1. Fetch timetable slots from schoolInfo if available, else use fallback
-      // For now, we use the same fallback but we will get actual attendance from Firestore
-      const slots = [
-        { id: 'slot_1', day_of_week: dayName, period_number: 1, start_time: '07:30', end_time: '08:10', class_name: selectedClass, subject: 'Mathematics', teacher_name: 'Mr. MAHIBU', stream: 'A' },
-        { id: 'slot_2', day_of_week: dayName, period_number: 2, start_time: '08:10', end_time: '08:50', class_name: selectedClass, subject: 'English Language', teacher_name: 'Madam ASHA', stream: 'A' },
-        { id: 'slot_3', day_of_week: dayName, period_number: 3, start_time: '09:10', end_time: '09:50', class_name: selectedClass, subject: 'Biology', teacher_name: 'Dr. HABIBU', stream: 'A' },
-        { id: 'slot_4', day_of_week: dayName, period_number: 4, start_time: '09:50', end_time: '10:30', class_name: selectedClass, subject: 'Geography', teacher_name: 'Mr. JUMA', stream: 'A' }
-      ];
-      setTimetableSlots(slots);
+      // 1. Fetch timetable slots from passed timetableAssignments
+      const filteredSlots = timetableAssignments
+        .filter(a => a.day === dayName && a.className === selectedClass && (a.stream === selectedStream || !a.stream))
+        .map(a => {
+          const period = periodSettings.find(p => p.id === a.periodId);
+          return {
+            id: a.id,
+            period_number: period?.number || 1,
+            start_time: period?.startTime || '00:00',
+            end_time: period?.endTime || '00:00',
+            class_name: a.className,
+            subject: a.subject,
+            teacher_name: a.teacherName || 'Staff',
+            stream: a.stream || 'A'
+          };
+        })
+        .sort((a, b) => a.period_number - b.period_number);
+      
+      setTimetableSlots(filteredSlots);
 
-      // 2. Fetch existing attendance records from Firestore for today and this class
+      // 2. Fetch existing attendance records from Firestore for today, this class and stream
       const aData = await getPeriodAttendance(schoolId, todayDate, selectedClass);
+      // Filter by stream locally if the service doesn't support it yet or to be safe
+      const streamData = (aData || []).filter(a => a.stream === selectedStream);
 
       const attMap: Record<string, any> = {};
-      (aData || []).forEach(a => {
+      streamData.forEach(a => {
         attMap[a.period_number] = { status: a.status, reason: a.reason || '' };
       });
       setAttendanceRecords(attMap);
@@ -107,17 +127,32 @@ export const DailyTeachingTrackerView: React.FC<DailyTeachingTrackerViewProps> =
 
       {/* Class & Date Filters */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <label className="text-xs font-bold text-slate-700 uppercase whitespace-nowrap">Chagua Darasa:</label>
-          <select
-            value={selectedClass}
-            onChange={e => setSelectedClass(e.target.value)}
-            className="p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold text-xs text-slate-800 focus:ring-2 focus:ring-blue-600 outline-none w-full sm:w-48"
-          >
-            {DEFAULT_CLASSES.map(c => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
+        <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-bold text-slate-700 uppercase whitespace-nowrap">Class:</label>
+            <select
+              value={selectedClass}
+              onChange={e => setSelectedClass(e.target.value)}
+              className="p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold text-xs text-slate-800 focus:ring-2 focus:ring-blue-600 outline-none w-32"
+            >
+              {DEFAULT_CLASSES.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-bold text-slate-700 uppercase whitespace-nowrap">Stream:</label>
+            <select
+              value={selectedStream}
+              onChange={e => setSelectedStream(e.target.value)}
+              className="p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold text-xs text-slate-800 focus:ring-2 focus:ring-blue-600 outline-none w-24"
+            >
+              {['A', 'B', 'C', 'D', 'E', 'F'].map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="flex items-center gap-3 w-full sm:w-auto">

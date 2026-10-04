@@ -1310,7 +1310,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
                 </div>
                 <div className="border-t border-slate-400 pt-1">
                   <span className="font-bold text-slate-800 block">Head of School</span>
-                  <span className="text-[10px] text-slate-500">{schoolInfo.principal || 'Dr. Habibu Akida'}</span>
+                  <span className="text-[10px] text-slate-500">{schoolInfo.principal || 'Mwl. Habibu Akida'}</span>
                 </div>
               </div>
             </div>

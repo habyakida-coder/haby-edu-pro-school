@@ -1005,7 +1005,7 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
           phone: '0717616343',
           email: 'info@kiomonisec.ac.tz',
           motto: 'Education for Development & Integrity',
-          principal: 'Dr. H. Akida'
+          principal: 'Mwl. H. Akida'
         }}
         initialExamId={docModalExamId}
       />

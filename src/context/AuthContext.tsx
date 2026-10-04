@@ -83,7 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const account: UserAccount = {
           id: fbUser.uid,
           email: fbUser.email || normEmail,
-          fullName: data.fullName || fbUser.displayName || (isAdmin ? 'Administrator (Dr. Habibu Akida)' : 'Authorized User'),
+          fullName: data.fullName || fbUser.displayName || (isAdmin ? 'Administrator (Mwl. Habibu Akida)' : 'Authorized User'),
           role: data.role || (isSuperAdmin ? 'HEADMASTER' : 'ACADEMIC'),
           schoolId: resolvedSchoolId,
           isSuperAdmin: data.isSuperAdmin ?? isSuperAdmin
@@ -114,7 +114,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const newAccount: UserAccount = {
         id: fbUser.uid,
         email: fbUser.email || normEmail,
-        fullName: fbUser.displayName || (isAdmin ? 'Administrator (Dr. Habibu Akida)' : 'Academic Master'),
+        fullName: fbUser.displayName || (isAdmin ? 'Administrator (Mwl. Habibu Akida)' : 'Academic Master'),
         role: isSuperAdmin ? 'HEADMASTER' : 'ACADEMIC',
         schoolId,
         isSuperAdmin
@@ -136,7 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const fallbackAccount: UserAccount = {
         id: fbUser.uid,
         email: fbUser.email || normEmail,
-        fullName: fbUser.displayName || (isAdmin ? 'Administrator (Dr. Habibu Akida)' : 'Authorized User'),
+        fullName: fbUser.displayName || (isAdmin ? 'Administrator (Mwl. Habibu Akida)' : 'Authorized User'),
         role: isSuperAdmin ? 'HEADMASTER' : 'ACADEMIC',
         schoolId: fallbackSchoolId,
         isSuperAdmin
@@ -194,7 +194,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const superAdminAccount: UserAccount = {
           id: 'admin_haby_root',
           email: ADMIN_EMAIL,
-          fullName: 'Administrator (Dr. Habibu Akida)',
+          fullName: 'Administrator (Mwl. Habibu Akida)',
           role: 'HEADMASTER',
           schoolId: 'DEMO_SCHOOL',
           isSuperAdmin: true
@@ -256,7 +256,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const adminAccount: UserAccount = {
           id: fbUser?.uid || 'admin_haby_root',
           email: normalizedEmail,
-          fullName: 'Dr. Habibu Akida (Super Admin)',
+          fullName: 'Mwl. Habibu Akida (Super Admin)',
           role: 'HEADMASTER',
           schoolId,
           isSuperAdmin: true,
@@ -316,7 +316,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const adminAccount: UserAccount = {
           id: fbUser?.uid || 'admin_haby_root',
           email: normalizedEmail,
-          fullName: 'Administrator (Dr. Habibu Akida)',
+          fullName: 'Administrator (Mwl. Habibu Akida)',
           role: 'HEADMASTER',
           schoolId,
           isSuperAdmin: true

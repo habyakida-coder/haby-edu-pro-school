@@ -49,7 +49,10 @@ export type ActiveView =
   | 'settings'
   | 'markentry'
   | 'dailytracker'
-  | 'evaluationanalysis';
+  | 'evaluationanalysis'
+  | 'remedialtimetable'
+  | 'remedialdaily'
+  | 'remedialanalyzer';
 
 interface NavigationProps {
   activeView: ActiveView;
@@ -91,7 +94,10 @@ export const Navigation: React.FC<NavigationProps> = ({
     { id: 'settings', label: 'Settings', icon: <SettingsIcon className="w-4 h-4" /> },
     { id: 'markentry', label: 'Mark Entry', icon: <CheckCircle2 className="w-4 h-4" /> },
     { id: 'dailytracker', label: 'Daily Tracker', icon: <CalendarCheck className="w-4 h-4 text-emerald-400" /> },
-    { id: 'evaluationanalysis', label: 'Evaluation Analysis', icon: <Award className="w-4 h-4 text-amber-400" /> }
+    { id: 'evaluationanalysis', label: 'Evaluation Analysis', icon: <Award className="w-4 h-4 text-amber-400" /> },
+    { id: 'remedialtimetable', label: 'Remedial Table', icon: <Calendar className="w-4 h-4 text-indigo-400" /> },
+    { id: 'remedialdaily', label: 'Remedial Ticker', icon: <CheckCircle2 className="w-4 h-4 text-rose-400" /> },
+    { id: 'remedialanalyzer', label: 'Remedial Pay', icon: <Wallet className="w-4 h-4 text-emerald-400" /> }
   ] as { id: ActiveView; label: string; icon: React.ReactNode }[]).filter(item => {
     // Teachers have access to academic, planning, records, sitting plans, and timetable tools
     if (isTeacher) {
@@ -109,7 +115,12 @@ export const Navigation: React.FC<NavigationProps> = ({
         'timetable', 
         'invigilation', 
         'discipline', 
-        'markentry'
+        'markentry',
+        'dailytracker',
+        'evaluationanalysis',
+        'remedialtimetable',
+        'remedialdaily',
+        'remedialanalyzer'
       ] as ActiveView[]).includes(item.id);
     }
     return true;
@@ -167,15 +178,6 @@ export const Navigation: React.FC<NavigationProps> = ({
                   </div>
                 </div>
               </div>
-              {!currentUser.isSuperAdmin && (
-                <div className="ml-3 hidden lg:flex items-center gap-2 border-l border-white/20 pl-3">
-                  <div className="text-right">
-                    <div className="text-[9px] font-bold text-blue-300 uppercase tracking-tighter">Support Admin</div>
-                    <div className="text-[10px] font-bold text-white leading-tight">habibuakida@gmail.com</div>
-                  </div>
-                  <Shield className="w-3.5 h-3.5 text-blue-400" />
-                </div>
-              )}
               {onLogout && (
                 <a
                   href="/parent"

@@ -7,9 +7,16 @@ import { DEFAULT_CLASSES } from '../constants/defaults';
 interface EvaluationAnalysisViewProps {
   currentUser?: any;
   schoolInfo?: any;
+  timetableAssignments: any[];
+  teachers: any[];
 }
 
-export const EvaluationAnalysisView: React.FC<EvaluationAnalysisViewProps> = ({ currentUser, schoolInfo }) => {
+export const EvaluationAnalysisView: React.FC<EvaluationAnalysisViewProps> = ({ 
+  currentUser, 
+  schoolInfo,
+  timetableAssignments = [],
+  teachers = []
+}) => {
   const [selectedTerm, setSelectedTerm] = useState('Term 1');
   const [selectedMonth, setSelectedMonth] = useState('February');
   const [selectedWeek, setSelectedWeek] = useState('Week 1 (27 Feb - 03 Mar)');
@@ -26,6 +33,7 @@ export const EvaluationAnalysisView: React.FC<EvaluationAnalysisViewProps> = ({ 
     setLoading(true);
     try {
       // 1. Get date range for selected week
+      // In a real app, this would be derived from the selected week/month
       let startDate = '2023-02-27';
       let endDate = '2023-03-03';
       
@@ -43,21 +51,35 @@ export const EvaluationAnalysisView: React.FC<EvaluationAnalysisViewProps> = ({ 
       // Group by Subject + Teacher Name
       const map = new Map<string, { subject: string; teacher: string; stream: string; expected: number; taught: number; reasons: string[] }>();
 
-      // Fallback slots (Expected)
+      // Derive expected slots from actual timetableAssignments
       const multiplier = reportType === 'weekly' ? 1 : reportType === 'monthly' ? 4 : 12;
-      const expectedSlots = [
-        { subject: 'Mathematics', teacher: 'Mr. MAHIBU', stream: 'A, B' },
-        { subject: 'English Language', teacher: 'Madam ASHA', stream: 'A, B' },
-        { subject: 'Biology', teacher: 'Dr. HABIBU', stream: 'A, B' },
-        { subject: 'Geography', teacher: 'Mr. JUMA', stream: 'A, B' },
-        { subject: 'History', teacher: 'Madam ZUHURA', stream: 'A, B' }
-      ];
+      
+      const expectedSlotsFromData = timetableAssignments
+        .filter(a => a.className === selectedClass)
+        .reduce((acc: any[], curr) => {
+          const key = `${curr.subject}_${curr.teacherName}`;
+          let existing = acc.find(x => x.subject === curr.subject && x.teacher === curr.teacherName);
+          if (existing) {
+            existing.count += 1;
+            if (!existing.stream.includes(curr.stream)) {
+              existing.stream += `, ${curr.stream}`;
+            }
+          } else {
+            acc.push({
+              subject: curr.subject,
+              teacher: curr.teacherName || 'Staff',
+              stream: curr.stream || 'A',
+              count: 1
+            });
+          }
+          return acc;
+        }, []);
 
-      expectedSlots.forEach(s => {
+      expectedSlotsFromData.forEach(s => {
         const key = `${s.subject}_${s.teacher}`;
         map.set(key, {
           ...s,
-          expected: 10 * multiplier, // Dummy expected count for demo
+          expected: s.count * multiplier,
           taught: 0,
           reasons: []
         });
