@@ -60,8 +60,9 @@ interface StudentsViewProps {
   onUpdateStreamSettings?: (settings: StreamSetting[]) => void;
   onAddStudent: (student: Student) => void;
   onUpdateStudent: (student: Student) => void;
-  onDeleteStudent: (id: number) => void;
-  onBulkDeleteStudents?: (ids: number[]) => void;
+  onUpdateStudents?: (students: Student[]) => void;
+  onDeleteStudent: (id: number | string) => void;
+  onBulkDeleteStudents?: (ids: (number | string)[]) => void;
   onBulkAddStudents?: (newStudents: Student[]) => void;
 }
 
@@ -72,6 +73,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   onUpdateStreamSettings,
   onAddStudent,
   onUpdateStudent,
+  onUpdateStudents,
   onDeleteStudent,
   onBulkDeleteStudents,
   onBulkAddStudents
@@ -700,10 +702,11 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
       return s;
     });
 
-    if (onBulkAddStudents) {
-      // update collection
+    if (onUpdateStudents) {
+      onUpdateStudents(updated);
+    } else {
+      updated.filter(s => targetSet.has(s.id)).forEach(s => onUpdateStudent(s));
     }
-    updated.filter(s => targetSet.has(s.id)).forEach(s => onUpdateStudent(s));
     setStudentCreatedNotice(`Successfully enrolled ${selectedStudentIds.length} students into: ${bulkEnrollSubjects.join(', ')}`);
     setTimeout(() => setStudentCreatedNotice(null), 5000);
     setBulkEnrollSubjects([]);
@@ -726,7 +729,11 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
       return s;
     });
 
-    updated.filter(s => targetSet.has(s.id)).forEach(s => onUpdateStudent(s));
+    if (onUpdateStudents) {
+      onUpdateStudents(updated);
+    } else {
+      updated.filter(s => targetSet.has(s.id)).forEach(s => onUpdateStudent(s));
+    }
     setStudentCreatedNotice(`Successfully removed ${bulkRemoveSubjects.join(', ')} from ${selectedStudentIds.length} students.`);
     setTimeout(() => setStudentCreatedNotice(null), 5000);
     setBulkRemoveSubjects([]);

@@ -124,17 +124,28 @@ export default function App() {
         // B. Try Firestore for the cloud snapshot
         const firestoreSnapshot = await getSchoolData(schoolId);
         
-        if (firestoreSnapshot && typeof firestoreSnapshot === 'object' && Array.isArray(firestoreSnapshot.students)) {
-          console.log("Loaded reliable data from Firestore for school:", schoolId, "Student count:", firestoreSnapshot.students.length);
+        if (firestoreSnapshot && typeof firestoreSnapshot === 'object') {
+          console.log("Loaded reliable data from Firestore for school:", schoolId);
           
           setData(prev => {
+            const snapStudents = Array.isArray(firestoreSnapshot.students) ? firestoreSnapshot.students : [];
+            const snapTeachers = Array.isArray(firestoreSnapshot.teachers) ? firestoreSnapshot.teachers : [];
+            const snapExams = Array.isArray(firestoreSnapshot.exams) ? firestoreSnapshot.exams : [];
+            const snapStreams = Array.isArray(firestoreSnapshot.streamSettings) ? firestoreSnapshot.streamSettings : [];
+
+            // Never overwrite existing data with empty array unless prev is also empty
+            const nextStudents = (snapStudents.length > 0 || prev.students.length === 0) ? snapStudents : prev.students;
+            const nextTeachers = (snapTeachers.length > 0 || prev.teachers.length === 0) ? snapTeachers : prev.teachers;
+            const nextExams = (snapExams.length > 0 || prev.exams.length === 0) ? snapExams : prev.exams;
+            const nextStreams = (snapStreams.length > 0 || (prev.streamSettings || []).length === 0) ? snapStreams : prev.streamSettings;
+
             const merged: AppData = {
               ...prev,
               ...firestoreSnapshot,
-              students: Array.isArray(firestoreSnapshot.students) ? firestoreSnapshot.students : prev.students,
-              teachers: Array.isArray(firestoreSnapshot.teachers) ? firestoreSnapshot.teachers : prev.teachers,
-              exams: Array.isArray(firestoreSnapshot.exams) ? firestoreSnapshot.exams : prev.exams,
-              streamSettings: Array.isArray(firestoreSnapshot.streamSettings) ? firestoreSnapshot.streamSettings : prev.streamSettings
+              students: nextStudents,
+              teachers: nextTeachers,
+              exams: nextExams,
+              streamSettings: nextStreams
             };
             try { localStorage.setItem(schoolKey, JSON.stringify(merged)); } catch (e) {}
             return merged;
@@ -142,7 +153,9 @@ export default function App() {
 
           setIsCloudSynced(true);
           setDataLoading(false);
-          return;
+          if (firestoreSnapshot.students && firestoreSnapshot.students.length > 0) {
+            return;
+          }
         }
 
         // C. Fallback: Fetch all records from Supabase tables
@@ -155,10 +168,10 @@ export default function App() {
           supabase.from('exams').select('*').eq('school_id', schoolId)
         ]);
 
-        const rawStudents = (studRes && Array.isArray(studRes.data)) ? studRes.data : null;
-        const rawRecords = (recRes && Array.isArray(recRes.data)) ? recRes.data : null;
-        const rawTeachers = (teachRes && Array.isArray(teachRes.data)) ? teachRes.data : null;
-        const rawExams = (examRes && Array.isArray(examRes.data)) ? examRes.data : null;
+        const rawStudents = (studRes && Array.isArray(studRes.data) && studRes.data.length > 0) ? studRes.data : null;
+        const rawRecords = (recRes && Array.isArray(recRes.data) && recRes.data.length > 0) ? recRes.data : null;
+        const rawTeachers = (teachRes && Array.isArray(teachRes.data) && teachRes.data.length > 0) ? teachRes.data : null;
+        const rawExams = (examRes && Array.isArray(examRes.data) && examRes.data.length > 0) ? examRes.data : null;
 
         setData(prev => {
           const nextStudents = rawStudents !== null 
@@ -200,16 +213,26 @@ export default function App() {
 
     // Real-Time Synchronization: Subscribe to real-time updates from Firestore across devices
     const unsubscribe = subscribeSchoolData(schoolId, (firestoreSnapshot) => {
-      if (firestoreSnapshot && typeof firestoreSnapshot === 'object' && Array.isArray(firestoreSnapshot.students)) {
-        console.log("Real-time cloud sync from Firestore! Students count:", firestoreSnapshot.students.length);
+      if (firestoreSnapshot && typeof firestoreSnapshot === 'object') {
+        console.log("Real-time cloud sync from Firestore!");
         setData(prev => {
+          const snapStudents = Array.isArray(firestoreSnapshot.students) ? firestoreSnapshot.students : [];
+          const snapTeachers = Array.isArray(firestoreSnapshot.teachers) ? firestoreSnapshot.teachers : [];
+          const snapExams = Array.isArray(firestoreSnapshot.exams) ? firestoreSnapshot.exams : [];
+          const snapStreams = Array.isArray(firestoreSnapshot.streamSettings) ? firestoreSnapshot.streamSettings : [];
+
+          const useStudents = (snapStudents.length > 0 || prev.students.length === 0) ? snapStudents : prev.students;
+          const useTeachers = (snapTeachers.length > 0 || prev.teachers.length === 0) ? snapTeachers : prev.teachers;
+          const useExams = (snapExams.length > 0 || prev.exams.length === 0) ? snapExams : prev.exams;
+          const useStreams = (snapStreams.length > 0 || (prev.streamSettings || []).length === 0) ? snapStreams : prev.streamSettings;
+
           const merged: AppData = {
             ...prev,
             ...firestoreSnapshot,
-            students: Array.isArray(firestoreSnapshot.students) ? firestoreSnapshot.students : prev.students,
-            teachers: Array.isArray(firestoreSnapshot.teachers) ? firestoreSnapshot.teachers : prev.teachers,
-            exams: Array.isArray(firestoreSnapshot.exams) ? firestoreSnapshot.exams : prev.exams,
-            streamSettings: Array.isArray(firestoreSnapshot.streamSettings) ? firestoreSnapshot.streamSettings : prev.streamSettings
+            students: useStudents,
+            teachers: useTeachers,
+            exams: useExams,
+            streamSettings: useStreams
           };
           try { localStorage.setItem(schoolKey, JSON.stringify(merged)); } catch (e) {}
           return merged;
@@ -254,10 +277,10 @@ export default function App() {
         supabase.from('school_data').select('*').eq('school_id', schoolId).limit(1)
       ]);
 
-      const remoteStudents = (studRes.status === 'fulfilled' && Array.isArray(studRes.value.data)) ? studRes.value.data : null;
-      const remoteRecords = (recRes.status === 'fulfilled' && Array.isArray(recRes.value.data)) ? recRes.value.data : null;
-      const remoteTeachers = (teachRes.status === 'fulfilled' && Array.isArray(teachRes.value.data)) ? teachRes.value.data : null;
-      const remoteExams = (examRes.status === 'fulfilled' && Array.isArray(examRes.value.data)) ? examRes.value.data : null;
+      const remoteStudents = (studRes.status === 'fulfilled' && Array.isArray(studRes.value.data) && studRes.value.data.length > 0) ? studRes.value.data : null;
+      const remoteRecords = (recRes.status === 'fulfilled' && Array.isArray(recRes.value.data) && recRes.value.data.length > 0) ? recRes.value.data : null;
+      const remoteTeachers = (teachRes.status === 'fulfilled' && Array.isArray(teachRes.value.data) && teachRes.value.data.length > 0) ? teachRes.value.data : null;
+      const remoteExams = (examRes.status === 'fulfilled' && Array.isArray(examRes.value.data) && examRes.value.data.length > 0) ? examRes.value.data : null;
       const remoteDataArr = (schoolDataRes.status === 'fulfilled' && Array.isArray(schoolDataRes.value.data)) ? schoolDataRes.value.data : [];
       const remoteData = (remoteDataArr.length > 0 ? remoteDataArr[0] : {}) as Partial<AppData>;
 
@@ -267,16 +290,16 @@ export default function App() {
           ...remoteData,
           students: remoteStudents !== null
             ? remoteStudents.map((s: any) => ({ ...s, id: s.id ?? (isNaN(Number(s.id)) ? s.id : Number(s.id)) }))
-            : (remoteData.students || prev.students),
+            : (remoteData.students && remoteData.students.length > 0 ? remoteData.students : prev.students),
           teachers: remoteTeachers !== null
             ? remoteTeachers.map((t: any) => ({ ...t, id: t.id ?? (isNaN(Number(t.id)) ? t.id : Number(t.id)) }))
-            : (remoteData.teachers || prev.teachers),
+            : (remoteData.teachers && remoteData.teachers.length > 0 ? remoteData.teachers : prev.teachers),
           exams: remoteExams !== null
             ? remoteExams
-            : (remoteData.exams || prev.exams),
+            : (remoteData.exams && remoteData.exams.length > 0 ? remoteData.exams : prev.exams),
           examinationRecords: remoteRecords !== null
             ? remoteRecords
-            : (remoteData.examinationRecords || prev.examinationRecords)
+            : (remoteData.examinationRecords && remoteData.examinationRecords.length > 0 ? remoteData.examinationRecords : prev.examinationRecords)
         };
         try {
           localStorage.setItem(schoolKey, JSON.stringify(next));
@@ -1083,6 +1106,7 @@ export default function App() {
               }}
               onAddStudent={handleAddStudent}
               onUpdateStudent={handleUpdateStudent}
+              onUpdateStudents={handleUpdateStudents}
               onDeleteStudent={handleDeleteStudent}
               onBulkDeleteStudents={handleBulkDeleteStudents}
               onBulkAddStudents={handleBulkAddStudents}

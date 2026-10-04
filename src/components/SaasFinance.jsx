@@ -21,6 +21,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
+import { saveSchoolData, getSchoolData } from '../lib/firestoreService';
+
 const AVAILABLE_CLASS_LEVELS = [
   'Form 1',
   'Form 2',
@@ -84,39 +86,91 @@ export default function SaasFinance({ schoolId = 'DEMO_SCHOOL', currentUser = nu
     }
   };
 
-  // Fetch Contribution Types
+  const typesStorageKey = `haby_contribution_types_${schoolId}`;
+  const ledgerStorageKey = `haby_student_ledger_${schoolId}`;
+
+  // Fetch Contribution Types with local & Firestore fallback
   const loadContributionTypes = async () => {
+    setLoadingTypes(true);
+    let loaded = false;
+
+    // 1. LocalStorage
     try {
-      setLoadingTypes(true);
+      const cached = localStorage.getItem(typesStorageKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setContributionTypes(parsed);
+          loaded = true;
+        }
+      }
+    } catch (e) {}
+
+    // 2. Firestore
+    try {
+      const fsData = await getSchoolData(schoolId);
+      if (fsData && Array.isArray(fsData.contributionTypes) && fsData.contributionTypes.length > 0) {
+        setContributionTypes(fsData.contributionTypes);
+        localStorage.setItem(typesStorageKey, JSON.stringify(fsData.contributionTypes));
+        loaded = true;
+      }
+    } catch (e) {}
+
+    // 3. Supabase
+    try {
       const res = await supabase
         .from('contribution_types')
         .select('*')
         .eq('school_id', schoolId);
 
-      if (res.data) {
+      if (res.data && res.data.length > 0) {
         setContributionTypes(res.data);
+        localStorage.setItem(typesStorageKey, JSON.stringify(res.data));
       }
     } catch (err) {
-      console.warn('Error loading contribution_types:', err);
+      console.warn('Error loading contribution_types from Supabase:', err);
     } finally {
       setLoadingTypes(false);
     }
   };
 
-  // Fetch Student Ledger
+  // Fetch Student Ledger with local & Firestore fallback
   const loadStudentLedger = async () => {
+    setLoadingLedger(true);
+
+    // 1. LocalStorage
     try {
-      setLoadingLedger(true);
+      const cached = localStorage.getItem(ledgerStorageKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setLedger(parsed);
+        }
+      }
+    } catch (e) {}
+
+    // 2. Firestore
+    try {
+      const fsData = await getSchoolData(schoolId);
+      if (fsData && Array.isArray(fsData.studentLedger) && fsData.studentLedger.length > 0) {
+        setLedger(fsData.studentLedger);
+        localStorage.setItem(ledgerStorageKey, JSON.stringify(fsData.studentLedger));
+      }
+    } catch (e) {}
+
+    // 3. Supabase
+    try {
       const res = await supabase
         .from('student_ledger')
         .select('*')
         .eq('school_id', schoolId);
 
-      if (res.data) {
+      if (res.data && res.data.length > 0) {
         setLedger(res.data);
+        localStorage.setItem(ledgerStorageKey, JSON.stringify(res.data));
       }
     } catch (err) {
-      console.warn('Error loading student_ledger:', err);
+      console.warn('Error loading student_ledger from Supabase:', err);
     } finally {
       setLoadingLedger(false);
     }
@@ -142,22 +196,44 @@ export default function SaasFinance({ schoolId = 'DEMO_SCHOOL', currentUser = nu
     }
 
     try {
+      let updatedTypes = [...contributionTypes];
+      let updatedLedger = [...ledger];
+
       if (editingType) {
-        // Update existing type
-        await supabase
-          .from('contribution_types')
-          .update({
-            name: formName.trim(),
-            amount_default: defaultAmt,
-            class_levels: formClasses,
-            academic_year: formTerm
-          })
-          .eq('id', editingType.id);
+        // Update existing type locally
+        const targetId = editingType.id;
+        updatedTypes = updatedTypes.map(t => {
+          if (t.id === targetId) {
+            return {
+              ...t,
+              name: formName.trim(),
+              amount_default: defaultAmt,
+              class_levels: formClasses,
+              academic_year: formTerm
+            };
+          }
+          return t;
+        });
+
+        // Supabase async update
+        try {
+          await supabase
+            .from('contribution_types')
+            .update({
+              name: formName.trim(),
+              amount_default: defaultAmt,
+              class_levels: formClasses,
+              academic_year: formTerm
+            })
+            .eq('id', targetId);
+        } catch (e) {}
 
         showToast(`Mchango wa "${formName}" umesasishwa kikamilifu!`);
       } else {
         // Create new contribution type
+        const newTypeId = `type_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
         const newType = {
+          id: newTypeId,
           school_id: schoolId,
           name: formName.trim(),
           amount_default: defaultAmt,
@@ -166,22 +242,29 @@ export default function SaasFinance({ schoolId = 'DEMO_SCHOOL', currentUser = nu
           created_by: currentUser?.fullName || 'Super Admin'
         };
 
-        const insertRes = await supabase.from('contribution_types').insert(newType);
-        const createdTypeId = insertRes.data?.id || `type_${Date.now()}`;
+        updatedTypes = [newType, ...updatedTypes];
+
+        // Try Supabase insert
+        let createdTypeId = newTypeId;
+        try {
+          const insertRes = await supabase.from('contribution_types').insert(newType).select();
+          if (insertRes.data && insertRes.data[0]?.id) {
+            createdTypeId = insertRes.data[0].id;
+          }
+        } catch (e) {}
 
         // SAAS AUTO-CREATION:
-        // When school adds a new contribution type, auto-create debts for all students in those class_levels:
-        // FOR EACH student WHERE class_level IN selected_classes:
-        // INSERT INTO student_ledger (school_id, student_cno, contribution_type_id, required_amount = amount_default, paid=0, balance=amount_default)
+        // When school adds a new contribution type, auto-create debts for all students in those class_levels
         const targetStudents = students.filter(s => {
           if (!s.className) return false;
           return formClasses.some(c => c.toLowerCase() === s.className.toLowerCase() || s.className.toLowerCase().includes(c.toLowerCase()));
         });
 
         if (targetStudents.length > 0) {
-          const ledgerEntries = targetStudents.map(st => {
+          const newLedgerEntries = targetStudents.map(st => {
             const cno = st.regNo || String(st.id);
             return {
+              id: `ledg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
               school_id: schoolId,
               student_cno: cno,
               student_name: st.name,
@@ -195,18 +278,30 @@ export default function SaasFinance({ schoolId = 'DEMO_SCHOOL', currentUser = nu
             };
           });
 
-          await supabase.from('student_ledger').insert(ledgerEntries);
+          updatedLedger = [...newLedgerEntries, ...updatedLedger];
+
+          try {
+            await supabase.from('student_ledger').insert(newLedgerEntries);
+          } catch (e) {}
         }
 
         showToast(`Mchango mpya wa "${formName}" umeongezwa na kuunganishwa kwa wanafunzi ${targetStudents.length}!`);
       }
 
+      // Sync state, localStorage, and Firestore
+      setContributionTypes(updatedTypes);
+      setLedger(updatedLedger);
+      localStorage.setItem(typesStorageKey, JSON.stringify(updatedTypes));
+      localStorage.setItem(ledgerStorageKey, JSON.stringify(updatedLedger));
+      await saveSchoolData(schoolId, {
+        contributionTypes: updatedTypes,
+        studentLedger: updatedLedger
+      }).catch(() => {});
+
       setIsModalOpen(false);
       setEditingType(null);
       setFormName('');
       setFormAmount('');
-      loadContributionTypes();
-      loadStudentLedger();
     } catch (err) {
       console.error('Error saving contribution type:', err);
       showToast('Hitilafu ya kuhifadhi mchango: ' + (err.message || 'Error'), true);
@@ -217,10 +312,17 @@ export default function SaasFinance({ schoolId = 'DEMO_SCHOOL', currentUser = nu
   const confirmDeleteType = async () => {
     if (!deletingType) return;
     try {
-      await supabase.from('contribution_types').delete().eq('id', deletingType.id);
+      const updatedTypes = contributionTypes.filter(t => t.id !== deletingType.id);
+      setContributionTypes(updatedTypes);
+      localStorage.setItem(typesStorageKey, JSON.stringify(updatedTypes));
+
+      try {
+        await supabase.from('contribution_types').delete().eq('id', deletingType.id);
+      } catch (e) {}
+
+      await saveSchoolData(schoolId, { contributionTypes: updatedTypes }).catch(() => {});
       showToast(`Mchango wa "${deletingType.name}" umefutwa.`);
       setDeletingType(null);
-      loadContributionTypes();
     } catch (err) {
       console.error('Delete error:', err);
       showToast('Hitilafu wakati wa kufuta: ' + (err.message || 'Error'), true);
@@ -243,20 +345,71 @@ export default function SaasFinance({ schoolId = 'DEMO_SCHOOL', currentUser = nu
     const newStatus = newBalance === 0 ? 'PAID' : 'PARTIAL';
 
     try {
-      await supabase
-        .from('student_ledger')
-        .update({
+      const updatedLedger = ledger.map(l => {
+        if (l.id === paymentTargetLedger.id || (l.student_cno === paymentTargetLedger.student_cno && l.contribution_name === paymentTargetLedger.contribution_name)) {
+          return {
+            ...l,
+            paid_amount: newPaid,
+            balance: newBalance,
+            status: newStatus
+          };
+        }
+        return l;
+      });
+
+      // If record didn't exist in ledger array yet, add it
+      const exists = updatedLedger.some(l => l.id === paymentTargetLedger.id || (l.student_cno === paymentTargetLedger.student_cno && l.contribution_name === paymentTargetLedger.contribution_name));
+      if (!exists && paymentTargetLedger.type) {
+        updatedLedger.push({
+          id: `ledg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          school_id: schoolId,
+          student_cno: selectedStudentCno,
+          student_name: currentViewingStudent?.name || 'Student',
+          class_level: currentViewingStudent?.className || '',
+          contribution_type_id: paymentTargetLedger.type.id,
+          contribution_name: paymentTargetLedger.type.name,
+          required_amount: required,
           paid_amount: newPaid,
           balance: newBalance,
           status: newStatus
-        })
-        .eq('id', paymentTargetLedger.id);
+        });
+      }
+
+      setLedger(updatedLedger);
+      localStorage.setItem(ledgerStorageKey, JSON.stringify(updatedLedger));
+
+      try {
+        if (paymentTargetLedger.id && typeof paymentTargetLedger.id === 'string' && !paymentTargetLedger.id.startsWith('ledg_')) {
+          await supabase
+            .from('student_ledger')
+            .update({
+              paid_amount: newPaid,
+              balance: newBalance,
+              status: newStatus
+            })
+            .eq('id', paymentTargetLedger.id);
+        } else {
+          await supabase.from('student_ledger').upsert({
+            school_id: schoolId,
+            student_cno: selectedStudentCno,
+            student_name: currentViewingStudent?.name || 'Student',
+            class_level: currentViewingStudent?.className || '',
+            contribution_type_id: paymentTargetLedger.type?.id || 'type_default',
+            contribution_name: paymentTargetLedger.type?.name || paymentTargetLedger.contribution_name,
+            required_amount: required,
+            paid_amount: newPaid,
+            balance: newBalance,
+            status: newStatus
+          });
+        }
+      } catch (e) {}
+
+      await saveSchoolData(schoolId, { studentLedger: updatedLedger }).catch(() => {});
 
       showToast(`Malipo ya TZS ${payment.toLocaleString()} yamepokelewa kikamilifu! Salio: TZS ${newBalance.toLocaleString()}`);
       setPaymentModalOpen(false);
       setPaymentTargetLedger(null);
       setPaymentAmountInput('');
-      loadStudentLedger();
     } catch (err) {
       console.error('Error recording payment:', err);
       showToast('Hitilafu wakati wa kuweka malipo: ' + (err.message || 'Error'), true);
