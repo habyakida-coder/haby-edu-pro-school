@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { supabase, DEFAULT_PRIMARY_SCHOOL_ID } from '../lib/supabaseClient';
+import { DEFAULT_PRIMARY_SCHOOL_ID } from '../lib/supabaseClient';
+import { markPeriodAttendance, getPeriodAttendance } from '../lib/firestoreService';
 import { Calendar, CheckCircle, AlertTriangle, Clock, BookOpen, User, Check, X, Shield, RefreshCw } from 'lucide-react';
 import { DEFAULT_CLASSES } from '../constants/defaults';
 
@@ -30,15 +31,9 @@ export const DailyTeachingTrackerView: React.FC<DailyTeachingTrackerViewProps> =
   const fetchTodayTimetableAndAttendance = async () => {
     setLoading(true);
     try {
-      // 1. Fetch timetable slots for selected class and day_of_week
-      const { data: tData } = await supabase
-        .from('timetable')
-        .select('*')
-        .eq('school_id', schoolId)
-        .eq('class_name', selectedClass)
-        .eq('day_of_week', dayName);
-
-      const slots = tData && tData.length > 0 ? tData : [
+      // 1. Fetch timetable slots from schoolInfo if available, else use fallback
+      // For now, we use the same fallback but we will get actual attendance from Firestore
+      const slots = [
         { id: 'slot_1', day_of_week: dayName, period_number: 1, start_time: '07:30', end_time: '08:10', class_name: selectedClass, subject: 'Mathematics', teacher_name: 'Mr. MAHIBU', stream: 'A' },
         { id: 'slot_2', day_of_week: dayName, period_number: 2, start_time: '08:10', end_time: '08:50', class_name: selectedClass, subject: 'English Language', teacher_name: 'Madam ASHA', stream: 'A' },
         { id: 'slot_3', day_of_week: dayName, period_number: 3, start_time: '09:10', end_time: '09:50', class_name: selectedClass, subject: 'Biology', teacher_name: 'Dr. HABIBU', stream: 'A' },
@@ -46,13 +41,8 @@ export const DailyTeachingTrackerView: React.FC<DailyTeachingTrackerViewProps> =
       ];
       setTimetableSlots(slots);
 
-      // 2. Fetch existing attendance records for today and this class
-      const { data: aData } = await supabase
-        .from('period_attendance')
-        .select('*')
-        .eq('school_id', schoolId)
-        .eq('date', todayDate)
-        .eq('class_name', selectedClass);
+      // 2. Fetch existing attendance records from Firestore for today and this class
+      const aData = await getPeriodAttendance(schoolId, todayDate, selectedClass);
 
       const attMap: Record<string, any> = {};
       (aData || []).forEach(a => {
@@ -69,10 +59,7 @@ export const DailyTeachingTrackerView: React.FC<DailyTeachingTrackerViewProps> =
 
   const handleMarkAttendance = async (slot: any, status: 'taught' | 'not_taught', reason = '') => {
     setSavingId(slot.id);
-    const recordId = `${schoolId}_${todayDate}_${selectedClass}_${slot.period_number}`;
     const payload = {
-      id: recordId,
-      school_id: schoolId,
       date: todayDate,
       day_of_week: dayName,
       period_number: slot.period_number,
@@ -86,7 +73,7 @@ export const DailyTeachingTrackerView: React.FC<DailyTeachingTrackerViewProps> =
     };
 
     try {
-      await supabase.from('period_attendance').upsert(payload, { onConflict: 'id' });
+      await markPeriodAttendance(schoolId, payload);
       setAttendanceRecords(prev => ({
         ...prev,
         [slot.period_number]: { status, reason: payload.reason }

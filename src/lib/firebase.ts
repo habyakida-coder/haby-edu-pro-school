@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 import defaultAppletConfig from '../../firebase-applet-config.json';
 
 // Read Firebase keys directly from env (VITE_FIREBASE_*) with fallback to default applet config
@@ -11,8 +12,10 @@ const firebaseConfig = {
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || defaultAppletConfig.messagingSenderId,
   appId: import.meta.env.VITE_FIREBASE_APP_ID || defaultAppletConfig.appId,
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || defaultAppletConfig.measurementId,
+  firestoreDatabaseId: defaultAppletConfig.firestoreDatabaseId
 };
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const googleProvider = new GoogleAuthProvider();

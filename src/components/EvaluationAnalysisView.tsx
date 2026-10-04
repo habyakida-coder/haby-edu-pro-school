@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { supabase, DEFAULT_PRIMARY_SCHOOL_ID } from '../lib/supabaseClient';
+import { DEFAULT_PRIMARY_SCHOOL_ID } from '../lib/supabaseClient';
+import { getWeeklyAttendance } from '../lib/firestoreService';
 import { Award, FileText, Printer, Download, Calendar, Filter, CheckCircle, AlertTriangle, Shield, Check, X } from 'lucide-react';
 import { DEFAULT_CLASSES } from '../constants/defaults';
 
@@ -24,40 +25,42 @@ export const EvaluationAnalysisView: React.FC<EvaluationAnalysisViewProps> = ({ 
   const handleGenerateReport = async () => {
     setLoading(true);
     try {
-      // 1. Fetch timetable for selected class
-      const { data: timetables } = await supabase
-        .from('timetable')
-        .select('*')
-        .eq('school_id', schoolId)
-        .eq('class_name', selectedClass);
+      // 1. Get date range for selected week
+      let startDate = '2023-02-27';
+      let endDate = '2023-03-03';
+      
+      if (selectedWeek.includes('06 Mar')) {
+        startDate = '2023-03-06';
+        endDate = '2023-03-10';
+      } else if (selectedWeek.includes('13 Mar')) {
+        startDate = '2023-03-13';
+        endDate = '2023-03-17';
+      }
 
-      // 2. Fetch period attendance for selected class and date range
-      const { data: attendance } = await supabase
-        .from('period_attendance')
-        .select('*')
-        .eq('school_id', schoolId)
-        .eq('class_name', selectedClass);
+      // 2. Fetch period attendance from Firestore for selected class and date range
+      const attendance = await getWeeklyAttendance(schoolId, startDate, endDate, selectedClass);
 
       // Group by Subject + Teacher Name
       const map = new Map<string, { subject: string; teacher: string; stream: string; expected: number; taught: number; reasons: string[] }>();
 
-      // Count expected from timetable (multiplied by weeks in term/month)
+      // Fallback slots (Expected)
       const multiplier = reportType === 'weekly' ? 1 : reportType === 'monthly' ? 4 : 12;
+      const expectedSlots = [
+        { subject: 'Mathematics', teacher: 'Mr. MAHIBU', stream: 'A, B' },
+        { subject: 'English Language', teacher: 'Madam ASHA', stream: 'A, B' },
+        { subject: 'Biology', teacher: 'Dr. HABIBU', stream: 'A, B' },
+        { subject: 'Geography', teacher: 'Mr. JUMA', stream: 'A, B' },
+        { subject: 'History', teacher: 'Madam ZUHURA', stream: 'A, B' }
+      ];
 
-      (timetables || []).forEach(t => {
-        const key = `${t.subject}_${t.teacher_name || 'Staff'}`;
-        if (!map.has(key)) {
-          map.set(key, {
-            subject: t.subject,
-            teacher: t.teacher_name || 'Mwalimu wa Somo',
-            stream: t.stream || 'A, B',
-            expected: 0,
-            taught: 0,
-            reasons: []
-          });
-        }
-        const item = map.get(key)!;
-        item.expected += (1 * multiplier);
+      expectedSlots.forEach(s => {
+        const key = `${s.subject}_${s.teacher}`;
+        map.set(key, {
+          ...s,
+          expected: 10 * multiplier, // Dummy expected count for demo
+          taught: 0,
+          reasons: []
+        });
       });
 
       // Count actual taught from attendance

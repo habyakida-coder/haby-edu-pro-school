@@ -1,45 +1,51 @@
 {
-  "collections": [
-    {
-      "name": "schools",
-      "description": "Registered schools using the system",
-      "fields": [
-        { "name": "name", "type": "string" },
-        { "name": "createdAt", "type": "timestamp" },
-        { "name": "status", "type": "string", "description": "ACTIVE, INACTIVE, or DORMANT" },
-        { "name": "adminUid", "type": "string" }
-      ]
+  "entities": {
+    "School": {
+      "title": "School Snapshot",
+      "description": "Full snapshot of school data for cross-device sync",
+      "type": "object",
+      "properties": {
+        "schoolInfo": { "type": "object" },
+        "students": { "type": "array" },
+        "teachers": { "type": "array" },
+        "exams": { "type": "array" },
+        "timetableAssignments": { "type": "array" },
+        "periodSettings": { "type": "array" },
+        "streamSettings": { "type": "array" },
+        "disciplineRecords": { "type": "array" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["updatedAt"]
     },
-    {
-      "name": "users",
-      "description": "User profiles with roles and school association",
-      "fields": [
-        { "name": "email", "type": "string" },
-        { "name": "role", "type": "string", "description": "HEADMASTER, ACADEMIC, or TEACHER" },
-        { "name": "schoolId", "type": "string" },
-        { "name": "fullName", "type": "string" },
-        { "name": "isSuperAdmin", "type": "boolean" }
-      ]
-    },
-    {
-      "name": "schoolData",
-      "description": "Consolidated timetable and school-specific configuration",
-      "fields": [
-        { "name": "schoolId", "type": "string" },
-        { "name": "teachers", "type": "array" },
-        { "name": "assignments", "type": "array" },
-        { "name": "periodSettings", "type": "array" },
-        { "name": "streamSettings", "type": "array" },
-        { "name": "invigilationAssignments", "type": "map" },
-        { "name": "exams", "type": "array" },
-        { "name": "activityLogs", "type": "array", "description": "Audit trail entries tracking timetable, teacher, and student edits" },
-        { "name": "examinationRecords", "type": "array", "description": "Academic examination records across terms and years" },
-        { "name": "promotionHistory", "type": "array", "description": "Student promotion and graduation logs" },
-        { "name": "transferHistory", "type": "array", "description": "Student stream and class transfer logs" },
-        { "name": "institutionalPolicy", "type": "map", "description": "Institutional timetable policies, breaks, and limits" },
-        { "name": "subjectPeriodAllocations", "type": "array", "description": "Subject period allocations per level" },
-        { "name": "teacherAssignments", "type": "array", "description": "Teacher level, subject and stream assignments" }
-      ]
+    "Attendance": {
+      "title": "Period Attendance",
+      "description": "Daily record of a specific teaching period",
+      "type": "object",
+      "properties": {
+        "school_id": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "day_of_week": { "type": "string" },
+        "period_number": { "type": "integer" },
+        "class_name": { "type": "string" },
+        "stream": { "type": "string" },
+        "subject": { "type": "string" },
+        "teacher_name": { "type": "string" },
+        "status": { "type": "string", "enum": ["taught", "not_taught"] },
+        "reason": { "type": "string" },
+        "marked_at": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["school_id", "date", "period_number", "class_name", "status", "updatedAt"]
     }
-  ]
+  },
+  "firestore": {
+    "/schools/{schoolId}": {
+      "schema": "School",
+      "description": "Snapshots of school academic data"
+    },
+    "/period_attendance/{attendanceId}": {
+      "schema": "Attendance",
+      "description": "Individual period attendance records"
+    }
+  }
 }

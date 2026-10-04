@@ -39,6 +39,7 @@ import {
   fromSupabaseExam,
   checkSupabaseHealth 
 } from './lib/supabaseClient';
+import { saveSchoolData, getSchoolData } from './lib/firestoreService';
 import { Loader2, Shield } from 'lucide-react';
 
 const mergeById = (arr1: any[], arr2: any[]) => {
@@ -105,8 +106,15 @@ export default function App() {
         console.warn("Cached data parse warning:", err);
       }
 
-      // B. Fetch real data from Supabase tables with Promise.allSettled (prevents single-table failure from breaking load)
+      // B. Fetch real data from databases
       try {
+        // First try Firestore for the most reliable snapshot
+        const firestoreSnapshot = await getSchoolData(schoolId);
+        if (firestoreSnapshot) {
+          setData(prev => ({ ...prev, ...firestoreSnapshot }));
+          console.log("Loaded reliable data from Firestore for school:", schoolId);
+        }
+
         const [studRes, recRes, teachRes, examRes, schoolDataRes, usersRes] = await Promise.allSettled([
           supabase.from('students').select('*').eq('school_id', schoolId),
           supabase.from('exam_records').select('*').eq('school_id', schoolId),
@@ -358,15 +366,9 @@ export default function App() {
 
       // 3. Save complete snapshot with UPSERT for durable state restoration across logins
       try {
-        await supabase.from('school_data').upsert({
-          id: schoolId,
-          school_id: schoolId,
-          schoolId: schoolId,
-          ...latestData,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'id' });
+        await saveSchoolData(schoolId, latestData);
       } catch (e) {
-        console.warn("Supabase school_data upsert error:", e);
+        console.warn("Firestore data save error:", e);
       }
 
       setSaveStatus('saved');
@@ -1225,6 +1227,20 @@ export default function App() {
               currentUser={userAccount}
               schoolInfo={data.schoolInfo}
               onUpdateStudents={handleUpdateStudents}
+            />
+          )}
+
+          {activeView === 'dailytracker' && (
+            <DailyTeachingTrackerView
+              currentUser={userAccount}
+              schoolInfo={data.schoolInfo}
+            />
+          )}
+
+          {activeView === 'evaluationanalysis' && (
+            <EvaluationAnalysisView
+              currentUser={userAccount}
+              schoolInfo={data.schoolInfo}
             />
           )}
 
