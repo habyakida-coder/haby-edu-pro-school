@@ -43,7 +43,7 @@ import {
   fromSupabaseExam,
   checkSupabaseHealth 
 } from './lib/supabaseClient';
-import { saveSchoolData, getSchoolData } from './lib/firestoreService';
+import { saveSchoolData, getSchoolData, subscribeSchoolData } from './lib/firestoreService';
 import { Loader2, Shield } from 'lucide-react';
 
 const mergeById = (arr1: any[], arr2: any[]) => {
@@ -96,23 +96,23 @@ export default function App() {
     // 0. Primary Database Load: Prioritize Firestore Snapshot -> Supabase -> LocalStorage fallback
     const loadFromDatabase = async () => {
       console.log("Loading data for school:", schoolId);
-      setDataLoading(true); // Ensure loading state is active
+      setDataLoading(true);
 
       try {
         // A. Try Firestore for the most reliable snapshot
         const firestoreSnapshot = await getSchoolData(schoolId);
         
-        if (firestoreSnapshot) {
-          console.log("Loaded reliable data from Firestore for school:", schoolId);
+        if (firestoreSnapshot && Array.isArray(firestoreSnapshot.students)) {
+          console.log("Loaded reliable data from Firestore for school:", schoolId, "Student count:", firestoreSnapshot.students.length);
           setData(firestoreSnapshot as AppData);
           try { localStorage.setItem(schoolKey, JSON.stringify(firestoreSnapshot)); } catch (e) {}
           setIsCloudSynced(true);
           setDataLoading(false);
         } else {
           // B. Fallback: Fetch all records from Supabase tables
-          console.log("Firestore snapshot missing, fetching complete data from Supabase...");
+          console.log("Fetching complete data from Supabase...");
           
-          setDataLoading(false); // Render immediately
+          setDataLoading(false);
 
           // Fetch complete school data without limits so student counts match across devices
           const [studRes, recRes, teachRes, examRes] = await Promise.all([
@@ -136,7 +136,7 @@ export default function App() {
 
           setData(prev => ({
             ...prev,
-            students: remoteData.students.length > 0 ? remoteData.students : prev.students,
+            students: rawStudents.length > 0 ? remoteData.students : prev.students,
             examinationRecords: remoteData.examinationRecords.length > 0 ? remoteData.examinationRecords : prev.examinationRecords,
             teachers: remoteData.teachers.length > 0 ? remoteData.teachers : prev.teachers,
             exams: remoteData.exams.length > 0 ? remoteData.exams : prev.exams
@@ -158,6 +158,16 @@ export default function App() {
     };
     loadFromDatabase();
 
+    // Real-Time Synchronization: Subscribe to real-time updates from Firestore across devices
+    const unsubscribe = subscribeSchoolData(schoolId, (firestoreSnapshot) => {
+      if (firestoreSnapshot && Array.isArray(firestoreSnapshot.students)) {
+        console.log("Real-time cloud sync from Firestore! Students count:", firestoreSnapshot.students.length);
+        setData(firestoreSnapshot as AppData);
+        try { localStorage.setItem(schoolKey, JSON.stringify(firestoreSnapshot)); } catch (e) {}
+        setIsCloudSynced(true);
+      }
+    });
+
     // Auto re-sync when window gains focus (e.g., opening on phone or switching tabs)
     const handleWindowFocus = () => {
       loadFromDatabase();
@@ -175,6 +185,7 @@ export default function App() {
 
     return () => {
       window.removeEventListener('focus', handleWindowFocus);
+      if (unsubscribe) unsubscribe();
     };
   }, [userAccount]);
 

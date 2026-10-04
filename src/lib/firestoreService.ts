@@ -15,6 +15,17 @@ export const getSchoolData = async (schoolId: string) => {
   return docSnap.exists() ? docSnap.data() : null;
 };
 
+export const subscribeSchoolData = (schoolId: string, callback: (data: any) => void) => {
+  const docRef = doc(db, 'schools', schoolId);
+  return onSnapshot(docRef, (docSnap) => {
+    if (docSnap.exists()) {
+      callback(docSnap.data());
+    }
+  }, (err) => {
+    console.warn("Firestore onSnapshot subscription error:", err);
+  });
+};
+
 export const markPeriodAttendance = async (schoolId: string, record: any) => {
   const recordId = `${schoolId}_${record.date}_${record.class_name}_${record.stream}_${record.period_number}`;
   const docRef = doc(db, 'period_attendance', recordId);

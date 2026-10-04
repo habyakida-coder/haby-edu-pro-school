@@ -19,7 +19,12 @@ import {
   User,
   CheckSquare,
   Square,
-  AlertTriangle
+  AlertTriangle,
+  Layers,
+  Grid,
+  GraduationCap,
+  ChevronRight,
+  PlusCircle
 } from 'lucide-react';
 import { Student, SchoolInfo, EducationLevel } from '../types';
 import { 
@@ -109,11 +114,105 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   }, [students]);
 
   // List filters & sorting (with gender-grouped alphabetical arrangement per user request)
-  const [activeTab, setActiveTab] = useState<'form' | 'register_list'>('register_list');
+  const [activeTab, setActiveTab] = useState<'form' | 'register_list' | 'classes_streams'>('classes_streams');
   const [searchFilter, setSearchFilter] = useState('');
   const [classFilter, setClassFilter] = useState('ALL');
   const [streamFilter, setStreamFilter] = useState('ALL');
   const [sortBy, setSortBy] = useState<'regNo_asc' | 'regNo_desc' | 'name_asc' | 'girls_first_asc' | 'boys_first_asc'>('regNo_asc');
+  const [classDirLevelFilter, setClassDirLevelFilter] = useState<string>('ALL');
+  const [classDirSearch, setClassDirSearch] = useState<string>('');
+
+  // Created Classes & Streams Directory computation
+  const createdClassesDirectory = useMemo(() => {
+    const classMap = new Map<string, {
+      className: string;
+      level: EducationLevel;
+      streamsMap: Map<string, { streamName: string; total: number; boys: number; girls: number; studentList: Student[] }>;
+      totalStudents: number;
+      boys: number;
+      girls: number;
+    }>();
+
+    // Default classes supported
+    const defaultList: { name: string; level: EducationLevel }[] = [
+      { name: 'Form 1', level: 'CSEE' },
+      { name: 'Form 2', level: 'CSEE' },
+      { name: 'Form 3', level: 'CSEE' },
+      { name: 'Form 4', level: 'CSEE' },
+      { name: 'Form 5', level: 'ACSEE' },
+      { name: 'Form 6', level: 'ACSEE' },
+      { name: 'Standard 1', level: 'PRIMARY' },
+      { name: 'Standard 2', level: 'PRIMARY' },
+      { name: 'Standard 3', level: 'PRIMARY' },
+      { name: 'Standard 4', level: 'PRIMARY' },
+      { name: 'Standard 5', level: 'PRIMARY' },
+      { name: 'Standard 6', level: 'PRIMARY' },
+      { name: 'Standard 7', level: 'PRIMARY' },
+      { name: 'Baby Class', level: 'PRE_PRIMARY' },
+      { name: 'Nursery', level: 'PRE_PRIMARY' },
+      { name: 'Pre-Unit', level: 'PRE_PRIMARY' }
+    ];
+
+    defaultList.forEach(item => {
+      const streamsMap = new Map<string, { streamName: string; total: number; boys: number; girls: number; studentList: Student[] }>();
+      ['STREAM A', 'STREAM B'].forEach(st => {
+        streamsMap.set(st, { streamName: st, total: 0, boys: 0, girls: 0, studentList: [] });
+      });
+      classMap.set(item.name, {
+        className: item.name,
+        level: item.level,
+        streamsMap,
+        totalStudents: 0,
+        boys: 0,
+        girls: 0
+      });
+    });
+
+    // Populate with registered students
+    students.forEach(student => {
+      const cName = student.className || 'Form 1';
+      let entry = classMap.get(cName);
+      if (!entry) {
+        const isNursery = NURSERY_CLASSES.includes(cName);
+        const isPrimary = PRIMARY_CLASSES.includes(cName);
+        const isAlevel = ['Form 5', 'Form 6'].includes(cName);
+        const lvl: EducationLevel = isNursery ? 'PRE_PRIMARY' : isPrimary ? 'PRIMARY' : isAlevel ? 'ACSEE' : 'CSEE';
+        entry = {
+          className: cName,
+          level: student.level || lvl,
+          streamsMap: new Map(),
+          totalStudents: 0,
+          boys: 0,
+          girls: 0
+        };
+        classMap.set(cName, entry);
+      }
+
+      const sName = student.stream || 'STREAM A';
+      let sEntry = entry.streamsMap.get(sName);
+      if (!sEntry) {
+        sEntry = { streamName: sName, total: 0, boys: 0, girls: 0, studentList: [] };
+        entry.streamsMap.set(sName, sEntry);
+      }
+
+      const isGirl = (student.gender || '').toLowerCase().startsWith('f') || student.sex === 'F';
+      entry.totalStudents++;
+      sEntry.total++;
+      sEntry.studentList.push(student);
+      if (isGirl) {
+        entry.girls++;
+        sEntry.girls++;
+      } else {
+        entry.boys++;
+        sEntry.boys++;
+      }
+    });
+
+    return Array.from(classMap.values()).map(c => ({
+      ...c,
+      streams: Array.from(c.streamsMap.values())
+    }));
+  }, [students]);
 
   // Top Summary Cards Gender Statistics (Requirement 2)
   const topGenderStats = useMemo(() => {
@@ -711,18 +810,18 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
 
       {/* Sub-Navigation Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
-            onClick={() => setActiveTab('form')}
+            onClick={() => setActiveTab('classes_streams')}
             className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'form'
+              activeTab === 'classes_streams'
                 ? 'bg-blue-600 text-white shadow-xs'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
-            <UserPlus className="w-4 h-4" />
-            <span>Student Registration Form</span>
+            <Layers className="w-4 h-4" />
+            <span>Created Classes & Streams Directory ({createdClassesDirectory.length})</span>
           </button>
           <button
             type="button"
@@ -734,7 +833,19 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
             }`}
           >
             <Users className="w-4 h-4" />
-            <span>Official Registered Students List ({students.length})</span>
+            <span>Registered Students List ({students.length})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('form')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'form'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>Student Registration Form</span>
           </button>
         </div>
 
@@ -1084,7 +1195,256 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
         </div>
       )}
 
-      {/* Registered Students Master List (According to Registration) */}
+      {/* TAB 1: CREATED CLASSES & STREAMS DIRECTORY (Orodha ya Madarasa na Mikondo) */}
+      {activeTab === 'classes_streams' && (
+        <div className="space-y-5 animate-in fade-in duration-200">
+          {/* Top Metric Cards for Classes & Streams */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <div className="flex items-center justify-between text-slate-400">
+                <span className="text-[10px] font-black uppercase tracking-wider">Total Classes</span>
+                <Layers className="w-4 h-4 text-blue-600" />
+              </div>
+              <p className="text-2xl font-black text-slate-900 mt-1">
+                {createdClassesDirectory.filter(c => c.totalStudents > 0 || ['Form 1', 'Form 2', 'Form 3', 'Form 4', 'Standard 1', 'Standard 4', 'Standard 7'].includes(c.className)).length}
+              </p>
+              <p className="text-[10px] text-slate-400 mt-0.5">Active Academic Classes</p>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <div className="flex items-center justify-between text-slate-400">
+                <span className="text-[10px] font-black uppercase tracking-wider">Total Streams</span>
+                <Grid className="w-4 h-4 text-indigo-600" />
+              </div>
+              <p className="text-2xl font-black text-indigo-900 mt-1">
+                {createdClassesDirectory.reduce((acc, c) => acc + c.streams.filter(s => s.total > 0 || ['STREAM A', 'STREAM B'].includes(s.streamName)).length, 0)}
+              </p>
+              <p className="text-[10px] text-slate-400 mt-0.5">Class Cohort Streams</p>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <div className="flex items-center justify-between text-slate-400">
+                <span className="text-[10px] font-black uppercase tracking-wider">Total Students</span>
+                <Users className="w-4 h-4 text-emerald-600" />
+              </div>
+              <p className="text-2xl font-black text-emerald-800 mt-1">{students.length}</p>
+              <p className="text-[10px] text-emerald-600 font-medium mt-0.5">
+                B: {topGenderStats.total.B} • G: {topGenderStats.total.G}
+              </p>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <div className="flex items-center justify-between text-slate-400">
+                <span className="text-[10px] font-black uppercase tracking-wider">Avg Stream Size</span>
+                <GraduationCap className="w-4 h-4 text-amber-600" />
+              </div>
+              <p className="text-2xl font-black text-amber-900 mt-1">
+                {students.length > 0 ? Math.round(students.length / Math.max(1, createdClassesDirectory.reduce((acc, c) => acc + c.streams.filter(s => s.total > 0).length, 0))) : 0}
+              </p>
+              <p className="text-[10px] text-slate-400 mt-0.5">Students per Stream</p>
+            </div>
+          </div>
+
+          {/* Directory Filter & Search Header */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-black text-slate-700 uppercase tracking-wide">Filter Level:</span>
+              {[
+                { id: 'ALL', label: 'All Levels' },
+                { id: 'CSEE', label: 'Secondary (O-Level Form 1-4)' },
+                { id: 'ACSEE', label: 'Secondary (A-Level Form 5-6)' },
+                { id: 'PRIMARY', label: 'Primary (Std 1-7)' },
+                { id: 'PRE_PRIMARY', label: 'Pre-Primary / Nursery' }
+              ].map(lvl => (
+                <button
+                  key={lvl.id}
+                  type="button"
+                  onClick={() => setClassDirLevelFilter(lvl.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    classDirLevelFilter === lvl.id
+                      ? 'bg-[#0f2948] text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {lvl.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="relative min-w-[220px]">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                value={classDirSearch}
+                onChange={e => setClassDirSearch(e.target.value)}
+                placeholder="Search class or stream..."
+                className="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-300 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium"
+              />
+            </div>
+          </div>
+
+          {/* Classes & Streams Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {createdClassesDirectory
+              .filter(c => {
+                if (classDirLevelFilter !== 'ALL' && c.level !== classDirLevelFilter) return false;
+                if (classDirSearch.trim()) {
+                  const q = classDirSearch.toLowerCase();
+                  const matchClass = c.className.toLowerCase().includes(q);
+                  const matchStream = c.streams.some(s => s.streamName.toLowerCase().includes(q));
+                  if (!matchClass && !matchStream) return false;
+                }
+                return true;
+              })
+              .map((classItem, idx) => {
+                const totalInClass = classItem.totalStudents;
+                const boysInClass = classItem.boys;
+                const girlsInClass = classItem.girls;
+                const boyPercent = totalInClass > 0 ? Math.round((boysInClass / totalInClass) * 100) : 50;
+                const girlPercent = totalInClass > 0 ? 100 - boyPercent : 50;
+
+                const levelBadgeClass = 
+                  classItem.level === 'CSEE' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                  classItem.level === 'ACSEE' ? 'bg-indigo-100 text-indigo-800 border-indigo-200' :
+                  classItem.level === 'PRIMARY' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                  'bg-amber-100 text-amber-800 border-amber-200';
+
+                return (
+                  <div 
+                    key={idx}
+                    className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all space-y-4"
+                  >
+                    {/* Class Header */}
+                    <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-lg font-black text-slate-900 tracking-tight">
+                            {classItem.className}
+                          </h4>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase border ${levelBadgeClass}`}>
+                            {classItem.level === 'CSEE' ? 'O-Level' : classItem.level === 'ACSEE' ? 'A-Level' : classItem.level}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {classItem.streams.length} Stream{classItem.streams.length > 1 ? 's' : ''} Configured
+                        </p>
+                      </div>
+
+                      {/* Class Stats Badge */}
+                      <div className="text-right">
+                        <span className="text-xl font-black text-[#0f2948]">
+                          {totalInClass}
+                        </span>
+                        <span className="text-xs text-slate-400 font-bold ml-1">students</span>
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 mt-0.5">
+                          <span className="text-blue-700">Wavulana: {boysInClass}</span>
+                          <span>•</span>
+                          <span className="text-rose-700">Wasichana: {girlsInClass}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Gender Ratio Progress Bar */}
+                    {totalInClass > 0 && (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                          <span>Boys ({boyPercent}%)</span>
+                          <span>Girls ({girlPercent}%)</span>
+                        </div>
+                        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden flex">
+                          <div className="h-full bg-blue-600 transition-all" style={{ width: `${boyPercent}%` }} />
+                          <div className="h-full bg-rose-500 transition-all" style={{ width: `${girlPercent}%` }} />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Stream Breakdown Cards */}
+                    <div className="space-y-2">
+                      <div className="text-[11px] font-black text-slate-400 uppercase tracking-wider">
+                        Streams Under {classItem.className}:
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {classItem.streams.map((streamItem, sIdx) => {
+                          const sTotal = streamItem.total;
+                          const sBoys = streamItem.boys;
+                          const sGirls = streamItem.girls;
+
+                          return (
+                            <div 
+                              key={sIdx}
+                              className="bg-slate-50 hover:bg-blue-50/50 border border-slate-200 hover:border-blue-300 rounded-xl p-3 transition-all flex flex-col justify-between gap-2"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                                  <Grid className="w-3.5 h-3.5 text-blue-600" />
+                                  {streamItem.streamName}
+                                </span>
+                                <span className="px-2 py-0.5 bg-white border border-slate-200 rounded-lg text-xs font-black text-slate-900 shadow-2xs font-mono">
+                                  {sTotal}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center justify-between text-[10px] text-slate-500 font-semibold">
+                                <span>B: {sBoys} • G: {sGirls}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setClassFilter(classItem.className);
+                                    setStreamFilter(streamItem.streamName);
+                                    setActiveTab('register_list');
+                                  }}
+                                  className="text-blue-700 hover:text-blue-900 font-bold hover:underline flex items-center gap-0.5 cursor-pointer"
+                                >
+                                  <span>View Students</span>
+                                  <ChevronRight className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Class Card Quick Actions Footer */}
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setClassFilter(classItem.className);
+                          setStreamFilter('ALL');
+                          setActiveTab('register_list');
+                        }}
+                        className="text-blue-700 hover:text-blue-900 font-bold flex items-center gap-1 cursor-pointer"
+                      >
+                        <Users className="w-3.5 h-3.5" />
+                        <span>View All {classItem.className} Students ({totalInClass})</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setClassName(classItem.className);
+                          setStream('STREAM A');
+                          handleClassChange(classItem.className);
+                          setActiveTab('form');
+                        }}
+                        className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <PlusCircle className="w-3.5 h-3.5" />
+                        <span>Enroll Student</span>
+                      </button>
+                    </div>
+
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: REGISTERED STUDENTS MASTER LIST */}
+      {activeTab === 'register_list' && (
       <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-2 border-b border-slate-200">
           <div>
@@ -1451,6 +1811,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
           </table>
         </div>
       </div>
+      )}
 
       {/* Edit Student Modal */}
       {editingStudent && (

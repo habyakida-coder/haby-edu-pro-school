@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, DEFAULT_PRIMARY_SCHOOL_ID } from '../lib/supabaseClient';
+import { getSchoolData } from '../lib/firestoreService';
 import { 
   Shield, 
   Phone, 
@@ -116,9 +117,27 @@ export const ParentPortalView: React.FC<ParentPortalViewProps> = ({ onBackToMain
         console.warn("Students table query check:", err);
       }
 
-      // If neither returned data but user is testing or logging in:
+      // 3. Search in Firestore School Database Snapshot
       if (!matchedParent && matchedStudents.length === 0) {
-        // Search in localStorage cached school data
+        try {
+          const schoolId = localStorage.getItem('currentSchoolId') || localStorage.getItem('schoolId') || DEFAULT_PRIMARY_SCHOOL_ID;
+          const fsData = await getSchoolData(schoolId);
+          if (fsData && fsData.students && Array.isArray(fsData.students)) {
+            const fsMatched = fsData.students.filter((s: any) => {
+              const sPhone = normalizeTzPhone(s.parentPhone || s.phone || s.parent_phone || '');
+              return sPhone === normalizedPhone || (s.parentPhone && s.parentPhone.includes(rawPhone));
+            });
+            if (fsMatched.length > 0) {
+              matchedStudents = fsMatched;
+            }
+          }
+        } catch (e) {
+          console.warn("Firestore parent check error:", e);
+        }
+      }
+
+      // 4. If neither returned data, search in localStorage cached school data
+      if (!matchedParent && matchedStudents.length === 0) {
         try {
           const keys = Object.keys(localStorage).filter(k => k.startsWith('haby_school_data_'));
           for (const k of keys) {
@@ -255,46 +274,64 @@ export const ParentPortalView: React.FC<ParentPortalViewProps> = ({ onBackToMain
         if (recs && recs.length > 0) {
           setChildResults(recs);
         } else {
-          // Default comprehensive exam records for nice presentation
-          setChildResults([
-            {
-              exam_name: 'Midterm Examination 2026',
-              term: 'Muhula wa Kwanza',
-              year: '2026',
-              total: 432,
-              average: '86.4',
-              division: 'Division I (9 Points)',
-              points: 9,
-              rank: 'Nafasi ya 3 kati ya 45',
-              subjects: {
-                'Kiswahili': { marks: 88, grade: 'A', remark: 'Bora Sana' },
-                'English Language': { marks: 82, grade: 'A', remark: 'Bora Sana' },
-                'Basic Mathematics': { marks: 90, grade: 'A', remark: 'Bora Sana' },
-                'Biology': { marks: 85, grade: 'A', remark: 'Bora Sana' },
-                'Chemistry': { marks: 78, grade: 'B', remark: 'Vizuri' },
-                'Physics': { marks: 74, grade: 'B', remark: 'Vizuri' },
-                'Geography': { marks: 80, grade: 'A', remark: 'Bora Sana' },
-                'History': { marks: 85, grade: 'A', remark: 'Bora Sana' },
-                'Civics': { marks: 86, grade: 'A', remark: 'Bora Sana' }
-              }
-            },
-            {
-              exam_name: 'Terminal Examination 2025',
-              term: 'Muhula wa Pili',
-              year: '2025',
-              total: 418,
-              average: '83.6',
-              division: 'Division I (11 Points)',
-              points: 11,
-              rank: 'Nafasi ya 4 kati ya 45',
-              subjects: {
-                'Kiswahili': { marks: 84, grade: 'A' },
-                'English Language': { marks: 79, grade: 'A' },
-                'Basic Mathematics': { marks: 85, grade: 'A' },
-                'Biology': { marks: 82, grade: 'A' }
+          // Check Firestore examination records
+          let foundInFirestore = false;
+          try {
+            const schoolId = localStorage.getItem('currentSchoolId') || localStorage.getItem('schoolId') || DEFAULT_PRIMARY_SCHOOL_ID;
+            const fsData = await getSchoolData(schoolId);
+            if (fsData && fsData.examinationRecords && Array.isArray(fsData.examinationRecords)) {
+              const matchedRecs = fsData.examinationRecords.filter((r: any) => 
+                String(r.studentId) === String(studentId) || (phone && (r.parentPhone === phone || normalizeTzPhone(r.parentPhone || '') === normalizeTzPhone(phone)))
+              );
+              if (matchedRecs.length > 0) {
+                setChildResults(matchedRecs);
+                foundInFirestore = true;
               }
             }
-          ]);
+          } catch (e) {}
+
+          if (!foundInFirestore) {
+            // Default comprehensive exam records for nice presentation
+            setChildResults([
+              {
+                exam_name: 'Midterm Examination 2026',
+                term: 'Muhula wa Kwanza',
+                year: '2026',
+                total: 432,
+                average: '86.4',
+                division: 'Division I (9 Points)',
+                points: 9,
+                rank: 'Nafasi ya 3 kati ya 45',
+                subjects: {
+                  'Kiswahili': { marks: 88, grade: 'A', remark: 'Bora Sana' },
+                  'English Language': { marks: 82, grade: 'A', remark: 'Bora Sana' },
+                  'Basic Mathematics': { marks: 90, grade: 'A', remark: 'Bora Sana' },
+                  'Biology': { marks: 85, grade: 'A', remark: 'Bora Sana' },
+                  'Chemistry': { marks: 78, grade: 'B', remark: 'Vizuri' },
+                  'Physics': { marks: 74, grade: 'B', remark: 'Vizuri' },
+                  'Geography': { marks: 80, grade: 'A', remark: 'Bora Sana' },
+                  'History': { marks: 85, grade: 'A', remark: 'Bora Sana' },
+                  'Civics': { marks: 86, grade: 'A', remark: 'Bora Sana' }
+                }
+              },
+              {
+                exam_name: 'Terminal Examination 2025',
+                term: 'Muhula wa Pili',
+                year: '2025',
+                total: 418,
+                average: '83.6',
+                division: 'Division I (11 Points)',
+                points: 11,
+                rank: 'Nafasi ya 4 kati ya 45',
+                subjects: {
+                  'Kiswahili': { marks: 84, grade: 'A' },
+                  'English Language': { marks: 79, grade: 'A' },
+                  'Basic Mathematics': { marks: 85, grade: 'A' },
+                  'Biology': { marks: 82, grade: 'A' }
+                }
+              }
+            ]);
+          }
         }
       } catch (e) {}
 
