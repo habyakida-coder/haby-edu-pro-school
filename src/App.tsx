@@ -22,6 +22,7 @@ import { LessonPlanView } from './components/LessonPlan/LessonPlanView';
 import { SchemeOfWorkView } from './components/SchemeOfWork/SchemeOfWorkView';
 import { FloatingBubbles } from './components/FloatingBubbles';
 import { AuthScreen } from './components/auth/AuthScreen';
+import { ParentPortalView } from './components/ParentPortalView';
 import { useAuth } from './context/AuthContext';
 import SittingPlan from './components/SittingPlan.jsx';
 import SaasFinance from './components/SaasFinance.jsx';
@@ -39,6 +40,10 @@ import {
 import { Loader2, Shield } from 'lucide-react';
 
 export default function App() {
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/parent')) {
+    return <ParentPortalView onBackToMain={() => { window.location.pathname = '/'; }} />;
+  }
+
   const { user, userAccount, loading: authLoading, logout } = useAuth();
   const [activeView, setActiveView] = useState<ActiveView>('dashboard');
   const [data, setData] = useState<AppData>(DEFAULT_APP_DATA);
@@ -265,15 +270,15 @@ export default function App() {
     const schoolId = userAccount?.schoolId || localStorage.getItem('currentSchoolId') || 'DEFAULT_SCHOOL';
     const schoolKey = `haby_school_data_${schoolId}`;
 
-    // 1. Immediately update local state & persistent cache so changes never get lost
+    let latestData: AppData = data;
     setData(prev => {
-      const next = { ...prev, ...updates };
+      latestData = { ...prev, ...updates };
       try {
-        localStorage.setItem(schoolKey, JSON.stringify(next));
+        localStorage.setItem(schoolKey, JSON.stringify(latestData));
       } catch (err) {
         console.warn("Could not save to localStorage:", err);
       }
-      return next;
+      return latestData;
     });
 
     if (!userAccount?.schoolId) {
@@ -345,7 +350,7 @@ export default function App() {
           id: schoolId,
           school_id: schoolId,
           schoolId: schoolId,
-          ...updates,
+          ...latestData,
           updated_at: new Date().toISOString()
         }, { onConflict: 'id' });
       } catch (e) {

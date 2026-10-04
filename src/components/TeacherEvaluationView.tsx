@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Teacher, TeacherEvaluation, SchoolInfo, UserAccount, StreamSetting } from '../types';
 import { DEFAULT_CLASSES, SUBJECT_LIST } from '../constants/defaults';
+import { TeachingPeriodTrackingView } from './TeachingPeriodTrackingView';
 
 interface TeacherEvaluationViewProps {
   teachers: Teacher[];
@@ -85,6 +86,7 @@ export const TeacherEvaluationView: React.FC<TeacherEvaluationViewProps> = ({
   currentUser,
   streamSettings = []
 }) => {
+  const [activeSubTab, setActiveSubTab] = useState<'periodtracking' | 'inspections'>('periodtracking');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [gradeFilter, setGradeFilter] = useState('ALL');
@@ -254,7 +256,31 @@ export const TeacherEvaluationView: React.FC<TeacherEvaluationViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Header and KPI Banner */}
+      {/* Sub Tab Switcher */}
+      <div className="flex gap-2 bg-white p-2 rounded-2xl shadow-sm border border-slate-200">
+        <button
+          onClick={() => setActiveSubTab('periodtracking')}
+          className={`flex-1 py-3 px-4 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 ${
+            activeSubTab === 'periodtracking' ? 'bg-blue-900 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
+        >
+          <Clock className="w-4 h-4" /> Ufuatiliaji wa Vipindi & Fomu ya Karatasi (Period Tracking & Weekly Form)
+        </button>
+        <button
+          onClick={() => setActiveSubTab('inspections')}
+          className={`flex-1 py-3 px-4 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 ${
+            activeSubTab === 'inspections' ? 'bg-blue-900 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
+        >
+          <Award className="w-4 h-4" /> Ukaguzi Rasmi wa Masomo & Rubric (Formal Lesson Inspections)
+        </button>
+      </div>
+
+      {activeSubTab === 'periodtracking' ? (
+        <TeachingPeriodTrackingView teachers={teachers} schoolInfo={schoolInfo} currentUser={currentUser} streamSettings={streamSettings} />
+      ) : (
+        <div className="space-y-6">
+          {/* Header and KPI Banner */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
           <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Evaluations</div>
@@ -850,6 +876,8 @@ export const TeacherEvaluationView: React.FC<TeacherEvaluationViewProps> = ({
               </div>
             </div>
           </div>
+        </div>
+      )}
         </div>
       )}
     </div>

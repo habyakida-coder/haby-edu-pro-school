@@ -173,6 +173,16 @@ export const Navigation: React.FC<NavigationProps> = ({
                 </div>
               )}
               {onLogout && (
+                <a
+                  href="/parent"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 shadow transition"
+                >
+                  <User className="w-3.5 h-3.5" /> Portal ya Wazazi
+                </a>
+              )}
+              {onLogout && (
                 <button
                   type="button"
                   onClick={onLogout}

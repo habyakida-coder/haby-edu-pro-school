@@ -28,7 +28,29 @@ export const supabaseKey = (rawKey && !rawKey.includes('placeholder') && rawKey.
 
 export const isConfiguredWithRealSupabase = true;
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+const customFetch = async (input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> => {
+  const res = await fetch(input, init);
+  if (res.status === 401) {
+    if (typeof window !== 'undefined') {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith('sb-') || k.includes('supabase.auth.token'))) {
+          localStorage.removeItem(k);
+        }
+      }
+    }
+    const headers = new Headers(init.headers || {});
+    headers.set('apikey', supabaseKey);
+    headers.set('Authorization', `Bearer ${supabaseKey}`);
+    return fetch(input, { ...init, headers });
+  }
+  return res;
+};
+
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: { persistSession: false, autoRefreshToken: false },
+  global: { fetch: customFetch }
+});
 export default supabase;
 export { createClient };
 

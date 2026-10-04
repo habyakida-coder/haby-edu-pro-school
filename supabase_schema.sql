@@ -196,8 +196,43 @@ CREATE TABLE IF NOT EXISTS public.school_data (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 11. ROW LEVEL SECURITY (RLS) POLICIES
--- Enable RLS on all tables and grant full access to eliminate 401 Unauthorized errors
+-- 11. PARENTS PORTAL TABLES
+CREATE TABLE IF NOT EXISTS public.parents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_id UUID REFERENCES public.schools(id) ON DELETE CASCADE,
+  phone TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  full_name TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.parent_students (
+  parent_id UUID REFERENCES public.parents(id) ON DELETE CASCADE,
+  student_id UUID REFERENCES public.students(id) ON DELETE CASCADE,
+  PRIMARY KEY (parent_id, student_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.announcements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_id UUID REFERENCES public.schools(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.parent_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  parent_id UUID REFERENCES public.parents(id) ON DELETE CASCADE,
+  parent_phone TEXT,
+  parent_name TEXT,
+  student_id UUID,
+  student_name TEXT,
+  message TEXT NOT NULL,
+  sender TEXT DEFAULT 'parent',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 12. ROW LEVEL SECURITY (RLS) POLICIES
 ALTER TABLE public.schools ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
@@ -207,19 +242,11 @@ ALTER TABLE public.exam_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.usal_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sitting_plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.school_data ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.parents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.parent_students ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.parent_messages ENABLE ROW LEVEL SECURITY;
 
--- Drop old conflicting policies if any
-DROP POLICY IF EXISTS "Allow public all access on schools" ON public.schools;
-DROP POLICY IF EXISTS "Allow public all access on users" ON public.users;
-DROP POLICY IF EXISTS "Allow public all access on students" ON public.students;
-DROP POLICY IF EXISTS "Allow public all access on teachers" ON public.teachers;
-DROP POLICY IF EXISTS "Allow public all access on exams" ON public.exams;
-DROP POLICY IF EXISTS "Allow public all access on exam_records" ON public.exam_records;
-DROP POLICY IF EXISTS "Allow public all access on usal_records" ON public.usal_records;
-DROP POLICY IF EXISTS "Allow public all access on sitting_plans" ON public.sitting_plans;
-DROP POLICY IF EXISTS "Allow public all access on school_data" ON public.school_data;
-
--- Permissive Policies: Allow read & write with anon/publishable key and authenticated users
 CREATE POLICY "Allow public all access on schools" ON public.schools FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public all access on users" ON public.users FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public all access on students" ON public.students FOR ALL USING (true) WITH CHECK (true);
@@ -229,10 +256,15 @@ CREATE POLICY "Allow public all access on exam_records" ON public.exam_records F
 CREATE POLICY "Allow public all access on usal_records" ON public.usal_records FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public all access on sitting_plans" ON public.sitting_plans FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public all access on school_data" ON public.school_data FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public all access on parents" ON public.parents FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public all access on parent_students" ON public.parent_students FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public all access on announcements" ON public.announcements FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public all access on parent_messages" ON public.parent_messages FOR ALL USING (true) WITH CHECK (true);
 
--- 12. HIGH SPEED PERFORMANCE INDEXES
+-- 13. HIGH SPEED PERFORMANCE INDEXES
 CREATE INDEX IF NOT EXISTS idx_students_school ON public.students(school_id);
 CREATE INDEX IF NOT EXISTS idx_teachers_school ON public.teachers(school_id);
 CREATE INDEX IF NOT EXISTS idx_exams_school ON public.exams(school_id);
 CREATE INDEX IF NOT EXISTS idx_exam_records_school ON public.exam_records(school_id);
 CREATE INDEX IF NOT EXISTS idx_users_school ON public.users(school_id);
+CREATE INDEX IF NOT EXISTS idx_parents_phone ON public.parents(phone);
