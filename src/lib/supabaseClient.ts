@@ -15,8 +15,8 @@ const rawKey =
 
 // Connected to user's Healthy Supabase project (rdrmptcdxtdjblaqsxjy.supabase.co)
 export const DEFAULT_SUPABASE_URL = 'https://rdrmptcdxtdjblaqsxjy.supabase.co';
-export const DEFAULT_SUPABASE_URL = 'https://rdmptcdxtdjblagsxjy.supabase.co';
 export const DEFAULT_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_u8kbZfJHlduaZENoXyPahA_jmCtViwb';
+export const DEFAULT_PRIMARY_SCHOOL_ID = '02dff10d-78fb-4af6-ab5a-db1d275d7e06';
 
 export const supabaseUrl = (rawUrl && rawUrl.startsWith('http') && !rawUrl.includes('placeholder')) 
   ? rawUrl 
