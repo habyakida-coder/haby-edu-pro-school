@@ -44,7 +44,7 @@ import {
   checkSupabaseHealth 
 } from './lib/supabaseClient';
 import { saveSchoolData, getSchoolData, subscribeSchoolData } from './lib/firestoreService';
-import { Loader2, Shield } from 'lucide-react';
+import { Loader2, Shield, Menu, RotateCw, Check } from 'lucide-react';
 
 const mergeById = (arr1: any[], arr2: any[]) => {
   const map = new Map();
@@ -78,6 +78,7 @@ export default function App() {
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [syncToast, setSyncToast] = useState<string | null>(null);
   const [smsTargetExam, setSmsTargetExam] = useState<{ examType?: string; year?: string }>({});
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState<boolean>(false);
   const debounceTimer = useRef<NodeJS.Timeout | undefined>(undefined);
 
   // Sync with Firestore & Real-Time Single Source of Truth
@@ -936,30 +937,86 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#edf2f7] text-slate-800 font-sans relative overflow-x-hidden flex">
+    <div className="min-h-screen bg-[#edf2f7] text-slate-800 font-sans relative overflow-x-hidden flex flex-col lg:flex-row">
       {/* Floating Ambient Bubbles with Beautiful Iridescent Colors */}
       <FloatingBubbles />
 
-      {/* Vertical Side Navigation */}
-      <div className="w-64 shrink-0 z-20">
-        <Navigation
-          activeView={activeView}
-          schoolInfo={data.schoolInfo}
-          saveStatus={saveStatus}
-          onSelectView={view => {
-            setActiveView(view);
-          }}
-          currentUser={userAccount}
-          onLogout={() => {
-            if (window.confirm("Are you sure you want to logout?")) {
-              logout();
-            }
-          }}
-          layout="vertical"
-        />
-      </div>
+      {/* Mobile Sticky Top App Bar */}
+      <header className="lg:hidden sticky top-0 z-40 bg-[#0f2948] text-white px-3.5 py-2.5 flex items-center justify-between shadow-md border-b border-white/10">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <button
+            type="button"
+            onClick={() => setIsMobileNavOpen(true)}
+            className="p-2 -ml-1 text-white hover:bg-white/10 rounded-xl transition cursor-pointer flex items-center justify-center shrink-0"
+            aria-label="Open Navigation Menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xs font-black text-white truncate tracking-tight">
+              {data.schoolInfo.name || 'HABY EDU PRO'}
+            </h1>
+            <p className="text-[10px] text-blue-300 font-bold uppercase tracking-wider truncate">
+              {activeView}
+            </p>
+          </div>
+        </div>
 
-      <div className="flex-1 p-6 relative z-10 overflow-y-auto">
+        <div className="flex items-center gap-2 shrink-0">
+          {saveStatus === 'saving' && (
+            <span className="flex items-center gap-1 text-[9px] font-black text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-400/30">
+              <RotateCw className="w-2.5 h-2.5 animate-spin" />
+              <span className="hidden xs:inline">Saving</span>
+            </span>
+          )}
+          {saveStatus === 'saved' && (
+            <span className="flex items-center gap-1 text-[9px] font-black text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-400/30">
+              <Check className="w-2.5 h-2.5" />
+              <span className="hidden xs:inline">Synced</span>
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={handleForceRefreshSync}
+            disabled={isSyncing}
+            className="p-1.5 bg-white/10 hover:bg-white/20 text-blue-200 rounded-lg transition text-xs cursor-pointer"
+            title="Force Sync"
+          >
+            <RotateCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+      </header>
+
+      {/* Mobile Drawer Backdrop Overlay */}
+      {isMobileNavOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 lg:hidden transition-opacity"
+          onClick={() => setIsMobileNavOpen(false)}
+        />
+      )}
+
+      {/* Responsive Vertical Side Navigation (Drawer on Mobile, Fixed Sidebar on Desktop) */}
+      <Navigation
+        activeView={activeView}
+        schoolInfo={data.schoolInfo}
+        saveStatus={saveStatus}
+        onSelectView={view => {
+          setActiveView(view);
+          setIsMobileNavOpen(false);
+        }}
+        currentUser={userAccount}
+        onLogout={() => {
+          if (window.confirm("Are you sure you want to logout?")) {
+            logout();
+          }
+        }}
+        layout="vertical"
+        isMobileOpen={isMobileNavOpen}
+        onMobileClose={() => setIsMobileNavOpen(false)}
+      />
+
+      {/* Main Content Area - Full 100% width on mobile, left-padded for sidebar on desktop */}
+      <div className="flex-1 lg:pl-64 w-full p-3 sm:p-4 md:p-6 relative z-10 overflow-y-auto min-h-screen">
         {/* View Switcher */}
         <main>
           {activeView === 'dashboard' && (

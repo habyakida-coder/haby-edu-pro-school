@@ -24,7 +24,9 @@ import {
   Smartphone,
   Phone,
   Grid,
-  Wallet
+  Wallet,
+  X,
+  Menu
 } from 'lucide-react';
 import { SchoolInfo, UserAccount } from '../types';
 import { HabyEduProLogo } from './common/HabyEduProLogo';
@@ -64,6 +66,8 @@ interface NavigationProps {
   onLogout?: () => void;
   saveStatus?: 'saving' | 'saved' | 'offline' | 'error';
   layout?: 'vertical' | 'horizontal';
+  isMobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
@@ -73,7 +77,9 @@ export const Navigation: React.FC<NavigationProps> = ({
   currentUser,
   onLogout,
   saveStatus = 'saved',
-  layout = 'horizontal'
+  layout = 'horizontal',
+  isMobileOpen = false,
+  onMobileClose
 }) => {
   const isTeacher = currentUser?.role === 'TEACHER';
 
@@ -131,26 +137,46 @@ export const Navigation: React.FC<NavigationProps> = ({
     return true;
   });
 
+  const handleItemClick = (id: ActiveView) => {
+    onSelectView(id);
+    if (onMobileClose) {
+      onMobileClose();
+    }
+  };
+
   return (
-    <header className={layout === 'vertical' 
-      ? 'flex h-screen bg-[#0f2948] text-white w-64 fixed left-0 top-0 flex-col border-r border-white/10 shadow-2xl z-50' 
+    <aside className={layout === 'vertical' 
+      ? `h-screen bg-[#0f2948] text-white w-72 lg:w-64 fixed left-0 top-0 flex flex-col border-r border-white/10 shadow-2xl z-50 transition-transform duration-300 ease-in-out ${
+          isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        }` 
       : 'space-y-3 mb-6'
     }>
       {/* Sidebar Brand / Header */}
-      <div className={layout === 'vertical' ? 'p-6 border-b border-white/10' : 'bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between'}>
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-white/10 rounded-xl">
-            <HabyEduProLogo className="w-8 h-8 text-white" />
+      <div className={layout === 'vertical' ? 'p-4 sm:p-5 border-b border-white/10 flex items-center justify-between' : 'bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between'}>
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="p-1.5 bg-white/10 rounded-xl shrink-0">
+            <HabyEduProLogo variant="icon" size="sm" className="w-7 h-7 text-white" />
           </div>
-          <div>
-            <h1 className={`font-black tracking-tighter ${layout === 'vertical' ? 'text-lg leading-tight' : 'text-xl text-[#1f4d8b]'}`}>
+          <div className="min-w-0 flex-1">
+            <h1 className={`font-black tracking-tight truncate ${layout === 'vertical' ? 'text-sm text-white' : 'text-lg text-[#1f4d8b]'}`} title={schoolInfo.name || 'HABY EDU PRO'}>
               {schoolInfo.name || 'HABY EDU PRO'}
             </h1>
-            <p className={`text-[10px] font-bold uppercase tracking-widest ${layout === 'vertical' ? 'text-blue-300' : 'text-slate-400'}`}>
+            <p className={`text-[9px] font-bold uppercase tracking-wider truncate ${layout === 'vertical' ? 'text-blue-300' : 'text-slate-400'}`}>
               Management System
             </p>
           </div>
         </div>
+
+        {layout === 'vertical' && onMobileClose && (
+          <button
+            type="button"
+            onClick={onMobileClose}
+            className="lg:hidden p-2 text-blue-200 hover:text-white hover:bg-white/10 rounded-xl transition cursor-pointer shrink-0 ml-1"
+            title="Close Menu"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
 
         {layout !== 'vertical' && (
           <div className="flex items-center gap-4">
@@ -187,17 +213,17 @@ export const Navigation: React.FC<NavigationProps> = ({
           return (
             <button
               key={item.id}
-              onClick={() => onSelectView(item.id)}
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer group ${
+              onClick={() => handleItemClick(item.id)}
+              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer group ${
                 isActive
-                  ? (layout === 'vertical' ? 'bg-white text-[#0f2948] shadow-lg scale-[1.02]' : 'bg-[#1f4d8b] text-white shadow-xs')
+                  ? (layout === 'vertical' ? 'bg-white text-[#0f2948] shadow-lg font-black' : 'bg-[#1f4d8b] text-white shadow-xs')
                   : (layout === 'vertical' ? 'text-blue-100 hover:bg-white/10' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900')
               }`}
             >
-              <span className={`transition-colors ${isActive ? (layout === 'vertical' ? 'text-[#0f2948]' : 'text-white') : (layout === 'vertical' ? 'text-blue-300 group-hover:text-white' : 'text-slate-400')}`}>
+              <span className={`transition-colors shrink-0 ${isActive ? (layout === 'vertical' ? 'text-[#0f2948]' : 'text-white') : (layout === 'vertical' ? 'text-blue-300 group-hover:text-white' : 'text-slate-400')}`}>
                 {item.icon}
               </span>
-              <span>{item.label}</span>
+              <span className="truncate">{item.label}</span>
             </button>
           );
         })}
@@ -205,10 +231,10 @@ export const Navigation: React.FC<NavigationProps> = ({
 
       {/* Sidebar Footer / User Profile */}
       {layout === 'vertical' && (
-        <div className="p-4 border-t border-white/10 bg-black/10">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
-              <User className="w-6 h-6 text-blue-300" />
+        <div className="p-3.5 border-t border-white/10 bg-black/10">
+          <div className="flex items-center gap-2.5 mb-3">
+            <div className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center border border-white/20 shrink-0">
+              <User className="w-5 h-5 text-blue-300" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-black truncate">{currentUser?.fullName || 'User'}</p>
@@ -217,7 +243,7 @@ export const Navigation: React.FC<NavigationProps> = ({
           </div>
 
           <div className="flex items-center justify-between gap-2">
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-0.5">
               {saveStatus === 'saving' && (
                 <div className="flex items-center gap-1.5 text-[9px] font-black text-amber-400 uppercase">
                   <RotateCw className="w-2.5 h-2.5 animate-spin" />
@@ -234,7 +260,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             
             <button
               onClick={onLogout}
-              className="flex items-center gap-2 px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white rounded-lg text-[10px] font-black uppercase transition-all cursor-pointer border border-rose-500/30"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white rounded-lg text-[10px] font-black uppercase transition-all cursor-pointer border border-rose-500/30"
             >
               <LogOut className="w-3 h-3" />
               <span>Logout</span>
@@ -242,6 +268,6 @@ export const Navigation: React.FC<NavigationProps> = ({
           </div>
         </div>
       )}
-    </header>
+    </aside>
   );
 };
