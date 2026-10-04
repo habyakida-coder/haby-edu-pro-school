@@ -1019,6 +1019,16 @@ export default function App() {
             <StudentsView
               students={data.students}
               schoolInfo={data.schoolInfo}
+              streamSettings={data.streamSettings || []}
+              onUpdateStreamSettings={streamSettings => {
+                const activityLogs = logActivity(
+                  'STREAM_SETTINGS_UPDATE',
+                  'settings',
+                  'Classes & Streams Structure Updated',
+                  'Registered / modified academic classes and streams'
+                );
+                updateRemoteData({ streamSettings, activityLogs });
+              }}
               onAddStudent={handleAddStudent}
               onUpdateStudent={handleUpdateStudent}
               onDeleteStudent={handleDeleteStudent}
@@ -1431,6 +1441,16 @@ export default function App() {
                   `Updated period duration and timings (${periodSettings.length} periods)`
                 );
                 updateRemoteData({ periodSettings, activityLogs });
+              }}
+              streamSettings={data.streamSettings || []}
+              onUpdateStreamSettings={streamSettings => {
+                const activityLogs = logActivity(
+                  'STREAM_SETTINGS_UPDATE',
+                  'settings',
+                  'Classes & Streams Structure Updated',
+                  'Reconfigured school classes and stream settings'
+                );
+                updateRemoteData({ streamSettings, activityLogs });
               }}
               assignments={data.timetableAssignments}
               onUpdateAssignments={assignments => {

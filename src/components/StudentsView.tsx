@@ -26,7 +26,7 @@ import {
   ChevronRight,
   PlusCircle
 } from 'lucide-react';
-import { Student, SchoolInfo, EducationLevel } from '../types';
+import { Student, SchoolInfo, EducationLevel, StreamSetting } from '../types';
 import { 
   SUBJECT_LIST, 
   NURSERY_CLASSES, 
@@ -34,7 +34,8 @@ import {
   SECONDARY_CLASSES, 
   NURSERY_SUBJECTS_LIST, 
   LOWER_PRIMARY_SUBJECTS_LIST, 
-  UPPER_PRIMARY_SUBJECTS_LIST 
+  UPPER_PRIMARY_SUBJECTS_LIST,
+  INITIAL_STREAM_SETTINGS 
 } from '../constants/defaults';
 import { downloadFile, escapeCSV, printFormattedSection } from '../utils/export';
 import { formatStudentRegNo, getNextStudentRegNo } from '../utils/studentRegUtils';
@@ -44,10 +45,19 @@ import { PhoneInputPlugin } from './common/PhoneInputPlugin';
 import { StudentPhoneBadge } from './common/StudentPhoneBadge';
 import { StudentCsvImportModal } from './Students/StudentCsvImportModal';
 import { getTanzanianCarrier, formatPhoneNumber } from '../utils/phoneUtils';
+import { ClassStreamManagerModal } from './common/ClassStreamManagerModal';
+import { 
+  getAllAvailableClasses, 
+  getStreamsForClass, 
+  inferEducationLevel, 
+  syncClassAndStreamToSettings 
+} from '../utils/classStreamUtils';
 
 interface StudentsViewProps {
   students: Student[];
   schoolInfo?: SchoolInfo;
+  streamSettings?: StreamSetting[];
+  onUpdateStreamSettings?: (settings: StreamSetting[]) => void;
   onAddStudent: (student: Student) => void;
   onUpdateStudent: (student: Student) => void;
   onDeleteStudent: (id: number) => void;
@@ -58,6 +68,8 @@ interface StudentsViewProps {
 export const StudentsView: React.FC<StudentsViewProps> = ({
   students,
   schoolInfo,
+  streamSettings = INITIAL_STREAM_SETTINGS,
+  onUpdateStreamSettings,
   onAddStudent,
   onUpdateStudent,
   onDeleteStudent,
@@ -80,6 +92,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   const [subjectSearch, setSubjectSearch] = useState('');
   const [showAutoFillNotice, setShowAutoFillNotice] = useState(false);
   const [showCsvImportModal, setShowCsvImportModal] = useState(false);
+  const [isClassStreamModalOpen, setIsClassStreamModalOpen] = useState(false);
 
   // Recent Searches State
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
@@ -122,6 +135,16 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   const [classDirLevelFilter, setClassDirLevelFilter] = useState<string>('ALL');
   const [classDirSearch, setClassDirSearch] = useState<string>('');
 
+  // Dynamic list of all available registered classes
+  const allAvailableClassesList = useMemo(() => {
+    return getAllAvailableClasses(streamSettings, students);
+  }, [streamSettings, students]);
+
+  // Dynamic streams for selected class in registration form
+  const currentClassStreams = useMemo(() => {
+    return getStreamsForClass(className, streamSettings, students);
+  }, [className, streamSettings, students]);
+
   // Created Classes & Streams Directory computation
   const createdClassesDirectory = useMemo(() => {
     const classMap = new Map<string, {
@@ -133,34 +156,16 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
       girls: number;
     }>();
 
-    // Default classes supported
-    const defaultList: { name: string; level: EducationLevel }[] = [
-      { name: 'Form 1', level: 'CSEE' },
-      { name: 'Form 2', level: 'CSEE' },
-      { name: 'Form 3', level: 'CSEE' },
-      { name: 'Form 4', level: 'CSEE' },
-      { name: 'Form 5', level: 'ACSEE' },
-      { name: 'Form 6', level: 'ACSEE' },
-      { name: 'Standard 1', level: 'PRIMARY' },
-      { name: 'Standard 2', level: 'PRIMARY' },
-      { name: 'Standard 3', level: 'PRIMARY' },
-      { name: 'Standard 4', level: 'PRIMARY' },
-      { name: 'Standard 5', level: 'PRIMARY' },
-      { name: 'Standard 6', level: 'PRIMARY' },
-      { name: 'Standard 7', level: 'PRIMARY' },
-      { name: 'Baby Class', level: 'PRE_PRIMARY' },
-      { name: 'Nursery', level: 'PRE_PRIMARY' },
-      { name: 'Pre-Unit', level: 'PRE_PRIMARY' }
-    ];
-
-    defaultList.forEach(item => {
+    // 1. Initialize from streamSettings
+    const activeSettings = streamSettings && streamSettings.length > 0 ? streamSettings : INITIAL_STREAM_SETTINGS;
+    activeSettings.forEach(setting => {
       const streamsMap = new Map<string, { streamName: string; total: number; boys: number; girls: number; studentList: Student[] }>();
-      ['STREAM A', 'STREAM B'].forEach(st => {
+      (setting.streams || ['STREAM A', 'STREAM B']).forEach(st => {
         streamsMap.set(st, { streamName: st, total: 0, boys: 0, girls: 0, studentList: [] });
       });
-      classMap.set(item.name, {
-        className: item.name,
-        level: item.level,
+      classMap.set(setting.className, {
+        className: setting.className,
+        level: setting.level || inferEducationLevel(setting.className),
         streamsMap,
         totalStudents: 0,
         boys: 0,
@@ -168,18 +173,15 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
       });
     });
 
-    // Populate with registered students
+    // 2. Populate with registered students and capture any custom classes/streams
     students.forEach(student => {
       const cName = student.className || 'Form 1';
       let entry = classMap.get(cName);
       if (!entry) {
-        const isNursery = NURSERY_CLASSES.includes(cName);
-        const isPrimary = PRIMARY_CLASSES.includes(cName);
-        const isAlevel = ['Form 5', 'Form 6'].includes(cName);
-        const lvl: EducationLevel = isNursery ? 'PRE_PRIMARY' : isPrimary ? 'PRIMARY' : isAlevel ? 'ACSEE' : 'CSEE';
+        const lvl: EducationLevel = student.level || inferEducationLevel(cName);
         entry = {
           className: cName,
-          level: student.level || lvl,
+          level: lvl,
           streamsMap: new Map(),
           totalStudents: 0,
           boys: 0,
@@ -188,7 +190,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
         classMap.set(cName, entry);
       }
 
-      const sName = student.stream || 'STREAM A';
+      const sName = student.stream || student.combination || 'STREAM A';
       let sEntry = entry.streamsMap.get(sName);
       if (!sEntry) {
         sEntry = { streamName: sName, total: 0, boys: 0, girls: 0, studentList: [] };
@@ -212,7 +214,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
       ...c,
       streams: Array.from(c.streamsMap.values())
     }));
-  }, [students]);
+  }, [streamSettings, students]);
 
   // Top Summary Cards Gender Statistics (Requirement 2)
   const topGenderStats = useMemo(() => {
@@ -407,12 +409,26 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
     };
 
     onAddStudent(newStudent);
+
+    // Auto-sync class and stream into streamSettings registry
+    if (onUpdateStreamSettings) {
+      const activeStreamName = level === 'ACSEE' ? combination : (stream || 'STREAM A');
+      const { updatedSettings, wasChanged } = syncClassAndStreamToSettings(
+        className,
+        activeStreamName,
+        streamSettings
+      );
+      if (wasChanged) {
+        onUpdateStreamSettings(updatedSettings);
+      }
+    }
+
     setName('');
     setParentPhone('');
     setPassportPhoto('');
     // After Student Create, show all students in Student button list immediately
     setActiveTab('register_list');
-    setStudentCreatedNotice(`Student ${newStudent.name} (${newStudent.regNo}) registered successfully! Showing in student list below.`);
+    setStudentCreatedNotice(`Student ${newStudent.name} (${newStudent.regNo}) registered successfully! Class ${className} (${level === 'ACSEE' ? combination : stream}) updated across system.`);
     setTimeout(() => setStudentCreatedNotice(null), 6000);
   };
 
@@ -997,20 +1013,26 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-600 uppercase block mb-1">Class / Form *</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-slate-600 uppercase">Class / Form *</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsClassStreamModalOpen(true)}
+                      className="text-[10px] font-bold text-blue-700 hover:text-blue-900 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 cursor-pointer flex items-center gap-1"
+                    >
+                      <PlusCircle className="w-3 h-3 text-blue-600" />
+                      <span>+ Manage Classes & Streams</span>
+                    </button>
+                  </div>
                   <select
                     value={className}
                     onChange={e => handleClassChange(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white font-semibold text-slate-800"
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white font-bold text-slate-900"
                   >
-                    <optgroup label="Pre-Primary / Nursery (Elimu ya Awali)">
-                      {NURSERY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </optgroup>
-                    <optgroup label="Primary School (Elimu ya Msingi: Std 1 - 7)">
-                      {PRIMARY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </optgroup>
-                    <optgroup label="Secondary School (Form 1 - 6)">
-                      {SECONDARY_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                    <optgroup label="Registered Classes">
+                      {allAvailableClassesList.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
                     </optgroup>
                   </select>
                 </div>
@@ -1040,6 +1062,9 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                       }}
                       className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white font-bold text-blue-700"
                     >
+                      {currentClassStreams.map(st => (
+                        <option key={st} value={st}>{st}</option>
+                      ))}
                       <option value="PCM">PCM (Physics, Chemistry, Mathematics)</option>
                       <option value="PCB">PCB (Physics, Chemistry, Biology)</option>
                       <option value="CBG">CBG (Chemistry, Biology, Geography)</option>
@@ -1061,10 +1086,10 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                     <select
                       value={stream}
                       onChange={e => setStream(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white"
+                      className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white font-semibold text-slate-900"
                     >
-                      {allRegisteredStreams.map((st: string) => (
-                        <option key={st} value={`STREAM ${st}`}>STREAM {st}</option>
+                      {currentClassStreams.map((st: string) => (
+                        <option key={st} value={st}>{st}</option>
                       ))}
                     </select>
                   </div>
@@ -1271,15 +1296,26 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
               ))}
             </div>
 
-            <div className="relative min-w-[220px]">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
-              <input
-                type="text"
-                value={classDirSearch}
-                onChange={e => setClassDirSearch(e.target.value)}
-                placeholder="Search class or stream..."
-                className="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-300 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium"
-              />
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="relative min-w-[200px]">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  value={classDirSearch}
+                  onChange={e => setClassDirSearch(e.target.value)}
+                  placeholder="Search class or stream..."
+                  className="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-300 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsClassStreamModalOpen(true)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                <PlusCircle className="w-4 h-4 text-yellow-300" />
+                <span>+ Sajili Darasa / Mkondo Mpya</span>
+              </button>
             </div>
           </div>
 
@@ -2333,6 +2369,19 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
         }}
         existingStudentsCount={students.length}
         schoolInfo={schoolInfo}
+      />
+
+      {/* Class & Stream Manager Modal */}
+      <ClassStreamManagerModal
+        isOpen={isClassStreamModalOpen}
+        onClose={() => setIsClassStreamModalOpen(false)}
+        streamSettings={streamSettings}
+        onUpdateStreamSettings={newSettings => {
+          if (onUpdateStreamSettings) {
+            onUpdateStreamSettings(newSettings);
+          }
+        }}
+        students={students}
       />
     </div>
   );
