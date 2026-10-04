@@ -39,6 +39,22 @@ import {
 } from './lib/supabaseClient';
 import { Loader2, Shield } from 'lucide-react';
 
+const mergeById = (arr1: any[], arr2: any[]) => {
+  const map = new Map();
+  (arr1 || []).forEach(item => {
+    if (item && item.id != null) {
+      map.set(String(item.id), item);
+    }
+  });
+  (arr2 || []).forEach(item => {
+    if (item && item.id != null) {
+      const existing = map.get(String(item.id)) || {};
+      map.set(String(item.id), { ...existing, ...item });
+    }
+  });
+  return Array.from(map.values());
+};
+
 export default function App() {
   if (typeof window !== 'undefined' && window.location.pathname.startsWith('/parent')) {
     return <ParentPortalView onBackToMain={() => { window.location.pathname = '/'; }} />;
@@ -106,44 +122,28 @@ export default function App() {
         const remoteData = (remoteDataArr.length > 0 ? remoteDataArr[0] : {}) as Partial<AppData>;
 
         setData(prev => {
-          // Resolve students: prefer Supabase table, then school_data snapshot, then local cached, then existing state
-          let resolvedStudents = prev.students;
+          // Resolve students non-destructively by merging prev, localSnapshot, remoteData, and remoteStudents
+          let resolvedStudents = mergeById(prev.students, mergeById(localSnapshot?.students || [], remoteData.students || []));
           if (remoteStudents && remoteStudents.length > 0) {
-            resolvedStudents = remoteStudents.map((s: any) => ({ ...s, id: s.id ?? (isNaN(Number(s.id)) ? s.id : Number(s.id)) }));
-          } else if (remoteData.students && remoteData.students.length > 0) {
-            resolvedStudents = remoteData.students;
-          } else if (localSnapshot?.students && localSnapshot.students.length > 0) {
-            resolvedStudents = localSnapshot.students;
+            resolvedStudents = mergeById(resolvedStudents, remoteStudents.map((s: any) => ({ ...s, id: s.id ?? (isNaN(Number(s.id)) ? s.id : Number(s.id)) })));
           }
 
-          // Resolve teachers
-          let resolvedTeachers = prev.teachers;
+          // Resolve teachers non-destructively
+          let resolvedTeachers = mergeById(prev.teachers, mergeById(localSnapshot?.teachers || [], remoteData.teachers || []));
           if (remoteTeachers && remoteTeachers.length > 0) {
-            resolvedTeachers = remoteTeachers.map((t: any) => ({ ...t, id: t.id ?? (isNaN(Number(t.id)) ? t.id : Number(t.id)) }));
-          } else if (remoteData.teachers && remoteData.teachers.length > 0) {
-            resolvedTeachers = remoteData.teachers;
-          } else if (localSnapshot?.teachers && localSnapshot.teachers.length > 0) {
-            resolvedTeachers = localSnapshot.teachers;
+            resolvedTeachers = mergeById(resolvedTeachers, remoteTeachers.map((t: any) => ({ ...t, id: t.id ?? (isNaN(Number(t.id)) ? t.id : Number(t.id)) })));
           }
 
-          // Resolve exams
-          let resolvedExams = prev.exams;
+          // Resolve exams non-destructively
+          let resolvedExams = mergeById(prev.exams, mergeById(localSnapshot?.exams || [], remoteData.exams || []));
           if (remoteExams && remoteExams.length > 0) {
-            resolvedExams = remoteExams;
-          } else if (remoteData.exams && remoteData.exams.length > 0) {
-            resolvedExams = remoteData.exams;
-          } else if (localSnapshot?.exams && localSnapshot.exams.length > 0) {
-            resolvedExams = localSnapshot.exams;
+            resolvedExams = mergeById(resolvedExams, remoteExams);
           }
 
-          // Resolve examination records
-          let resolvedRecords = prev.examinationRecords || [];
+          // Resolve examination records non-destructively
+          let resolvedRecords = mergeById(prev.examinationRecords || [], mergeById(localSnapshot?.examinationRecords || [], remoteData.examinationRecords || []));
           if (remoteRecords && remoteRecords.length > 0) {
-            resolvedRecords = remoteRecords;
-          } else if (remoteData.examinationRecords && remoteData.examinationRecords.length > 0) {
-            resolvedRecords = remoteData.examinationRecords;
-          } else if (localSnapshot?.examinationRecords && localSnapshot.examinationRecords.length > 0) {
-            resolvedRecords = localSnapshot.examinationRecords;
+            resolvedRecords = mergeById(resolvedRecords, remoteRecords);
           }
 
           const merged: AppData = {
