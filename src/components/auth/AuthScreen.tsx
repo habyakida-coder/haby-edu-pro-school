@@ -319,6 +319,60 @@ export const AuthScreen: React.FC = () => {
             </form>
           )}
 
+          {/* Demo Access Section */}
+          <div className="pt-5 border-t border-slate-100">
+            <div className="flex flex-col items-center mb-4">
+              <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[9px] font-black uppercase rounded mb-1.5 border border-amber-200">
+                Quick Access
+              </span>
+              <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-tight">
+                Jaribu Mfano (Explore Demo Experience)
+              </h4>
+              <p className="text-[10px] text-slate-500 text-center mt-0.5 px-4 leading-tight">
+                Explore the dashboard, results management, and academic tools without needing an account.
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-2.5">
+              <button
+                type="button"
+                onClick={() => loginAsDemo('HEADMASTER')}
+                className="flex flex-col items-center gap-1.5 p-3 rounded-2xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer group bg-white shadow-xs hover:shadow-md active:scale-95"
+              >
+                <div className="w-9 h-9 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                  <Shield className="w-5 h-5" />
+                </div>
+                <span className="text-[9px] font-black text-slate-700 uppercase tracking-tighter">Headmaster</span>
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => loginAsDemo('ACADEMIC')}
+                className="flex flex-col items-center gap-1.5 p-3 rounded-2xl border border-slate-200 hover:border-amber-400 hover:bg-amber-50 transition-all cursor-pointer group bg-white shadow-xs hover:shadow-md active:scale-95"
+              >
+                <div className="w-9 h-9 bg-amber-50 text-amber-500 rounded-xl flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-colors">
+                  <Award className="w-5 h-5" />
+                </div>
+                <span className="text-[9px] font-black text-slate-700 uppercase tracking-tighter">Academic</span>
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => loginAsDemo('TEACHER')}
+                className="flex flex-col items-center gap-1.5 p-3 rounded-2xl border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50 transition-all cursor-pointer group bg-white shadow-xs hover:shadow-md active:scale-95"
+              >
+                <div className="w-9 h-9 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                  <User className="w-5 h-5" />
+                </div>
+                <span className="text-[9px] font-black text-slate-700 uppercase tracking-tighter">Teacher</span>
+              </button>
+            </div>
+            
+            <p className="text-[9px] text-center text-slate-400 mt-3 italic font-medium">
+              * Mfano huu hauhitaji barua pepe wala nenosiri.
+            </p>
+          </div>
+
           {/* Security & Access Info */}
           <div className="p-3.5 bg-blue-50/60 border border-blue-100 rounded-xl text-[11px] text-slate-600 flex items-start gap-2.5">
             <Shield className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
