@@ -109,6 +109,7 @@ export const fromSupabaseStudent = (row: any, idx = 0) => {
     regNo: row.reg_no || row.regNo || undefined,
     name: row.name,
     gender: (row.gender as any) || 'Male',
+    dob: row.dob || '2010-01-01',
     className: row.class || row.className || 'Form 1',
     level: (row.level as any) || 'CSEE',
     stream: row.stream || 'STREAM A',

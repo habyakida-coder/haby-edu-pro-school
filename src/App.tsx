@@ -109,27 +109,38 @@ export default function App() {
           setIsCloudSynced(true);
           setDataLoading(false);
         } else {
-          // B. Fallback: Fetch from Supabase tables
-          console.log("Firestore snapshot missing, falling back to Supabase...");
+          // B. Fallback: Fetch all records from Supabase tables
+          console.log("Firestore snapshot missing, fetching complete data from Supabase...");
           
           setDataLoading(false); // Render immediately
 
-          // Step 3: Fetch heavy data in chunks to improve performance
+          // Fetch complete school data without limits so student counts match across devices
           const [studRes, recRes, teachRes, examRes] = await Promise.all([
-            supabase.from('students').select('*').eq('school_id', schoolId).limit(50),
-            supabase.from('exam_records').select('*').eq('school_id', schoolId).limit(50),
-            supabase.from('teachers').select('*').eq('school_id', schoolId).limit(50),
-            supabase.from('exams').select('*').eq('school_id', schoolId).limit(50)
+            supabase.from('students').select('*').eq('school_id', schoolId),
+            supabase.from('exam_records').select('*').eq('school_id', schoolId),
+            supabase.from('teachers').select('*').eq('school_id', schoolId),
+            supabase.from('exams').select('*').eq('school_id', schoolId)
           ]);
 
+          const rawStudents = (studRes && Array.isArray(studRes.data)) ? studRes.data : [];
+          const rawRecords = (recRes && Array.isArray(recRes.data)) ? recRes.data : [];
+          const rawTeachers = (teachRes && Array.isArray(teachRes.data)) ? teachRes.data : [];
+          const rawExams = (examRes && Array.isArray(examRes.data)) ? examRes.data : [];
+
           const remoteData = {
-            students: (studRes && Array.isArray(studRes.data)) ? studRes.data : [],
-            examinationRecords: (recRes && Array.isArray(recRes.data)) ? recRes.data : [],
-            teachers: (teachRes && Array.isArray(teachRes.data)) ? teachRes.data : [],
-            exams: (examRes && Array.isArray(examRes.data)) ? examRes.data : []
+            students: rawStudents.length > 0 ? rawStudents.map((s, idx) => fromSupabaseStudent(s, idx)) : [],
+            examinationRecords: rawRecords,
+            teachers: rawTeachers.length > 0 ? rawTeachers.map((t, idx) => fromSupabaseTeacher(t, idx)) : [],
+            exams: rawExams.length > 0 ? rawExams.map((e, idx) => fromSupabaseExam(e, idx)) : []
           };
 
-          setData(prev => ({ ...prev, ...remoteData }));
+          setData(prev => ({
+            ...prev,
+            students: remoteData.students.length > 0 ? remoteData.students : prev.students,
+            examinationRecords: remoteData.examinationRecords.length > 0 ? remoteData.examinationRecords : prev.examinationRecords,
+            teachers: remoteData.teachers.length > 0 ? remoteData.teachers : prev.teachers,
+            exams: remoteData.exams.length > 0 ? remoteData.exams : prev.exams
+          }));
           try { localStorage.setItem(schoolKey, JSON.stringify(remoteData)); } catch (e) {}
           setIsCloudSynced(true);
         }
@@ -1341,6 +1352,10 @@ export default function App() {
               currentUser={userAccount as any}
               students={data.students}
             />
+          )}
+
+          {activeView === 'parentportal' && (
+            <ParentPortalView onBackToMain={() => setActiveView('dashboard')} />
           )}
 
           {activeView === 'settings' && (

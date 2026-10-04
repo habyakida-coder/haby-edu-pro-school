@@ -2,6 +2,19 @@
  * Tanzanian & East African Phone Number Utilities
  */
 
+export function normalizeTzPhone(raw: string): string {
+  if (!raw) return '';
+  let clean = raw.replace(/[^0-9]/g, '');
+  if (clean.startsWith('0')) {
+    clean = '255' + clean.slice(1);
+  } else if (clean.startsWith('255')) {
+    // Already in international format
+  } else if (clean.length === 9) {
+    clean = '255' + clean;
+  }
+  return clean;
+}
+
 export interface CarrierInfo {
   name: string;
   color: string;
