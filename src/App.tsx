@@ -25,7 +25,17 @@ import { AuthScreen } from './components/auth/AuthScreen';
 import { useAuth } from './context/AuthContext';
 import SittingPlan from './components/SittingPlan.jsx';
 import SaasFinance from './components/SaasFinance.jsx';
-import { supabase } from './lib/supabaseClient';
+import { 
+  supabase, 
+  DEFAULT_PRIMARY_SCHOOL_ID, 
+  toSupabaseStudent, 
+  fromSupabaseStudent, 
+  toSupabaseTeacher, 
+  fromSupabaseTeacher, 
+  toSupabaseExam, 
+  fromSupabaseExam,
+  checkSupabaseHealth 
+} from './lib/supabaseClient';
 import { Loader2, Shield } from 'lucide-react';
 
 export default function App() {
@@ -50,50 +60,127 @@ export default function App() {
 
     const schoolId = userAccount.schoolId;
     console.log("Current school_id:", schoolId);
+    localStorage.setItem('currentSchoolId', schoolId);
+    localStorage.setItem('schoolId', schoolId);
     const schoolKey = `haby_school_data_${schoolId}`;
 
-    // 0. Primary Database Load via Supabase Query Client (Per Specification: supabase.from('students').select().eq('school_id', currentSchoolId))
+    // 0. Primary Database Load with immediate local cache restoration + safe Supabase sync
     const loadFromDatabase = async () => {
       console.log("Current school_id (loadFromDatabase):", schoolId);
+      
+      // A. Instantly restore from localStorage cache if available so user sees data without wait
+      let localSnapshot: Partial<AppData> | null = null;
       try {
-        const [studRes, recRes, teachRes, examRes, schoolDataRes, usersRes] = await Promise.all([
+        const cachedRaw = localStorage.getItem(schoolKey);
+        if (cachedRaw) {
+          localSnapshot = JSON.parse(cachedRaw);
+          if (localSnapshot && typeof localSnapshot === 'object') {
+            setData(prev => ({ ...prev, ...localSnapshot }));
+          }
+        }
+      } catch (err) {
+        console.warn("Cached data parse warning:", err);
+      }
+
+      // B. Fetch real data from Supabase tables with Promise.allSettled (prevents single-table failure from breaking load)
+      try {
+        const [studRes, recRes, teachRes, examRes, schoolDataRes, usersRes] = await Promise.allSettled([
           supabase.from('students').select('*').eq('school_id', schoolId),
           supabase.from('exam_records').select('*').eq('school_id', schoolId),
           supabase.from('teachers').select('*').eq('school_id', schoolId),
           supabase.from('exams').select('*').eq('school_id', schoolId),
-          supabase.from('school_data').select('*').eq('school_id', schoolId).single(),
+          supabase.from('school_data').select('*').eq('school_id', schoolId).limit(1),
           supabase.from('users').select('*').eq('school_id', schoolId)
         ]);
 
-        const remoteData = schoolDataRes?.data || {};
+        const remoteStudents = (studRes.status === 'fulfilled' && Array.isArray(studRes.value.data)) ? studRes.value.data : null;
+        const remoteRecords = (recRes.status === 'fulfilled' && Array.isArray(recRes.value.data)) ? recRes.value.data : null;
+        const remoteTeachers = (teachRes.status === 'fulfilled' && Array.isArray(teachRes.value.data)) ? teachRes.value.data : null;
+        const remoteExams = (examRes.status === 'fulfilled' && Array.isArray(examRes.value.data)) ? examRes.value.data : null;
+        const remoteDataArr = (schoolDataRes.status === 'fulfilled' && Array.isArray(schoolDataRes.value.data)) ? schoolDataRes.value.data : [];
+        const remoteData = (remoteDataArr.length > 0 ? remoteDataArr[0] : {}) as Partial<AppData>;
 
         setData(prev => {
+          // Resolve students: prefer Supabase table, then school_data snapshot, then local cached, then existing state
+          let resolvedStudents = prev.students;
+          if (remoteStudents && remoteStudents.length > 0) {
+            resolvedStudents = remoteStudents.map((s: any) => ({ ...s, id: s.id ?? (isNaN(Number(s.id)) ? s.id : Number(s.id)) }));
+          } else if (remoteData.students && remoteData.students.length > 0) {
+            resolvedStudents = remoteData.students;
+          } else if (localSnapshot?.students && localSnapshot.students.length > 0) {
+            resolvedStudents = localSnapshot.students;
+          }
+
+          // Resolve teachers
+          let resolvedTeachers = prev.teachers;
+          if (remoteTeachers && remoteTeachers.length > 0) {
+            resolvedTeachers = remoteTeachers.map((t: any) => ({ ...t, id: t.id ?? (isNaN(Number(t.id)) ? t.id : Number(t.id)) }));
+          } else if (remoteData.teachers && remoteData.teachers.length > 0) {
+            resolvedTeachers = remoteData.teachers;
+          } else if (localSnapshot?.teachers && localSnapshot.teachers.length > 0) {
+            resolvedTeachers = localSnapshot.teachers;
+          }
+
+          // Resolve exams
+          let resolvedExams = prev.exams;
+          if (remoteExams && remoteExams.length > 0) {
+            resolvedExams = remoteExams;
+          } else if (remoteData.exams && remoteData.exams.length > 0) {
+            resolvedExams = remoteData.exams;
+          } else if (localSnapshot?.exams && localSnapshot.exams.length > 0) {
+            resolvedExams = localSnapshot.exams;
+          }
+
+          // Resolve examination records
+          let resolvedRecords = prev.examinationRecords || [];
+          if (remoteRecords && remoteRecords.length > 0) {
+            resolvedRecords = remoteRecords;
+          } else if (remoteData.examinationRecords && remoteData.examinationRecords.length > 0) {
+            resolvedRecords = remoteData.examinationRecords;
+          } else if (localSnapshot?.examinationRecords && localSnapshot.examinationRecords.length > 0) {
+            resolvedRecords = localSnapshot.examinationRecords;
+          }
+
           const merged: AppData = {
             ...prev,
             ...remoteData,
-            students: (studRes.data && Array.isArray(studRes.data) && studRes.data.length > 0)
-              ? studRes.data.map((s: any) => ({ ...s, id: s.id ?? (isNaN(Number(s.id)) ? s.id : Number(s.id)) }))
-              : (remoteData.students && remoteData.students.length > 0 ? remoteData.students : prev.students),
-            examinationRecords: (recRes.data && Array.isArray(recRes.data) && recRes.data.length > 0)
-              ? recRes.data
-              : (remoteData.examinationRecords && remoteData.examinationRecords.length > 0 ? remoteData.examinationRecords : (prev.examinationRecords || [])),
-            teachers: (teachRes.data && Array.isArray(teachRes.data) && teachRes.data.length > 0)
-              ? teachRes.data.map((t: any) => ({ ...t, id: t.id ?? (isNaN(Number(t.id)) ? t.id : Number(t.id)) }))
-              : (remoteData.teachers && remoteData.teachers.length > 0 ? remoteData.teachers : prev.teachers),
-            exams: (examRes.data && Array.isArray(examRes.data) && examRes.data.length > 0)
-              ? examRes.data
-              : (remoteData.exams && remoteData.exams.length > 0 ? remoteData.exams : prev.exams),
-            schoolInfo: remoteData.schoolInfo || prev.schoolInfo,
-            activityLogs: remoteData.activityLogs || prev.activityLogs || []
+            students: resolvedStudents,
+            teachers: resolvedTeachers,
+            exams: resolvedExams,
+            examinationRecords: resolvedRecords,
+            schoolInfo: remoteData.schoolInfo || localSnapshot?.schoolInfo || prev.schoolInfo,
+            activityLogs: remoteData.activityLogs || localSnapshot?.activityLogs || prev.activityLogs || []
           };
+
           try {
             localStorage.setItem(schoolKey, JSON.stringify(merged));
           } catch (e) {}
+
+          // If local cache had students but remote table has 0 rows, sync them up to Supabase
+          if ((!remoteStudents || remoteStudents.length === 0) && resolvedStudents.length > 0) {
+            Promise.resolve(
+              supabase.from('students').upsert(
+                resolvedStudents.map(s => ({ ...s, school_id: schoolId })),
+                { onConflict: 'id' }
+              )
+            ).then(() => console.log('Auto-synchronized students to Supabase')).catch((err: any) => console.warn(err));
+          }
+
+          // If local cache had teachers but remote table has 0 rows, sync them up to Supabase
+          if ((!remoteTeachers || remoteTeachers.length === 0) && resolvedTeachers.length > 0) {
+            Promise.resolve(
+              supabase.from('teachers').upsert(
+                resolvedTeachers.map(t => ({ ...t, school_id: schoolId })),
+                { onConflict: 'id' }
+              )
+            ).then(() => console.log('Auto-synchronized teachers to Supabase')).catch((err: any) => console.warn(err));
+          }
+
           return merged;
         });
 
-        if (usersRes?.data && Array.isArray(usersRes.data) && usersRes.data.length > 0) {
-          setUsers(usersRes.data);
+        if (usersRes.status === 'fulfilled' && usersRes.value.data && Array.isArray(usersRes.value.data) && usersRes.value.data.length > 0) {
+          setUsers(usersRes.value.data);
         }
 
         setIsCloudSynced(true);
@@ -120,40 +207,49 @@ export default function App() {
     if (!userAccount?.schoolId) return;
     setIsSyncing(true);
     const schoolId = userAccount.schoolId;
+    const schoolKey = `haby_school_data_${schoolId}`;
     try {
-      const schoolKey = `haby_school_data_${schoolId}`;
-      localStorage.removeItem(schoolKey);
-
-      const [studRes, recRes, teachRes, examRes, schoolDataRes] = await Promise.all([
+      const [studRes, recRes, teachRes, examRes, schoolDataRes] = await Promise.allSettled([
         supabase.from('students').select('*').eq('school_id', schoolId),
         supabase.from('exam_records').select('*').eq('school_id', schoolId),
         supabase.from('teachers').select('*').eq('school_id', schoolId),
         supabase.from('exams').select('*').eq('school_id', schoolId),
-        supabase.from('school_data').select('*').eq('school_id', schoolId).single()
+        supabase.from('school_data').select('*').eq('school_id', schoolId).limit(1)
       ]);
 
-      const remoteData = schoolDataRes?.data || {};
+      const remoteStudents = (studRes.status === 'fulfilled' && Array.isArray(studRes.value.data)) ? studRes.value.data : null;
+      const remoteRecords = (recRes.status === 'fulfilled' && Array.isArray(recRes.value.data)) ? recRes.value.data : null;
+      const remoteTeachers = (teachRes.status === 'fulfilled' && Array.isArray(teachRes.value.data)) ? teachRes.value.data : null;
+      const remoteExams = (examRes.status === 'fulfilled' && Array.isArray(examRes.value.data)) ? examRes.value.data : null;
+      const remoteDataArr = (schoolDataRes.status === 'fulfilled' && Array.isArray(schoolDataRes.value.data)) ? schoolDataRes.value.data : [];
+      const remoteData = (remoteDataArr.length > 0 ? remoteDataArr[0] : {}) as Partial<AppData>;
 
-      setData(prev => ({
-        ...prev,
-        ...remoteData,
-        students: (studRes.data && Array.isArray(studRes.data) && studRes.data.length > 0)
-          ? studRes.data
-          : (remoteData.students || prev.students),
-        teachers: (teachRes.data && Array.isArray(teachRes.data) && teachRes.data.length > 0)
-          ? teachRes.data
-          : (remoteData.teachers || prev.teachers),
-        exams: (examRes.data && Array.isArray(examRes.data) && examRes.data.length > 0)
-          ? examRes.data
-          : (remoteData.exams || prev.exams),
-        examinationRecords: (recRes.data && Array.isArray(recRes.data) && recRes.data.length > 0)
-          ? recRes.data
-          : (remoteData.examinationRecords || prev.examinationRecords)
-      }));
+      setData(prev => {
+        const next: AppData = {
+          ...prev,
+          ...remoteData,
+          students: (remoteStudents && remoteStudents.length > 0)
+            ? remoteStudents.map((s: any) => ({ ...s, id: s.id ?? (isNaN(Number(s.id)) ? s.id : Number(s.id)) }))
+            : (remoteData.students || prev.students),
+          teachers: (remoteTeachers && remoteTeachers.length > 0)
+            ? remoteTeachers.map((t: any) => ({ ...t, id: t.id ?? (isNaN(Number(t.id)) ? t.id : Number(t.id)) }))
+            : (remoteData.teachers || prev.teachers),
+          exams: (remoteExams && remoteExams.length > 0)
+            ? remoteExams
+            : (remoteData.exams || prev.exams),
+          examinationRecords: (remoteRecords && remoteRecords.length > 0)
+            ? remoteRecords
+            : (remoteData.examinationRecords || prev.examinationRecords)
+        };
+        try {
+          localStorage.setItem(schoolKey, JSON.stringify(next));
+        } catch (e) {}
+        return next;
+      });
 
       setIsCloudSynced(true);
-      const studentCount = studRes.data?.length || 0;
-      setSyncToast(`Cloud Sync Active: Loaded ${studentCount} students and ${teachRes.data?.length || 0} staff via Supabase.`);
+      const studentCount = remoteStudents?.length || 0;
+      setSyncToast(`Cloud Sync Active: Loaded ${studentCount} students and ${remoteTeachers?.length || 0} staff via Supabase.`);
       setTimeout(() => setSyncToast(null), 4000);
     } catch (err) {
       console.error("Force sync error:", err);
@@ -166,10 +262,12 @@ export default function App() {
 
   const updateRemoteData = useCallback(async (updates: Partial<AppData>) => {
     setSaveStatus('saving');
-    // 1. Immediately update local state so changes persist in UI with zero delay
+    const schoolId = userAccount?.schoolId || localStorage.getItem('currentSchoolId') || 'DEFAULT_SCHOOL';
+    const schoolKey = `haby_school_data_${schoolId}`;
+
+    // 1. Immediately update local state & persistent cache so changes never get lost
     setData(prev => {
       const next = { ...prev, ...updates };
-      const schoolKey = `haby_school_data_${userAccount?.schoolId || 'DEFAULT_SCHOOL'}`;
       try {
         localStorage.setItem(schoolKey, JSON.stringify(next));
       } catch (err) {
@@ -183,37 +281,76 @@ export default function App() {
       return;
     }
 
-    const schoolId = userAccount.schoolId;
     console.log("Current school_id (updateRemoteData):", schoolId);
     try {
-      if (updates.students && Array.isArray(updates.students)) {
-        await supabase.from('students').insert(updates.students.map(s => ({ ...s, school_id: schoolId })));
+      // 2. Persist with UPSERT (never pure insert which crashes on duplicate id)
+      if (updates.students && Array.isArray(updates.students) && updates.students.length > 0) {
+        try {
+          await supabase.from('students').upsert(
+            updates.students.map(s => ({ ...s, school_id: schoolId })),
+            { onConflict: 'id' }
+          );
+        } catch (e) {
+          console.warn("Supabase students upsert error:", e);
+        }
       }
 
-      if (updates.teachers && Array.isArray(updates.teachers)) {
-        await supabase.from('teachers').insert(updates.teachers.map(t => ({ ...t, school_id: schoolId })));
+      if (updates.teachers && Array.isArray(updates.teachers) && updates.teachers.length > 0) {
+        try {
+          await supabase.from('teachers').upsert(
+            updates.teachers.map(t => ({ ...t, school_id: schoolId })),
+            { onConflict: 'id' }
+          );
+        } catch (e) {
+          console.warn("Supabase teachers upsert error:", e);
+        }
       }
 
-      if (updates.exams && Array.isArray(updates.exams)) {
-        await supabase.from('exams').insert(updates.exams.map(e => ({ ...e, school_id: schoolId })));
+      if (updates.exams && Array.isArray(updates.exams) && updates.exams.length > 0) {
+        try {
+          await supabase.from('exams').upsert(
+            updates.exams.map(e => ({ ...e, school_id: schoolId })),
+            { onConflict: 'id' }
+          );
+        } catch (e) {
+          console.warn("Supabase exams upsert error:", e);
+        }
       }
 
-      if (updates.examinationRecords && Array.isArray(updates.examinationRecords)) {
-        await supabase.from('exam_records').insert(updates.examinationRecords.map(r => ({ ...r, school_id: schoolId })));
+      if (updates.examinationRecords && Array.isArray(updates.examinationRecords) && updates.examinationRecords.length > 0) {
+        try {
+          await supabase.from('exam_records').upsert(
+            updates.examinationRecords.map(r => ({ ...r, school_id: schoolId })),
+            { onConflict: 'id' }
+          );
+        } catch (e) {
+          console.warn("Supabase exam_records upsert error:", e);
+        }
       }
 
-      if (updates.usalRecords && Array.isArray(updates.usalRecords)) {
-        await supabase.from('usal_records').insert(updates.usalRecords.map(u => ({ ...u, school_id: schoolId })));
+      if (updates.usalRecords && Array.isArray(updates.usalRecords) && updates.usalRecords.length > 0) {
+        try {
+          await supabase.from('usal_records').upsert(
+            updates.usalRecords.map(u => ({ ...u, school_id: schoolId })),
+            { onConflict: 'id' }
+          );
+        } catch (e) {
+          console.warn("Supabase usal_records upsert error:", e);
+        }
       }
 
-      // Save complete snapshot for durable state restoration
-      await supabase.from('school_data').update({
-        id: schoolId,
-        school_id: schoolId,
-        schoolId: schoolId,
-        ...updates,
-        updated_at: new Date().toISOString()
-      }).eq('id', schoolId);
+      // 3. Save complete snapshot with UPSERT for durable state restoration across logins
+      try {
+        await supabase.from('school_data').upsert({
+          id: schoolId,
+          school_id: schoolId,
+          schoolId: schoolId,
+          ...updates,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'id' });
+      } catch (e) {
+        console.warn("Supabase school_data upsert error:", e);
+      }
 
       setSaveStatus('saved');
       setIsCloudSynced(true);
@@ -345,15 +482,15 @@ export default function App() {
   };
 
   const handleAddStudent = async (student: Student) => {
-    const schoolId = userAccount?.schoolId || 'DEMO_SCHOOL';
+    const schoolId = userAccount?.schoolId || localStorage.getItem('currentSchoolId') || 'DEMO_SCHOOL';
     console.log("Current school_id (handleAddStudent):", schoolId);
     try {
-      await supabase.from('students').insert({
+      await supabase.from('students').upsert({
         ...student,
         school_id: schoolId
-      });
+      }, { onConflict: 'id' });
     } catch (e) {
-      console.warn("Error inserting student doc in Supabase:", e);
+      console.warn("Error upserting student in Supabase:", e);
     }
     const activityLogs = logActivity(
       'STUDENT_ADDED',
@@ -365,12 +502,15 @@ export default function App() {
   };
 
   const handleBulkAddStudents = async (newStudents: Student[]) => {
-    const schoolId = userAccount?.schoolId || 'DEMO_SCHOOL';
+    const schoolId = userAccount?.schoolId || localStorage.getItem('currentSchoolId') || 'DEMO_SCHOOL';
     console.log("Current school_id (handleBulkAddStudents):", schoolId);
     try {
-      await supabase.from('students').insert(newStudents.map(s => ({ ...s, school_id: schoolId })));
+      await supabase.from('students').upsert(
+        newStudents.map(s => ({ ...s, school_id: schoolId })),
+        { onConflict: 'id' }
+      );
     } catch (e) {
-      console.warn("Error bulk inserting students in Supabase:", e);
+      console.warn("Error bulk upserting students in Supabase:", e);
     }
     const activityLogs = logActivity(
       'STUDENTS_BULK_UPDATE',
@@ -419,13 +559,13 @@ export default function App() {
   };
 
   const handleUpdateStudent = async (student: Student) => {
-    const schoolId = userAccount?.schoolId || 'DEMO_SCHOOL';
+    const schoolId = userAccount?.schoolId || localStorage.getItem('currentSchoolId') || 'DEMO_SCHOOL';
     console.log("Current school_id (handleUpdateStudent):", schoolId);
     try {
-      await supabase.from('students').update({
+      await supabase.from('students').upsert({
         ...student,
         school_id: schoolId
-      }).eq('id', student.id);
+      }, { onConflict: 'id' });
     } catch (e) {
       console.warn("Error updating student doc in Supabase:", e);
     }
@@ -442,10 +582,10 @@ export default function App() {
   };
 
   const handleDeleteStudent = async (id: number) => {
-    const schoolId = userAccount?.schoolId || 'DEMO_SCHOOL';
+    const schoolId = userAccount?.schoolId || localStorage.getItem('currentSchoolId') || 'DEMO_SCHOOL';
     console.log("Current school_id (handleDeleteStudent):", schoolId);
     try {
-      await supabase.from('students').delete().eq('id', id);
+      await supabase.from('students').delete().eq('id', id).eq('school_id', schoolId);
     } catch (e) {
       console.warn("Error deleting student doc in Supabase:", e);
     }
@@ -464,14 +604,12 @@ export default function App() {
 
   const handleBulkDeleteStudents = async (ids: number[]) => {
     if (!ids || ids.length === 0) return;
-    const schoolId = userAccount?.schoolId || 'DEMO_SCHOOL';
+    const schoolId = userAccount?.schoolId || localStorage.getItem('currentSchoolId') || 'DEMO_SCHOOL';
     console.log("Current school_id (handleBulkDeleteStudents):", schoolId);
     const idSet = new Set(ids);
     const count = ids.length;
     try {
-      for (const id of ids) {
-        await supabase.from('students').delete().eq('id', id);
-      }
+      await supabase.from('students').delete().in('id', ids).eq('school_id', schoolId);
     } catch (e) {
       console.warn("Error bulk deleting students in Supabase:", e);
     }
@@ -488,13 +626,13 @@ export default function App() {
   };
 
   const handleAddTeacher = async (teacher: Teacher) => {
-    const schoolId = userAccount?.schoolId || 'DEMO_SCHOOL';
+    const schoolId = userAccount?.schoolId || localStorage.getItem('currentSchoolId') || 'DEMO_SCHOOL';
     console.log("Current school_id (handleAddTeacher):", schoolId);
     try {
-      await supabase.from('teachers').insert({
+      await supabase.from('teachers').upsert({
         ...teacher,
         school_id: schoolId
-      });
+      }, { onConflict: 'id' });
     } catch (e) {
       console.warn("Error inserting teacher doc in Supabase:", e);
     }
@@ -513,13 +651,16 @@ export default function App() {
 
   const handleBulkAddTeachers = async (newTeachers: Teacher[]) => {
     if (!newTeachers || newTeachers.length === 0) return;
-    const schoolId = userAccount?.schoolId || 'DEMO_SCHOOL';
+    const schoolId = userAccount?.schoolId || localStorage.getItem('currentSchoolId') || 'DEMO_SCHOOL';
     console.log("Current school_id (handleBulkAddTeachers):", schoolId);
     try {
-      await supabase.from('teachers').insert(newTeachers.map(t => ({
-        ...t,
-        school_id: schoolId
-      })));
+      await supabase.from('teachers').upsert(
+        newTeachers.map(t => ({
+          ...t,
+          school_id: schoolId
+        })),
+        { onConflict: 'id' }
+      );
     } catch (e) {
       console.warn("Error inserting bulk teachers in Supabase:", e);
     }
@@ -538,13 +679,13 @@ export default function App() {
   };
 
   const handleUpdateTeacher = async (teacher: Teacher) => {
-    const schoolId = userAccount?.schoolId || 'DEMO_SCHOOL';
+    const schoolId = userAccount?.schoolId || localStorage.getItem('currentSchoolId') || 'DEMO_SCHOOL';
     console.log("Current school_id (handleUpdateTeacher):", schoolId);
     try {
-      await supabase.from('teachers').update({
+      await supabase.from('teachers').upsert({
         ...teacher,
         school_id: schoolId
-      }).eq('id', teacher.id);
+      }, { onConflict: 'id' });
     } catch (e) {
       console.warn("Error updating teacher doc in Supabase:", e);
     }
@@ -561,10 +702,10 @@ export default function App() {
   };
 
   const handleDeleteTeacher = async (id: number) => {
-    const schoolId = userAccount?.schoolId || 'DEMO_SCHOOL';
+    const schoolId = userAccount?.schoolId || localStorage.getItem('currentSchoolId') || 'DEMO_SCHOOL';
     console.log("Current school_id (handleDeleteTeacher):", schoolId);
     try {
-      await supabase.from('teachers').delete().eq('id', id);
+      await supabase.from('teachers').delete().eq('id', id).eq('school_id', schoolId);
     } catch (e) {
       console.warn("Error deleting teacher doc in Supabase:", e);
     }

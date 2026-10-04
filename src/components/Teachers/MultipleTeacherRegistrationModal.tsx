@@ -16,7 +16,7 @@ import {
   Info
 } from 'lucide-react';
 import { Teacher, SchoolStaffRole, SchoolInfo } from '../../types';
-import { STAFF_ROLES_LIST, INVIGILATOR_COLORS, POPULAR_SUBJECTS_LIST } from '../../constants/defaults';
+import { STAFF_ROLES_LIST, INVIGILATOR_COLORS, SUBJECT_LIST } from '../../constants/defaults';
 import { formatPhoneNumber, getTanzanianCarrier } from '../../utils/phoneUtils';
 import { escapeCSV, downloadFile } from '../../utils/export';
 

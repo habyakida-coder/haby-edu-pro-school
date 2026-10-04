@@ -138,6 +138,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   const [bulkEnrollSubjects, setBulkEnrollSubjects] = useState<string[]>([]);
   const [bulkRemoveSubjects, setBulkRemoveSubjects] = useState<string[]>([]);
   const [studentCreatedNotice, setStudentCreatedNotice] = useState<string | null>(null);
+  const [isCsvImportModalOpen, setIsCsvImportModalOpen] = useState(false);
 
   // Edit and View Modals
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
@@ -723,6 +724,15 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
         <div className="flex items-center gap-2">
           <button
             type="button"
+            onClick={() => setIsCsvImportModalOpen(true)}
+            className="px-3.5 py-2 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg flex items-center gap-1.5 transition-colors border border-purple-200 cursor-pointer"
+            title="Import Students from CSV file with phone numbers"
+          >
+            <Upload className="w-4 h-4 text-purple-600" />
+            <span>Import CSV</span>
+          </button>
+          <button
+            type="button"
             onClick={handlePrintRegisteredList}
             className="px-3.5 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
             title="Print Registered Students List with Large Clear Font"
@@ -1026,11 +1036,14 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                 Download CSV Template
               </button>
 
-              <label className="px-4 py-2.5 text-xs font-bold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer">
+              <button
+                type="button"
+                onClick={() => setIsCsvImportModalOpen(true)}
+                className="px-4 py-2.5 text-xs font-bold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
                 <Upload className="w-4 h-4 text-purple-600" />
-                Import CSV
-                <input type="file" accept=".csv" onChange={handleImportCSV} className="hidden" />
-              </label>
+                <span>Import CSV (Batch with Phone)</span>
+              </button>
 
               {/* Quick tip banner for multiple deletion after registration */}
               <div className="w-full mt-1.5 p-2.5 bg-blue-50/80 border border-blue-200/70 rounded-lg flex flex-wrap items-center justify-between gap-2 text-xs text-blue-900">
@@ -1325,8 +1338,12 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                       <td className="p-2.5 border-r border-slate-200 font-medium text-slate-700">
                         {s.className} - {s.stream || s.combination || 'Standard'}
                       </td>
-                      <td className="p-2.5 border-r border-slate-200 font-mono text-slate-600 text-[11px]">
-                        {s.parentPhone || s.phone || '-'}
+                      <td className="p-2.5 border-r border-slate-200">
+                        <StudentPhoneBadge 
+                          phone={s.parentPhone || s.phone} 
+                          studentName={s.name}
+                          onUpdatePhone={newPhone => onUpdateStudent({ ...s, parentPhone: newPhone, phone: newPhone })}
+                        />
                       </td>
                       <td className="p-2.5 border-r border-slate-200">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -1477,26 +1494,22 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-xs font-bold text-slate-600 block mb-1">Parent Phone Number</label>
-                    <input
-                      type="tel"
-                      value={editingStudent.parentPhone || ''}
-                      onChange={e => setEditingStudent({ ...editingStudent, parentPhone: e.target.value })}
-                      placeholder="e.g. 0754 000 111"
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-slate-600 block mb-1">Date of Birth</label>
-                    <input
-                      type="date"
-                      value={editingStudent.dob || '2010-01-01'}
-                      onChange={e => setEditingStudent({ ...editingStudent, dob: e.target.value })}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white"
-                    />
-                  </div>
+                <div>
+                  <PhoneInputPlugin
+                    value={editingStudent.parentPhone || editingStudent.phone || ''}
+                    onChange={val => setEditingStudent({ ...editingStudent, parentPhone: val, phone: val })}
+                    label="Parent / Guardian Phone Number"
+                    studentName={editingStudent.name}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 block mb-1">Date of Birth</label>
+                  <input
+                    type="date"
+                    value={editingStudent.dob || '2010-01-01'}
+                    onChange={e => setEditingStudent({ ...editingStudent, dob: e.target.value })}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white"
+                  />
                 </div>
               </div>
             </div>
@@ -1881,6 +1894,24 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Official Student CSV Import Modal with Phone Validation */}
+      <StudentCsvImportModal
+        isOpen={isCsvImportModalOpen}
+        onClose={() => setIsCsvImportModalOpen(false)}
+        onImportStudents={newBatch => {
+          if (onBulkAddStudents) {
+            onBulkAddStudents(newBatch);
+          } else {
+            newBatch.forEach(s => onAddStudent(s));
+          }
+          setActiveTab('register_list');
+          setStudentCreatedNotice(`Imported ${newBatch.length} students successfully with verified phone numbers!`);
+          setTimeout(() => setStudentCreatedNotice(null), 6000);
+        }}
+        existingStudentsCount={students.length}
+        schoolInfo={schoolInfo}
+      />
     </div>
   );
 };

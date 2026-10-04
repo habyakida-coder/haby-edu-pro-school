@@ -41,10 +41,14 @@ import {
 import { SUBJECT_LIST, INVIGILATOR_COLORS, STAFF_ROLES_LIST, DEFAULT_CLASSES } from '../constants/defaults';
 import { getTeacherColor } from '../utils/colors';
 import { TeacherEvaluationView } from './TeacherEvaluationView';
+import { MultipleTeacherRegistrationModal } from './Teachers/MultipleTeacherRegistrationModal';
+import { PhoneInputPlugin } from './common/PhoneInputPlugin';
+import { StudentPhoneBadge } from './common/StudentPhoneBadge';
 
 interface TeachersViewProps {
   teachers: Teacher[];
   onAddTeacher: (teacher: Teacher) => void;
+  onBulkAddTeachers?: (teachers: Teacher[]) => void;
   onUpdateTeacher: (teacher: Teacher) => void;
   onDeleteTeacher: (id: number) => void;
   teacherEvaluations?: TeacherEvaluation[];
@@ -79,6 +83,7 @@ const POPULAR_SUBJECTS = [
 export const TeachersView: React.FC<TeachersViewProps> = ({
   teachers,
   onAddTeacher,
+  onBulkAddTeachers,
   onUpdateTeacher,
   onDeleteTeacher,
   teacherEvaluations = [],
@@ -92,6 +97,7 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
   currentUser
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'roster' | 'evaluations'>('roster');
+  const [isMultipleTeacherModalOpen, setIsMultipleTeacherModalOpen] = useState(false);
 
   // Form states
   const [name, setName] = useState('');
@@ -742,7 +748,7 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
                 </button>
               </div>
             )}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-xl font-bold text-[#1f4d8b] flex items-center gap-2">
                   <Briefcase className="w-5 h-5 text-blue-600" />
@@ -752,15 +758,27 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
                   Register teachers with multiple teaching subjects, class stream allocations, weekly timetable quotas, and administrative roles.
                 </p>
               </div>
-              {editingTeacher && (
-                <button
-                  type="button"
-                  onClick={cancelEdit}
-                  className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
-                >
-                  Cancel Edit
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {!editingTeacher && (
+                  <button
+                    type="button"
+                    onClick={() => setIsMultipleTeacherModalOpen(true)}
+                    className="px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl shadow-xs flex items-center gap-2 cursor-pointer transition-all hover:scale-[1.02]"
+                  >
+                    <Users className="w-4 h-4" />
+                    <span>Multiple Registration of Teachers (Grid & CSV)</span>
+                  </button>
+                )}
+                {editingTeacher && (
+                  <button
+                    type="button"
+                    onClick={cancelEdit}
+                    className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                  >
+                    Cancel Edit
+                  </button>
+                )}
+              </div>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -947,17 +965,12 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
                     </div>
 
                     <div>
-                      <label className="text-xs font-bold text-slate-600 uppercase block mb-1">Phone Number (Optional)</label>
-                      <div className="relative">
-                        <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
-                        <input
-                          type="tel"
-                          placeholder="+255 7..."
-                          value={phone}
-                          onChange={e => setPhone(e.target.value)}
-                          className="w-full pl-8 pr-3 py-2 text-sm border border-slate-300 rounded-xl bg-white"
-                        />
-                      </div>
+                      <PhoneInputPlugin
+                        value={phone}
+                        onChange={setPhone}
+                        label="Phone Number (Optional)"
+                        studentName={name}
+                      />
                     </div>
 
                     <div>
@@ -1433,10 +1446,17 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
                               </div>
                             </div>
                           </td>
-                          <td className="p-2.5 border-r border-slate-200 text-[11px] text-slate-600">
-                            {t.phone && <div>{t.phone}</div>}
-                            {t.email && <div className="text-[10px] text-slate-400 truncate max-w-[130px]">{t.email}</div>}
-                            {!t.phone && !t.email && <span className="text-slate-400 italic">--</span>}
+                          <td className="p-2.5 border-r border-slate-200">
+                            {t.phone ? (
+                              <StudentPhoneBadge 
+                                phone={t.phone} 
+                                studentName={t.name}
+                                onUpdatePhone={newPhone => onUpdateTeacher({ ...t, phone: newPhone })}
+                              />
+                            ) : (
+                              <span className="text-[11px] text-slate-400 italic">No phone</span>
+                            )}
+                            {t.email && <div className="text-[10px] text-slate-400 truncate max-w-[130px] mt-0.5">{t.email}</div>}
                           </td>
                           <td className="p-2.5 text-center">
                             <div className="flex items-center justify-center gap-1">
@@ -1688,6 +1708,21 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
           </div>
         </div>
       )}
+      {/* Multiple Teacher Registration Modal (Spreadsheet & CSV Import) */}
+      <MultipleTeacherRegistrationModal
+        isOpen={isMultipleTeacherModalOpen}
+        onClose={() => setIsMultipleTeacherModalOpen(false)}
+        onBulkAddTeachers={newTeachers => {
+          if (onBulkAddTeachers) {
+            onBulkAddTeachers(newTeachers);
+          } else {
+            newTeachers.forEach(t => onAddTeacher(t));
+          }
+          setFormNotice(`Successfully registered ${newTeachers.length} staff members!`);
+          setTimeout(() => setFormNotice(null), 6000);
+        }}
+        existingTeachers={teachers}
+      />
     </div>
   );
 };

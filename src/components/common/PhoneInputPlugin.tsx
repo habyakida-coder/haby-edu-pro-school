@@ -139,9 +139,13 @@ export const PhoneInputPlugin: React.FC<PhoneInputPluginProps> = ({
         {value && (
           <div className="pr-2 shrink-0">
             {isValid ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" title="Valid phone number format" />
+              <span title="Valid phone number format">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              </span>
             ) : (
-              <AlertCircle className="w-4 h-4 text-amber-500" title="Phone format incomplete (10 digits needed)" />
+              <span title="Phone format incomplete (10 digits needed)">
+                <AlertCircle className="w-4 h-4 text-amber-500" />
+              </span>
             )}
           </div>
         )}

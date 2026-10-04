@@ -8,7 +8,7 @@ import {
   createUserWithEmailAndPassword
 } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
-import { supabase } from '../lib/supabaseClient';
+import { supabase, DEFAULT_PRIMARY_SCHOOL_ID } from '../lib/supabaseClient';
 import { UserAccount, UserRole } from '../types';
 
 interface AuthContextType {
@@ -74,9 +74,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (existingUser) {
         const data = existingUser;
         const storedSessionSchool = sessionStorage.getItem('haby_school_id');
-        const resolvedSchoolId = supaSchoolId || data.school_id || data.schoolId || storedSessionSchool || 'DEMO_SCHOOL';
+        const resolvedSchoolId = supaSchoolId || data.school_id || data.schoolId || storedSessionSchool || DEFAULT_PRIMARY_SCHOOL_ID;
         console.log("Current school_id:", resolvedSchoolId);
         sessionStorage.setItem('haby_school_id', resolvedSchoolId);
+        localStorage.setItem('currentSchoolId', resolvedSchoolId);
+        localStorage.setItem('schoolId', resolvedSchoolId);
 
         const account: UserAccount = {
           id: fbUser.uid,
@@ -101,11 +103,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      // If user doesn't exist yet, bootstrap with DEMO_SCHOOL
-      const storedSessionSchool = sessionStorage.getItem('haby_school_id');
-      const schoolId = storedSessionSchool || 'DEMO_SCHOOL';
+      // If user doesn't exist yet, bootstrap with DEFAULT_PRIMARY_SCHOOL_ID
+      const storedSessionSchool = sessionStorage.getItem('haby_school_id') || localStorage.getItem('currentSchoolId');
+      const schoolId = storedSessionSchool || DEFAULT_PRIMARY_SCHOOL_ID;
       console.log("Current school_id:", schoolId);
       sessionStorage.setItem('haby_school_id', schoolId);
+      localStorage.setItem('currentSchoolId', schoolId);
+      localStorage.setItem('schoolId', schoolId);
 
       const newAccount: UserAccount = {
         id: fbUser.uid,
@@ -127,7 +131,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserAccount(newAccount);
     } catch (error) {
       console.error("Error fetching or creating user account:", error);
-      const fallbackSchoolId = sessionStorage.getItem('haby_school_id') || 'DEMO_SCHOOL';
+      const fallbackSchoolId = sessionStorage.getItem('haby_school_id') || DEFAULT_PRIMARY_SCHOOL_ID;
       console.log("Current school_id (fallback):", fallbackSchoolId);
       const fallbackAccount: UserAccount = {
         id: fbUser.uid,
@@ -234,7 +238,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         // Fetch real schoolId from users table if exists
-        let schoolId = sessionStorage.getItem('haby_school_id') || 'DEMO_SCHOOL';
+        let schoolId = sessionStorage.getItem('haby_school_id') || DEFAULT_PRIMARY_SCHOOL_ID;
         try {
           const { data: supaUsers } = await supabase.from('users').select('*').eq('email', normalizedEmail);
           if (supaUsers && supaUsers.length > 0 && (supaUsers[0].school_id || supaUsers[0].schoolId)) {
@@ -246,6 +250,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         console.log("Current school_id:", schoolId);
         sessionStorage.setItem('haby_school_id', schoolId);
+        localStorage.setItem('currentSchoolId', schoolId);
+        localStorage.setItem('schoolId', schoolId);
 
         const adminAccount: UserAccount = {
           id: fbUser?.uid || 'admin_haby_root',
@@ -344,9 +350,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Verify password
         if (uData.password && uData.password === inputPass) {
-          const resolvedSchool = uData.school_id || uData.schoolId || sessionStorage.getItem('haby_school_id') || 'DEMO_SCHOOL';
+          const resolvedSchool = uData.school_id || uData.schoolId || sessionStorage.getItem('haby_school_id') || DEFAULT_PRIMARY_SCHOOL_ID;
           console.log("Current school_id:", resolvedSchool);
           sessionStorage.setItem('haby_school_id', resolvedSchool);
+          localStorage.setItem('currentSchoolId', resolvedSchool);
+          localStorage.setItem('schoolId', resolvedSchool);
 
           const memberAccount: UserAccount = {
             id: uData.id || `usr_${Date.now()}`,
@@ -403,6 +411,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!userAccount) return;
     console.log("Current school_id (switchSchool):", schoolId);
     sessionStorage.setItem('haby_school_id', schoolId);
+    localStorage.setItem('currentSchoolId', schoolId);
+    localStorage.setItem('schoolId', schoolId);
     const updated: UserAccount = {
       ...userAccount,
       schoolId,
@@ -453,6 +463,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const account = demoAccounts[role];
     console.log("Current school_id (loginAsDemo):", account.schoolId);
     sessionStorage.setItem('haby_school_id', account.schoolId);
+    localStorage.setItem('currentSchoolId', account.schoolId);
+    localStorage.setItem('schoolId', account.schoolId);
     sessionStorage.setItem('haby_demo_user', JSON.stringify(account));
     setUserAccount(account);
   };
