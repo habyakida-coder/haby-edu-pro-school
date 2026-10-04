@@ -23,6 +23,8 @@ import { SchemeOfWorkView } from './components/SchemeOfWork/SchemeOfWorkView';
 import { FloatingBubbles } from './components/FloatingBubbles';
 import { AuthScreen } from './components/auth/AuthScreen';
 import { ParentPortalView } from './components/ParentPortalView';
+import { DailyTeachingTrackerView } from './components/DailyTeachingTrackerView';
+import { EvaluationAnalysisView } from './components/EvaluationAnalysisView';
 import { useAuth } from './context/AuthContext';
 import SittingPlan from './components/SittingPlan.jsx';
 import SaasFinance from './components/SaasFinance.jsx';
@@ -197,6 +199,12 @@ export default function App() {
     };
     loadFromDatabase();
 
+    // Auto re-sync when window gains focus (e.g., opening on phone or switching tabs)
+    const handleWindowFocus = () => {
+      loadFromDatabase();
+    };
+    window.addEventListener('focus', handleWindowFocus);
+
     // Check school status from schools table
     Promise.resolve(supabase.from('schools').select('*').eq('id', schoolId).single())
       .then(({ data: sData }) => {
@@ -205,6 +213,10 @@ export default function App() {
         }
       })
       .catch((err: any) => console.warn("School status error:", err));
+
+    return () => {
+      window.removeEventListener('focus', handleWindowFocus);
+    };
   }, [userAccount]);
 
   // Force Refresh & Sync button implementation via Supabase

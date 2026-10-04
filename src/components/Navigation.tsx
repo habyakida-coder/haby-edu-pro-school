@@ -47,7 +47,9 @@ export type ActiveView =
   | 'timetable'
   | 'invigilation'
   | 'settings'
-  | 'markentry';
+  | 'markentry'
+  | 'dailytracker'
+  | 'evaluationanalysis';
 
 interface NavigationProps {
   activeView: ActiveView;
@@ -87,7 +89,9 @@ export const Navigation: React.FC<NavigationProps> = ({
     { id: 'timetable', label: 'Timetable', icon: <Calendar className="w-4 h-4" /> },
     { id: 'invigilation', label: 'Invigilation', icon: <ShieldCheck className="w-4 h-4" /> },
     { id: 'settings', label: 'Settings', icon: <SettingsIcon className="w-4 h-4" /> },
-    { id: 'markentry', label: 'Mark Entry', icon: <CheckCircle2 className="w-4 h-4" /> }
+    { id: 'markentry', label: 'Mark Entry', icon: <CheckCircle2 className="w-4 h-4" /> },
+    { id: 'dailytracker', label: 'Daily Tracker', icon: <CalendarCheck className="w-4 h-4 text-emerald-400" /> },
+    { id: 'evaluationanalysis', label: 'Evaluation Analysis', icon: <Award className="w-4 h-4 text-amber-400" /> }
   ] as { id: ActiveView; label: string; icon: React.ReactNode }[]).filter(item => {
     // Teachers have access to academic, planning, records, sitting plans, and timetable tools
     if (isTeacher) {
