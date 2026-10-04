@@ -305,16 +305,17 @@ export default function App() {
           localStorage.setItem(schoolKey, JSON.stringify(next));
         } catch (e) {}
         saveSchoolData(schoolId, next).catch(e => console.warn("Firestore sync error:", e));
+
+        setSyncToast(`Cloud Sync Active: System synchronized with ${next.students.length} Total Students and ${next.teachers.length} Staff Members.`);
+        setTimeout(() => setSyncToast(null), 4000);
+
         return next;
       });
 
       setIsCloudSynced(true);
-      const studentCount = remoteStudents?.length || 0;
-      setSyncToast(`Cloud Sync Active: Loaded ${studentCount} students and ${remoteTeachers?.length || 0} staff via Supabase.`);
-      setTimeout(() => setSyncToast(null), 4000);
     } catch (err) {
       console.error("Force sync error:", err);
-      setSyncToast("Sync completed from available tables.");
+      setSyncToast("Sync completed from available database.");
       setTimeout(() => setSyncToast(null), 3000);
     } finally {
       setIsSyncing(false);
@@ -1053,7 +1054,7 @@ export default function App() {
         />
       )}
 
-      {/* Responsive Vertical Side Navigation (Drawer on Mobile, Fixed Sidebar on Desktop) */}
+      {/* Top Horizontal Navigation Bar */}
       <Navigation
         activeView={activeView}
         schoolInfo={data.schoolInfo}
@@ -1068,13 +1069,13 @@ export default function App() {
             logout();
           }
         }}
-        layout="vertical"
+        layout="horizontal"
         isMobileOpen={isMobileNavOpen}
         onMobileClose={() => setIsMobileNavOpen(false)}
       />
 
-      {/* Main Content Area - Full 100% width on mobile, left-padded for sidebar on desktop */}
-      <div className="flex-1 lg:pl-64 w-full p-3 sm:p-4 md:p-6 relative z-10 overflow-y-auto min-h-screen">
+      {/* Main Content Area - Full 100% width layout */}
+      <div className="flex-1 w-full p-3 sm:p-4 md:p-6 relative z-10 overflow-y-auto min-h-screen">
         {/* View Switcher */}
         <main>
           {activeView === 'dashboard' && (
@@ -1087,6 +1088,8 @@ export default function App() {
               isSyncing={isSyncing}
               onForceRefreshSync={handleForceRefreshSync}
               syncToast={syncToast}
+              schoolInfo={data.schoolInfo}
+              onSelectView={view => setActiveView(view as any)}
             />
           )}
 

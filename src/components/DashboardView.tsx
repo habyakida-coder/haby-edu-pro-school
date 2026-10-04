@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Users, 
   GraduationCap, 
@@ -10,9 +10,28 @@ import {
   Activity,
   RefreshCw,
   CloudCheck,
-  CheckCircle2
+  CheckCircle2,
+  BookOpen,
+  School,
+  Smile,
+  UserPlus,
+  CreditCard,
+  Grid,
+  Smartphone,
+  Plus,
+  ArrowRight,
+  ShieldCheck,
+  Wallet,
+  Sparkles,
+  Layers,
+  ChevronRight,
+  Award,
+  CalendarCheck,
+  FileSpreadsheet
 } from 'lucide-react';
-import { Student, Teacher, Exam, InvigilationSession } from '../types';
+import { Student, Teacher, Exam, InvigilationSession, SchoolInfo } from '../types';
+import { NURSERY_CLASSES, PRIMARY_CLASSES } from '../constants/defaults';
+import { HabyEduProLogo } from './common/HabyEduProLogo';
 
 interface DashboardViewProps {
   students: Student[];
@@ -23,160 +42,501 @@ interface DashboardViewProps {
   isSyncing?: boolean;
   onForceRefreshSync?: () => void;
   syncToast?: string | null;
+  schoolInfo?: SchoolInfo;
+  onSelectView?: (view: string) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
-  students,
-  teachers,
-  exams,
-  sessions,
+  students = [],
+  teachers = [],
+  exams = [],
+  sessions = [],
   isCloudSynced = false,
   isSyncing = false,
   onForceRefreshSync,
-  syncToast = null
+  syncToast = null,
+  schoolInfo,
+  onSelectView
 }) => {
-  const cseeStudents = students.filter(s => s.level === 'CSEE').length;
-  const acseeStudents = students.filter(s => s.level === 'ACSEE').length;
+  const [activeLevelFilter, setActiveLevelFilter] = useState<'ALL' | 'PRIMARY' | 'PRE_PRIMARY' | 'SECONDARY'>('ALL');
+
+  // Compute level breakdowns accurately across Primary, Pre-Primary / Nursery, CSEE & ACSEE
+  const primaryStudents = useMemo(() => {
+    return students.filter(s => 
+      s.level === 'PRIMARY' || 
+      PRIMARY_CLASSES.some(c => c.toLowerCase() === (s.className || '').toLowerCase())
+    ).length;
+  }, [students]);
+
+  const prePrimaryStudents = useMemo(() => {
+    return students.filter(s => 
+      s.level === 'PRE_PRIMARY' || 
+      NURSERY_CLASSES.some(c => c.toLowerCase() === (s.className || '').toLowerCase())
+    ).length;
+  }, [students]);
+
+  const cseeStudents = useMemo(() => {
+    return students.filter(s => s.level === 'CSEE' || (!s.level && s.className?.startsWith('Form'))).length;
+  }, [students]);
+
+  const acseeStudents = useMemo(() => {
+    return students.filter(s => s.level === 'ACSEE').length;
+  }, [students]);
+
+  // Gender Breakdown
+  const genderStats = useMemo(() => {
+    let boys = 0;
+    let girls = 0;
+    students.forEach(s => {
+      const isGirl = (s.gender || '').toLowerCase().startsWith('f');
+      if (isGirl) girls++;
+      else boys++;
+    });
+    const total = students.length || 1;
+    return {
+      boys,
+      girls,
+      totalStudents: students.length,
+      boysPct: Math.round((boys / total) * 100),
+      girlsPct: Math.round((girls / total) * 100)
+    };
+  }, [students]);
+
   const availableTeachers = teachers.filter(t => !t.excludeInvigilation).length;
   const excludedTeachers = teachers.filter(t => t.excludeInvigilation).length;
 
-  // Class distribution
-  const classCounts: Record<string, number> = {};
-  students.forEach(s => {
-    classCounts[s.className] = (classCounts[s.className] || 0) + 1;
-  });
+  // Filtered Students according to Level Switcher
+  const filteredStudents = useMemo(() => {
+    if (activeLevelFilter === 'PRIMARY') {
+      return students.filter(s => s.level === 'PRIMARY' || PRIMARY_CLASSES.some(c => c.toLowerCase() === (s.className || '').toLowerCase()));
+    }
+    if (activeLevelFilter === 'PRE_PRIMARY') {
+      return students.filter(s => s.level === 'PRE_PRIMARY' || NURSERY_CLASSES.some(c => c.toLowerCase() === (s.className || '').toLowerCase()));
+    }
+    if (activeLevelFilter === 'SECONDARY') {
+      return students.filter(s => s.level === 'CSEE' || s.level === 'ACSEE' || (s.className || '').startsWith('Form'));
+    }
+    return students;
+  }, [students, activeLevelFilter]);
+
+  // Class distribution for filtered view
+  const classCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    filteredStudents.forEach(s => {
+      if (s.className) {
+        counts[s.className] = (counts[s.className] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [filteredStudents]);
+
+  // Extract and sort all active class names
+  const activeClassList = useMemo(() => {
+    const presentClasses = Object.keys(classCounts);
+    if (presentClasses.length > 0) {
+      return presentClasses.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    }
+    if (activeLevelFilter === 'PRIMARY') return PRIMARY_CLASSES;
+    if (activeLevelFilter === 'PRE_PRIMARY') return NURSERY_CLASSES;
+    return ['Form 1', 'Form 2', 'Form 3', 'Form 4', 'Form 5', 'Form 6'];
+  }, [classCounts, activeLevelFilter]);
+
   const maxClassCount = Math.max(...Object.values(classCounts), 1);
 
   // Subject popularity
-  const subjectCounts: Record<string, number> = {};
-  students.forEach(s => {
-    s.subjects.forEach(sub => {
-      subjectCounts[sub] = (subjectCounts[sub] || 0) + 1;
+  const subjectCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    students.forEach(s => {
+      (s.subjects || []).forEach(sub => {
+        counts[sub] = (counts[sub] || 0) + 1;
+      });
     });
-  });
-  const sortedSubjects = Object.entries(subjectCounts).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    return counts;
+  }, [students]);
+
+  const sortedSubjects = useMemo(() => {
+    return Object.entries(subjectCounts).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  }, [subjectCounts]);
+
   const maxSubCount = Math.max(...sortedSubjects.map(s => s[1]), 1);
 
+  const handleNavigate = (viewId: string) => {
+    if (onSelectView) {
+      onSelectView(viewId);
+    }
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-8">
+      {/* Toast Notification */}
       {syncToast && (
-        <div className="p-3.5 bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs rounded-xl flex items-center justify-between shadow-xs animate-in fade-in">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span className="font-bold">{syncToast}</span>
+        <div className="p-4 bg-emerald-50 border border-emerald-300 text-emerald-950 text-xs font-bold rounded-2xl flex items-center justify-between shadow-sm animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <span>{syncToast}</span>
           </div>
         </div>
       )}
 
-      <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-bold text-[#1f4d8b]">School Academic Dashboard</h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Real-time summary of student enrolment, staff readiness, examinations, and invigilation sessions
+      {/* Hero Header Banner */}
+      <div className="relative bg-gradient-to-r from-[#0f2948] via-[#1a3d68] to-[#1f4d8b] text-white rounded-3xl p-6 sm:p-8 shadow-xl overflow-hidden border border-white/10">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-3 py-1 bg-white/15 backdrop-blur-md text-blue-200 border border-white/20 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3 text-amber-300" />
+                ACADEMIC YEAR 2026 • TERM 1
+              </span>
+              {isCloudSynced && (
+                <span className="px-3 py-1 bg-emerald-500/20 backdrop-blur-md text-emerald-300 border border-emerald-400/30 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  REAL-TIME SYNC ACTIVE
+                </span>
+              )}
+            </div>
+
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
+              {schoolInfo?.name || 'HABY EDU PRO SCHOOL'}
+            </h1>
+            <p className="text-xs sm:text-sm text-blue-200/90 font-medium max-w-2xl">
+              Mfumo Kamili wa Usimamizi wa Taaluma, Usajili wa Wanafunzi, Uwekaji wa Matokeo, Ratiba za Mitihani, Sitting Plans na Michango ya Shule.
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5">
-            {isCloudSynced && (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-300 rounded-lg text-[11px] text-emerald-800 font-extrabold shadow-2xs">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Cloud Synced</span>
-              </div>
-            )}
-
+          {/* Sync & Action Buttons */}
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
             {onForceRefreshSync && (
               <button
                 type="button"
                 onClick={onForceRefreshSync}
                 disabled={isSyncing}
-                className="px-3.5 py-1.5 bg-[#1f4d8b] hover:bg-[#163765] disabled:opacity-50 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
-                title="Clear local cache and re-fetch real-time data from Firestore"
+                className="px-4 py-2.5 bg-white/10 hover:bg-white/20 active:scale-95 text-white border border-white/20 rounded-2xl text-xs font-bold transition flex items-center gap-2 cursor-pointer backdrop-blur-md shadow-sm"
+                title="Refresh and sync data from cloud"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                <span>{isSyncing ? 'Syncing...' : 'Refresh / Force Sync'}</span>
+                <RefreshCw className={`w-4 h-4 text-amber-300 ${isSyncing ? 'animate-spin' : ''}`} />
+                <span>{isSyncing ? 'Syncing...' : 'Sync Cloud Data'}</span>
               </button>
             )}
           </div>
         </div>
 
-        {/* Key Metrics */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
-          <div className="p-5 rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100 shadow-sm flex items-center gap-4">
-            <div className="p-3 bg-blue-600 rounded-lg text-white">
-              <Users className="w-6 h-6" />
+        {/* Quick Action Shortcuts Bar */}
+        <div className="mt-8 pt-6 border-t border-white/15 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <button
+            type="button"
+            onClick={() => handleNavigate('students')}
+            className="p-3 bg-white/10 hover:bg-white/20 border border-white/15 hover:border-white/30 rounded-2xl text-left transition group cursor-pointer flex items-center gap-3"
+          >
+            <div className="p-2.5 bg-blue-500/30 text-blue-200 rounded-xl group-hover:scale-110 transition">
+              <UserPlus className="w-4 h-4" />
             </div>
-            <div>
-              <div className="text-3xl font-black text-blue-900">{students.length}</div>
-              <div className="text-xs font-bold text-blue-700 uppercase tracking-wider">Total Students</div>
+            <div className="min-w-0">
+              <span className="text-[11px] font-black text-white block truncate">+ Usajili Mpya</span>
+              <span className="text-[9px] text-blue-200 font-semibold block truncate">Wanafunzi</span>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleNavigate('markentry')}
+            className="p-3 bg-white/10 hover:bg-white/20 border border-white/15 hover:border-white/30 rounded-2xl text-left transition group cursor-pointer flex items-center gap-3"
+          >
+            <div className="p-2.5 bg-emerald-500/30 text-emerald-200 rounded-xl group-hover:scale-110 transition">
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[11px] font-black text-white block truncate">+ Weka Matokeo</span>
+              <span className="text-[9px] text-emerald-200 font-semibold block truncate">Mark Entry</span>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleNavigate('finance')}
+            className="p-3 bg-white/10 hover:bg-white/20 border border-white/15 hover:border-white/30 rounded-2xl text-left transition group cursor-pointer flex items-center gap-3"
+          >
+            <div className="p-2.5 bg-amber-500/30 text-amber-200 rounded-xl group-hover:scale-110 transition">
+              <Wallet className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[11px] font-black text-white block truncate">+ Michango / Ada</span>
+              <span className="text-[9px] text-amber-200 font-semibold block truncate">SaaS Finance</span>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleNavigate('sittingplan')}
+            className="p-3 bg-white/10 hover:bg-white/20 border border-white/15 hover:border-white/30 rounded-2xl text-left transition group cursor-pointer flex items-center gap-3"
+          >
+            <div className="p-2.5 bg-sky-500/30 text-sky-200 rounded-xl group-hover:scale-110 transition">
+              <Grid className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[11px] font-black text-white block truncate">+ Sitting Plan</span>
+              <span className="text-[9px] text-sky-200 font-semibold block truncate">Exam Desks</span>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleNavigate('sms')}
+            className="p-3 bg-white/10 hover:bg-white/20 border border-white/15 hover:border-white/30 rounded-2xl text-left transition group cursor-pointer flex items-center gap-3 col-span-2 sm:col-span-1"
+          >
+            <div className="p-2.5 bg-purple-500/30 text-purple-200 rounded-xl group-hover:scale-110 transition">
+              <Smartphone className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[11px] font-black text-white block truncate">+ Tuma SMS</span>
+              <span className="text-[9px] text-purple-200 font-semibold block truncate">Parent Notifications</span>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* Main Executive Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {/* Card 1: Enrolled Students & Gender */}
+        <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-xs hover:shadow-md transition space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100">
+              Enrolment
+            </span>
+            <div className="p-2 bg-blue-600 text-white rounded-xl shadow-sm">
+              <Users className="w-5 h-5" />
             </div>
           </div>
 
-          <div className="p-5 rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-100 shadow-sm flex items-center gap-4">
-            <div className="p-3 bg-emerald-600 rounded-lg text-white">
-              <GraduationCap className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="text-3xl font-black text-emerald-900">{teachers.length}</div>
-              <div className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Teaching Staff</div>
-            </div>
+          <div>
+            <div className="text-3xl font-black text-slate-900">{students.length}</div>
+            <div className="text-xs font-bold text-slate-500 mt-0.5">Wanafunzi Wote Waliosajiliwa</div>
           </div>
 
-          <div className="p-5 rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-amber-100 shadow-sm flex items-center gap-4">
-            <div className="p-3 bg-amber-600 rounded-lg text-white">
-              <FileText className="w-6 h-6" />
+          {/* Gender Progress Bar */}
+          <div className="pt-2 border-t border-slate-100 space-y-1.5">
+            <div className="flex items-center justify-between text-[11px] font-bold">
+              <span className="text-blue-700">Wavulana: {genderStats.boys} ({genderStats.boysPct}%)</span>
+              <span className="text-rose-600">Wasichana: {genderStats.girls} ({genderStats.girlsPct}%)</span>
             </div>
-            <div>
-              <div className="text-3xl font-black text-amber-900">{exams.length}</div>
-              <div className="text-xs font-bold text-amber-700 uppercase tracking-wider">Active Examinations</div>
+            <div className="h-2.5 bg-rose-100 rounded-full overflow-hidden flex">
+              <div 
+                style={{ width: `${genderStats.boysPct}%` }} 
+                className="h-full bg-blue-600 rounded-l-full transition-all duration-500" 
+              />
+              <div 
+                style={{ width: `${genderStats.girlsPct}%` }} 
+                className="h-full bg-rose-500 rounded-r-full transition-all duration-500" 
+              />
             </div>
           </div>
         </div>
 
-        {/* Secondary Details */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
-          <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50 text-center">
-            <div className="text-xl font-bold text-slate-800">{cseeStudents}</div>
-            <div className="text-[10px] font-bold text-slate-500 uppercase">CSEE (O-Level)</div>
+        {/* Card 2: Faculty & Staff */}
+        <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-xs hover:shadow-md transition space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100">
+              Faculty & Staff
+            </span>
+            <div className="p-2 bg-emerald-600 text-white rounded-xl shadow-sm">
+              <GraduationCap className="w-5 h-5" />
+            </div>
           </div>
 
-          <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50 text-center">
-            <div className="text-xl font-bold text-slate-800">{acseeStudents}</div>
-            <div className="text-[10px] font-bold text-slate-500 uppercase">ACSEE (A-Level)</div>
+          <div>
+            <div className="text-3xl font-black text-slate-900">{teachers.length}</div>
+            <div className="text-xs font-bold text-slate-500 mt-0.5">Jumla ya Walimu na Watumishi</div>
           </div>
 
-          <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50 text-center">
-            <div className="text-xl font-bold text-emerald-700">{availableTeachers}</div>
-            <div className="text-[10px] font-bold text-slate-500 uppercase">Available Invigilators</div>
+          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold">
+            <span className="text-emerald-700 flex items-center gap-1">
+              <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+              {availableTeachers} Active Invigilators
+            </span>
+            <button
+              type="button"
+              onClick={() => handleNavigate('teachers')}
+              className="text-blue-600 hover:underline text-[10px] font-black uppercase flex items-center"
+            >
+              Tazama <ChevronRight className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+
+        {/* Card 3: Examinations & Assessments */}
+        <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-xs hover:shadow-md transition space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase text-amber-600 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-100">
+              Assessments
+            </span>
+            <div className="p-2 bg-amber-600 text-white rounded-xl shadow-sm">
+              <FileText className="w-5 h-5" />
+            </div>
           </div>
 
-          <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50 text-center">
-            <div className="text-xl font-bold text-rose-700">{excludedTeachers}</div>
-            <div className="text-[10px] font-bold text-slate-500 uppercase">Excluded Invigilators</div>
+          <div>
+            <div className="text-3xl font-black text-slate-900">{exams.length}</div>
+            <div className="text-xs font-bold text-slate-500 mt-0.5">Mitihani Iliyowekwa Kwenye Mfumo</div>
+          </div>
+
+          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold">
+            <span className="text-amber-700 font-semibold">
+              {sessions.length} Exam Rooms Configured
+            </span>
+            <button
+              type="button"
+              onClick={() => handleNavigate('results')}
+              className="text-blue-600 hover:underline text-[10px] font-black uppercase flex items-center"
+            >
+              Matokeo <ChevronRight className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+
+        {/* Card 4: SaaS Finance & Michango */}
+        <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-xs hover:shadow-md transition space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase text-purple-600 bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-100">
+              Financial Ledger
+            </span>
+            <div className="p-2 bg-purple-600 text-white rounded-xl shadow-sm">
+              <Wallet className="w-5 h-5" />
+            </div>
+          </div>
+
+          <div>
+            <div className="text-3xl font-black text-slate-900">SaaS Finance</div>
+            <div className="text-xs font-bold text-slate-500 mt-0.5">Usimamizi wa Ada na Michango</div>
+          </div>
+
+          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold">
+            <span className="text-purple-700">
+              Dynamic Contributions
+            </span>
+            <button
+              type="button"
+              onClick={() => handleNavigate('finance')}
+              className="text-purple-600 hover:underline text-[10px] font-black uppercase flex items-center"
+            >
+              Ingia Finance <ChevronRight className="w-3 h-3" />
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Visual Charts */}
+      {/* Level Summary Badges Bar */}
+      <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <School className="w-5 h-5 text-[#1f4d8b]" />
+            <h3 className="text-sm font-black text-slate-900">Mgawanyo wa Wanafunzi Kulingana na Ngazi za Elimu</h3>
+          </div>
+
+          {/* Level Switcher Filter */}
+          <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setActiveLevelFilter('ALL')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                activeLevelFilter === 'ALL'
+                  ? 'bg-[#1f4d8b] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Madarasa Yote ({students.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveLevelFilter('PRIMARY')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                activeLevelFilter === 'PRIMARY'
+                  ? 'bg-emerald-700 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Msingi (Std 1 - 7) ({primaryStudents})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveLevelFilter('PRE_PRIMARY')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                activeLevelFilter === 'PRE_PRIMARY'
+                  ? 'bg-purple-700 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Awali / Nursery ({prePrimaryStudents})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveLevelFilter('SECONDARY')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                activeLevelFilter === 'SECONDARY'
+                  ? 'bg-blue-700 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Sekondari ({cseeStudents + acseeStudents})
+            </button>
+          </div>
+        </div>
+
+        {/* Level Badges Row */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-2xl text-center">
+            <span className="text-[10px] font-black uppercase text-emerald-700 block">Shule ya Msingi (Std 1-7)</span>
+            <span className="text-2xl font-black text-emerald-950 mt-1 block">{primaryStudents}</span>
+            <span className="text-[10px] text-emerald-600 font-semibold block">Wanafunzi Enrolled</span>
+          </div>
+
+          <div className="p-3.5 bg-purple-50/70 border border-purple-200 rounded-2xl text-center">
+            <span className="text-[10px] font-black uppercase text-purple-700 block">Elimu ya Awali / Nursery</span>
+            <span className="text-2xl font-black text-purple-950 mt-1 block">{prePrimaryStudents}</span>
+            <span className="text-[10px] text-purple-600 font-semibold block">Chekechea / Pre-Unit</span>
+          </div>
+
+          <div className="p-3.5 bg-blue-50/70 border border-blue-200 rounded-2xl text-center">
+            <span className="text-[10px] font-black uppercase text-blue-700 block">O-Level (Form 1 - 4)</span>
+            <span className="text-2xl font-black text-blue-950 mt-1 block">{cseeStudents}</span>
+            <span className="text-[10px] text-blue-600 font-semibold block">CSEE Candidates</span>
+          </div>
+
+          <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-2xl text-center">
+            <span className="text-[10px] font-black uppercase text-amber-700 block">A-Level (Form 5 - 6)</span>
+            <span className="text-2xl font-black text-amber-950 mt-1 block">{acseeStudents}</span>
+            <span className="text-[10px] text-amber-600 font-semibold block">ACSEE Candidates</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Visual Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Class Distribution Chart */}
-        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-4">
-          <h3 className="text-sm font-bold text-[#1f4d8b] flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-blue-600" />
-            Student Distribution by Class
-          </h3>
-          <div className="h-56 flex items-end justify-around gap-2 pt-6 px-2 bg-slate-50 rounded-lg border border-slate-200">
-            {['Form 1', 'Form 2', 'Form 3', 'Form 4', 'Form 5', 'Form 6'].map(className => {
+        {/* Class Enrollment Bar Chart */}
+        <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-blue-600" />
+              <span>Usajili wa Wanafunzi kwa Kila Darasa</span>
+            </h3>
+            <span className="text-[10px] font-bold text-slate-400">
+              {activeClassList.length} Active Classes
+            </span>
+          </div>
+
+          <div className="h-60 flex items-end justify-around gap-2 pt-8 px-3 bg-slate-50/80 rounded-2xl border border-slate-200/60 overflow-x-auto">
+            {activeClassList.map(className => {
               const count = classCounts[className] || 0;
-              const heightPct = Math.max((count / maxClassCount) * 100, 8);
+              const heightPct = Math.max((count / maxClassCount) * 100, 10);
               return (
-                <div key={className} className="flex-1 flex flex-col items-center h-full justify-end">
-                  <span className="text-[10px] font-bold text-slate-600 mb-1">{count}</span>
+                <div key={className} className="flex-1 min-w-[36px] flex flex-col items-center h-full justify-end group">
+                  <span className="text-[10px] font-black text-slate-700 mb-1 group-hover:scale-125 transition">{count}</span>
                   <div
                     style={{ height: `${heightPct}%` }}
-                    className="w-full max-w-[38px] bg-gradient-to-t from-blue-600 to-indigo-500 rounded-t-md transition-all duration-300 shadow-2xs"
+                    className="w-full max-w-[38px] bg-gradient-to-t from-[#1f4d8b] to-blue-500 rounded-t-xl transition-all duration-300 shadow-xs group-hover:from-blue-600 group-hover:to-indigo-500"
                   />
-                  <span className="text-[10px] font-semibold text-slate-700 mt-2 truncate w-full text-center">
+                  <span className="text-[9px] font-extrabold text-slate-700 mt-2 truncate w-full text-center" title={className}>
                     {className}
                   </span>
                 </div>
@@ -185,28 +545,32 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        {/* Subject Popularity */}
-        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-4">
-          <h3 className="text-sm font-bold text-[#1f4d8b] flex items-center gap-2">
-            <Activity className="w-4 h-4 text-emerald-600" />
-            Most Enrolled Subjects
-          </h3>
-          <div className="space-y-2.5 pt-1">
+        {/* Top Subjects Enrollment */}
+        <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+              <Activity className="w-4 h-4 text-emerald-600" />
+              <span>Masomo Yenye Idadi Kubwa ya Wanafunzi</span>
+            </h3>
+            <span className="text-[10px] font-bold text-slate-400">Top 8 Masomo</span>
+          </div>
+
+          <div className="space-y-3 pt-1">
             {sortedSubjects.length === 0 ? (
-              <p className="text-xs text-slate-400 py-6 text-center">No student subjects recorded yet.</p>
+              <p className="text-xs text-slate-400 py-12 text-center">Hakuna masomo yaliyosajiliwa bado.</p>
             ) : (
               sortedSubjects.map(([sub, count]) => {
                 const widthPct = (count / maxSubCount) * 100;
                 return (
                   <div key={sub} className="flex items-center gap-3 text-xs">
-                    <span className="w-36 text-slate-700 font-semibold truncate text-right">{sub}</span>
-                    <div className="flex-1 h-3.5 bg-slate-100 rounded-full overflow-hidden">
+                    <span className="w-36 text-slate-800 font-extrabold truncate text-right">{sub}</span>
+                    <div className="flex-1 h-3.5 bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200/60">
                       <div
                         style={{ width: `${widthPct}%` }}
-                        className="h-full bg-blue-600 rounded-full transition-all duration-300"
+                        className="h-full bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full transition-all duration-500"
                       />
                     </div>
-                    <span className="w-8 font-bold text-slate-800 text-right">{count}</span>
+                    <span className="w-10 font-black text-slate-900 text-right">{count}</span>
                   </div>
                 );
               })
@@ -215,36 +579,87 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* System Provider & Support Info (Super Admin Visibility) */}
-      <div className="bg-slate-900 text-white rounded-xl p-5 shadow-lg border border-slate-800 relative overflow-hidden group">
-        <div className="absolute top-0 right-0 w-64 h-64 -mr-32 -mt-32 bg-blue-600/10 rounded-full blur-3xl group-hover:bg-blue-600/20 transition-all duration-700" />
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 relative">
+      {/* Additional Quick Hub Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <button
+          type="button"
+          onClick={() => handleNavigate('attendance')}
+          className="p-4 bg-white border border-slate-200/80 hover:border-blue-400 rounded-3xl text-left shadow-2xs hover:shadow-sm transition cursor-pointer group"
+        >
+          <div className="p-2.5 bg-emerald-100 text-emerald-800 rounded-2xl w-fit group-hover:scale-110 transition">
+            <CalendarCheck className="w-5 h-5" />
+          </div>
+          <h4 className="text-xs font-black text-slate-900 mt-3">Mahudhurio</h4>
+          <p className="text-[10px] text-slate-500">Daily Roll Call & Period Tracking</p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleNavigate('timetable')}
+          className="p-4 bg-white border border-slate-200/80 hover:border-blue-400 rounded-3xl text-left shadow-2xs hover:shadow-sm transition cursor-pointer group"
+        >
+          <div className="p-2.5 bg-blue-100 text-blue-800 rounded-2xl w-fit group-hover:scale-110 transition">
+            <Calendar className="w-5 h-5" />
+          </div>
+          <h4 className="text-xs font-black text-slate-900 mt-3">Ratiba ya Shule</h4>
+          <p className="text-[10px] text-slate-500">Master Class & Teacher Timetable</p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleNavigate('schemes')}
+          className="p-4 bg-white border border-slate-200/80 hover:border-blue-400 rounded-3xl text-left shadow-2xs hover:shadow-sm transition cursor-pointer group"
+        >
+          <div className="p-2.5 bg-amber-100 text-amber-800 rounded-2xl w-fit group-hover:scale-110 transition">
+            <FileSpreadsheet className="w-5 h-5" />
+          </div>
+          <h4 className="text-xs font-black text-slate-900 mt-3">Scheme of Work</h4>
+          <p className="text-[10px] text-slate-500">Mipango na Maandalio ya Masomo</p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleNavigate('studentid')}
+          className="p-4 bg-white border border-slate-200/80 hover:border-blue-400 rounded-3xl text-left shadow-2xs hover:shadow-sm transition cursor-pointer group"
+        >
+          <div className="p-2.5 bg-purple-100 text-purple-800 rounded-2xl w-fit group-hover:scale-110 transition">
+            <CreditCard className="w-5 h-5" />
+          </div>
+          <h4 className="text-xs font-black text-slate-900 mt-3">Vitambulisho</h4>
+          <p className="text-[10px] text-slate-500">Student ID Card Generator</p>
+        </button>
+      </div>
+
+      {/* Official Technical Support & Provider Banner */}
+      <div className="bg-slate-950 text-white rounded-3xl p-6 shadow-xl border border-slate-800 relative overflow-hidden group">
+        <div className="absolute top-0 right-0 w-80 h-80 -mr-32 -mt-32 bg-blue-600/15 rounded-full blur-3xl group-hover:bg-blue-600/25 transition-all duration-700" />
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 relative z-10">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg border border-white/20">
-              <Activity className="w-6 h-6 text-white" />
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg border border-white/20 shrink-0">
+              <HabyEduProLogo variant="icon" size="md" className="w-8 h-8 text-white" />
             </div>
             <div>
-              <h3 className="text-sm font-black uppercase tracking-widest text-blue-400">Official System Provider</h3>
-              <p className="text-lg font-bold text-white">Eng. Habibu Akida</p>
-              <div className="flex items-center gap-3 mt-1">
-                <span className="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Support Active
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 bg-blue-950 px-2.5 py-0.5 rounded border border-blue-800">
+                  Official System Developer
                 </span>
-                <span className="text-slate-600">•</span>
-                <span className="text-xs text-slate-300 font-mono">habibuakida@gmail.com</span>
+                <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  SLA Active
+                </span>
               </div>
+              <p className="text-xl font-black text-white mt-1">Eng. Habibu Akida</p>
+              <p className="text-xs text-slate-400 font-mono mt-0.5">HABY EDU PRO SCHOOL MANAGEMENT SYSTEM v2.4.0</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-              HabyEduPro v2.4.0
-            </div>
+
+          <div className="flex items-center gap-3">
             <a 
               href="mailto:habibuakida@gmail.com"
-              className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-black shadow-lg transition-all active:scale-95"
+              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-black shadow-lg transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
             >
-              Get Technical Support
+              <span>Get Direct Support</span>
+              <ArrowRight className="w-4 h-4" />
             </a>
           </div>
         </div>
