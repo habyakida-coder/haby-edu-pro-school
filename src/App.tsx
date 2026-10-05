@@ -29,6 +29,7 @@ import { EvaluationAnalysisView } from './components/EvaluationAnalysisView';
 import { RemedialTimetableSetup } from './components/Remedial/RemedialTimetableSetup';
 import { RemedialDailyTracker } from './components/Remedial/RemedialDailyTracker';
 import { RemedialPaymentAnalyzer } from './components/Remedial/RemedialPaymentAnalyzer';
+import { OnboardingTour } from './components/common/OnboardingTour';
 import { useAuth } from './context/AuthContext';
 import SittingPlan from './components/SittingPlan.jsx';
 import SaasFinance from './components/SaasFinance.jsx';
@@ -79,6 +80,7 @@ export default function App() {
   const [syncToast, setSyncToast] = useState<string | null>(null);
   const [smsTargetExam, setSmsTargetExam] = useState<{ examType?: string; year?: string }>({});
   const [isMobileNavOpen, setIsMobileNavOpen] = useState<boolean>(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(false);
   const debounceTimer = useRef<NodeJS.Timeout | undefined>(undefined);
 
   // Sync with Firestore & Real-Time Single Source of Truth
@@ -1014,6 +1016,14 @@ export default function App() {
           }
         }}
         layout="horizontal"
+        onStartTour={() => setIsOnboardingOpen(true)}
+      />
+
+      {/* Interactive Onboarding Tour */}
+      <OnboardingTour
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+        onNavigate={view => setActiveView(view as any)}
       />
 
       {/* Main Content Area - Full 100% width layout */}

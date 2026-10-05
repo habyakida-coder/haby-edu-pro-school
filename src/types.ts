@@ -465,6 +465,27 @@ export interface TeacherAssignment {
   streams: string[];
 }
 
+export interface SavedTimetableRecord {
+  id: string;
+  title: string;
+  createdAt: string;
+  scope: 'General' | 'Class' | 'Teacher';
+  targetName?: string;
+  assignmentsCount: number;
+  assignments: TimetableAssignment[];
+}
+
+export interface SavedInvigilationRecord {
+  id: string;
+  title: string;
+  createdAt: string;
+  examTitle: string;
+  sessionsCount: number;
+  sessions: InvigilationSession[];
+  supervisorsCount: number;
+  supervisors: Supervisor[];
+}
+
 export interface AppData {
   users?: UserAccount[];
   students: Student[];
@@ -501,6 +522,9 @@ export interface AppData {
   parents?: ParentContact[];
   smsWallet?: SmsWallet;
   smsLogs?: SmsLog[];
+  savedTimetableRecords?: SavedTimetableRecord[];
+  savedInvigilationRecords?: SavedInvigilationRecord[];
+  subjectPaperConfigs?: Record<string, 1 | 2 | 3>;
 }
 
 export interface ExamRecordRow {

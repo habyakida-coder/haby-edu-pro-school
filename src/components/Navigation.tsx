@@ -72,6 +72,7 @@ interface NavigationProps {
   layout?: 'horizontal' | 'vertical';
   isMobileOpen?: boolean;
   onMobileClose?: () => void;
+  onStartTour?: () => void;
 }
 
 interface NavItemMeta {
@@ -92,7 +93,8 @@ export const Navigation: React.FC<NavigationProps> = ({
   saveStatus = 'saved',
   layout = 'horizontal',
   isMobileOpen = false,
-  onMobileClose
+  onMobileClose,
+  onStartTour
 }) => {
   const isTeacher = currentUser?.role === 'TEACHER';
 
@@ -387,6 +389,19 @@ export const Navigation: React.FC<NavigationProps> = ({
               <p className="text-[9px] text-blue-600 font-bold uppercase truncate leading-tight">{currentUser?.role || 'ACADEMIC'}</p>
             </div>
           </div>
+
+          {/* Tour Button */}
+          {onStartTour && (
+            <button
+              type="button"
+              onClick={onStartTour}
+              className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-xl transition-all cursor-pointer text-xs font-black flex items-center gap-1.5 border border-amber-200 shadow-2xs"
+              title="Anza Mwongozo wa Mfumo (Interactive Tour)"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-600 animate-bounce" />
+              <span className="hidden md:inline">Mwongozo (Tour)</span>
+            </button>
+          )}
 
           {/* Logout Button */}
           {onLogout && (

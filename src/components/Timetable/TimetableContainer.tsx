@@ -240,10 +240,10 @@ Ratiba hii imekaguliwa rasmi na haina mgongano (Zero Clashes).`;
     }
   };
 
-  // Helpers for class streams
+  // Helpers for class streams (only return explicitly registered streams)
   const getStreamsForClass = (className: string): string[] => {
     const setting = streamSettings.find(s => s.className === className);
-    return setting && setting.streams.length > 0 ? setting.streams : ['STREAM A'];
+    return setting && Array.isArray(setting.streams) ? setting.streams : [];
   };
 
   // Drag handlers

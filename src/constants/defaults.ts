@@ -826,6 +826,9 @@ export const DEFAULT_APP_DATA: AppData = {
   ],
   dailyAttendance: {},
   schemesOfWork: [],
-  lessonPlans: []
+  lessonPlans: [],
+  savedTimetableRecords: [],
+  savedInvigilationRecords: [],
+  subjectPaperConfigs: {}
 };
 
