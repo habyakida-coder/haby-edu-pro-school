@@ -54,16 +54,18 @@ export const ParentPortalView: React.FC<ParentPortalViewProps> = ({ onBackToMain
 
   // Auto-login or check session
   useEffect(() => {
-    const savedParent = sessionStorage.getItem('haby_parent_session');
-    if (savedParent) {
-      try {
-        const p = JSON.parse(savedParent);
-        setParent(p);
-        fetchParentData(p.phone, p.id);
-      } catch (e) {
-        sessionStorage.removeItem('haby_parent_session');
+    try {
+      const savedParent = sessionStorage.getItem('haby_parent_session');
+      if (savedParent) {
+        try {
+          const p = JSON.parse(savedParent);
+          setParent(p);
+          fetchParentData(p.phone, p.id);
+        } catch (e) {
+          sessionStorage.removeItem('haby_parent_session');
+        }
       }
-    }
+    } catch (e) {}
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {

@@ -32,12 +32,14 @@ const customFetch = async (input: RequestInfo | URL, init: RequestInit = {}): Pr
   const res = await fetch(input, init);
   if (res.status === 401) {
     if (typeof window !== 'undefined') {
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && (k.startsWith('sb-') || k.includes('supabase.auth.token'))) {
-          localStorage.removeItem(k);
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && (k.startsWith('sb-') || k.includes('supabase.auth.token'))) {
+            localStorage.removeItem(k);
+          }
         }
-      }
+      } catch (e) {}
     }
     const headers = new Headers(init.headers || {});
     headers.set('apikey', supabaseKey);
@@ -57,17 +59,21 @@ export { createClient };
 // Helper ya school_id - Default kwa Kiomoni Secondary School id kama haijasetiwa
 export const getCurrentSchoolId = (): string => {
   if (typeof window === 'undefined') return DEFAULT_PRIMARY_SCHOOL_ID;
-  const role = localStorage.getItem('user_role') || sessionStorage.getItem('user_role');
-  if (role === 'super_admin' || role === 'superadmin') {
-    return localStorage.getItem('currentSchoolId') || DEFAULT_PRIMARY_SCHOOL_ID;
+  try {
+    const role = localStorage.getItem('user_role') || sessionStorage.getItem('user_role');
+    if (role === 'super_admin' || role === 'superadmin') {
+      return localStorage.getItem('currentSchoolId') || DEFAULT_PRIMARY_SCHOOL_ID;
+    }
+    return (
+      localStorage.getItem('currentSchoolId') ||
+      localStorage.getItem('schoolId') ||
+      sessionStorage.getItem('schoolId') ||
+      sessionStorage.getItem('haby_school_id') ||
+      DEFAULT_PRIMARY_SCHOOL_ID
+    );
+  } catch (e) {
+    return DEFAULT_PRIMARY_SCHOOL_ID;
   }
-  return (
-    localStorage.getItem('currentSchoolId') ||
-    localStorage.getItem('schoolId') ||
-    sessionStorage.getItem('schoolId') ||
-    sessionStorage.getItem('haby_school_id') ||
-    DEFAULT_PRIMARY_SCHOOL_ID
-  );
 };
 
 // Health check function to verify live connection to Supabase

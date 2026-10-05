@@ -103,15 +103,19 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   
   useEffect(() => {
-    const saved = localStorage.getItem('haby_recent_searches');
-    if (saved) setRecentSearches(JSON.parse(saved));
+    try {
+      const saved = localStorage.getItem('haby_recent_searches');
+      if (saved) setRecentSearches(JSON.parse(saved));
+    } catch {}
   }, []);
 
   const saveSearch = (term: string) => {
     if (!term.trim()) return;
     const updated = [term, ...recentSearches.filter(s => s !== term)].slice(0, 5);
     setRecentSearches(updated);
-    localStorage.setItem('haby_recent_searches', JSON.stringify(updated));
+    try {
+      localStorage.setItem('haby_recent_searches', JSON.stringify(updated));
+    } catch {}
   };
 
   // Modified Search Handler

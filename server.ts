@@ -12,7 +12,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = Number(process.env.PORT) || 3000;
 
 app.use(express.json({ limit: '10mb' }));
 
@@ -228,8 +228,8 @@ async function startServer() {
     app.use(vite.middlewares);
   }
 
-  app.listen(port, () => {
-    console.log(`HABY EDU PRO server listening on http://localhost:${port} (production: ${isProduction})`);
+  app.listen(port, '0.0.0.0', () => {
+    console.log(`HABY EDU PRO server listening on http://0.0.0.0:${port} (production: ${isProduction})`);
   });
 }
 

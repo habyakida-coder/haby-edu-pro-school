@@ -22,15 +22,23 @@ export class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
-          <div className="text-center bg-white p-8 rounded-2xl shadow-xl border border-rose-100 max-w-sm">
-            <h2 className="text-xl font-black text-rose-600 mb-2">Hitilafu imetokea</h2>
-            <p className="text-sm text-slate-600 mb-6">Mfumo umepata tatizo la kiufundi. Tafadhali refresh ukurasa.</p>
+        <div className="min-h-screen flex items-center justify-center bg-[#0f2948] p-6 text-white font-sans">
+          <div className="text-center bg-white text-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full">
+            <div className="w-12 h-12 bg-blue-100 text-[#1f4d8b] rounded-2xl flex items-center justify-center mx-auto mb-3 font-black text-xl">
+              H
+            </div>
+            <h2 className="text-lg font-black text-slate-900 mb-1">HABY EDU PRO</h2>
+            <p className="text-xs text-slate-500 mb-5">Mfumo unajiweka sawa. Bonyeza kitufe hapa chini kufungua upya.</p>
             <button 
-              onClick={() => window.location.reload()} 
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold"
+              onClick={() => {
+                try {
+                  sessionStorage.removeItem('haby_explicit_logout');
+                } catch (e) {}
+                window.location.reload();
+              }} 
+              className="w-full py-3 bg-[#1f4d8b] hover:bg-[#163765] text-white rounded-xl font-bold text-sm shadow-md transition cursor-pointer"
             >
-              Refresh Ukurasa
+              Fungua Mfumo Upya
             </button>
           </div>
         </div>

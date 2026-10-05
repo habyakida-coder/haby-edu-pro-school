@@ -474,10 +474,12 @@ export default function App() {
   }, [userAccount, user, data.activityLogs]);
 
   // Auth Guard
-  if (authLoading) {
+  if (authLoading && !userAccount) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+      <div className="min-h-screen bg-[#0f2948] text-white flex flex-col items-center justify-center font-sans">
+        <div className="w-12 h-12 border-4 border-white/20 border-t-sky-400 rounded-full animate-spin mb-4" />
+        <h2 className="text-xl font-black tracking-wider">HABY EDU PRO</h2>
+        <p className="text-xs text-blue-200 mt-1">Inapakia mfumo wa shule...</p>
       </div>
     );
   }
@@ -488,23 +490,22 @@ export default function App() {
 
   if (userAccount.schoolId === 'PENDING') {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center">
+      <div className="min-h-screen bg-[#0f2948] flex items-center justify-center p-6 text-center">
         <div className="max-w-md bg-white p-8 rounded-2xl shadow-xl border border-slate-200">
-          <h1 className="text-xl font-bold mb-2">Account Pending Approval</h1>
-          <p className="text-slate-600 mb-4">Your account for {userAccount.email} is waiting to be linked to a school. Please contact your school administrator.</p>
-          <button onClick={() => window.location.reload()} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold">Refresh Status</button>
+          <h1 className="text-xl font-bold mb-2 text-slate-900">Akaunti Inasubiri Uidhinishaji</h1>
+          <p className="text-slate-600 mb-4 text-sm">Akaunti yako ({userAccount.email}) inasubiri kuunganishwa na shule. Tafadhali wasiliana na msimamizi wa shule yako.</p>
+          <button onClick={() => window.location.reload()} className="px-5 py-2.5 bg-[#1f4d8b] text-white rounded-xl font-bold cursor-pointer">Angalia Hali Tena</button>
         </div>
       </div>
     );
   }
 
-  if (dataLoading) {
+  if (dataLoading && (!data || !data.students || data.students.length === 0)) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-2" />
-          <p className="text-slate-500 font-medium">Loading school database...</p>
-        </div>
+      <div className="min-h-screen bg-[#0f2948] text-white flex flex-col items-center justify-center font-sans">
+        <div className="w-12 h-12 border-4 border-white/20 border-t-sky-400 rounded-full animate-spin mb-4" />
+        <h2 className="text-xl font-black tracking-wider">HABY EDU PRO</h2>
+        <p className="text-xs text-blue-200 mt-1">Inapakia kanzidata ya shule...</p>
       </div>
     );
   }
@@ -996,7 +997,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#edf2f7] text-slate-800 font-sans relative overflow-x-hidden flex flex-col lg:flex-row">
+    <div className="min-h-screen bg-[#edf2f7] text-slate-800 font-sans relative overflow-x-hidden flex flex-col">
       {/* Floating Ambient Bubbles with Beautiful Iridescent Colors */}
       <FloatingBubbles />
 
@@ -1016,7 +1017,7 @@ export default function App() {
       />
 
       {/* Main Content Area - Full 100% width layout */}
-      <div className="flex-1 w-full p-3 sm:p-4 md:p-6 relative z-10 overflow-y-auto min-h-screen">
+      <div className="flex-1 w-full p-3 sm:p-4 md:p-6 relative z-10 overflow-y-auto">
         {/* View Switcher */}
         <main>
           {activeView === 'dashboard' && (

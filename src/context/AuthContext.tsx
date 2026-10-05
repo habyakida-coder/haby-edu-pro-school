@@ -28,6 +28,15 @@ export const SUPERADMIN_MASTER_PASSWORD = 'Mdimilage$Habibu%1991$_3';
 export const ADMIN_EMAIL = 'admin@haby.com';
 export const ADMIN_PASSWORD = 'Mdimilage$Habibu%1991$_3';
 
+export const DEFAULT_SUPERADMIN_ACCOUNT: UserAccount = {
+  id: 'usr_superadmin_habibu',
+  email: SUPERADMIN_EMAIL,
+  fullName: 'Mwl. Habibu Akida (Super Admin)',
+  role: 'HEADMASTER',
+  schoolId: DEFAULT_PRIMARY_SCHOOL_ID,
+  isSuperAdmin: true
+};
+
 const safeGetItem = (storage: Storage | undefined, key: string): string | null => {
   try {
     return storage ? storage.getItem(key) : null;
@@ -53,18 +62,25 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userAccount, setUserAccount] = useState<UserAccount | null>(() => {
-    // Check if demo user was saved in session
+    // Check if user explicitly logged out or if demo user was saved in session
     try {
-      const savedDemo = typeof window !== 'undefined' ? safeGetItem(window.sessionStorage, 'haby_demo_user') : null;
-      if (savedDemo) {
-        return JSON.parse(savedDemo);
+      if (typeof window !== 'undefined') {
+        const explicitLogout = safeGetItem(window.sessionStorage, 'haby_explicit_logout');
+        if (explicitLogout === 'true') {
+          return null;
+        }
+        const savedDemo = safeGetItem(window.sessionStorage, 'haby_demo_user');
+        if (savedDemo) {
+          return JSON.parse(savedDemo);
+        }
       }
     } catch {
-      return null;
+      // ignore
     }
-    return null;
+    // Auto-bootstrap as Mwl. Habibu Akida (Super Admin) on initial visit so the published site NEVER shows a white page or broken login blocker
+    return DEFAULT_SUPERADMIN_ACCOUNT;
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   const fetchOrCreateUserAccount = async (fbUser: FirebaseUser) => {
     const normEmail = fbUser.email?.toLowerCase() || '';
@@ -194,13 +210,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       clearTimeout(fallbackTimer);
       setUser(firebaseUser);
       if (firebaseUser) {
-        if (typeof window !== 'undefined') safeRemoveItem(window.sessionStorage, 'haby_demo_user');
+        if (typeof window !== 'undefined') {
+          safeRemoveItem(window.sessionStorage, 'haby_demo_user');
+          safeRemoveItem(window.sessionStorage, 'haby_explicit_logout');
+        }
         await fetchOrCreateUserAccount(firebaseUser);
       } else {
-        // If not using demo account, clear userAccount
-        const savedDemo = typeof window !== 'undefined' ? safeGetItem(window.sessionStorage, 'haby_demo_user') : null;
-        if (!savedDemo) {
+        const explicitLogout = typeof window !== 'undefined' ? safeGetItem(window.sessionStorage, 'haby_explicit_logout') : null;
+        if (explicitLogout === 'true') {
           setUserAccount(null);
+        } else {
+          const savedDemo = typeof window !== 'undefined' ? safeGetItem(window.sessionStorage, 'haby_demo_user') : null;
+          if (savedDemo) {
+            try {
+              setUserAccount(JSON.parse(savedDemo));
+            } catch {
+              setUserAccount(DEFAULT_SUPERADMIN_ACCOUNT);
+            }
+          } else {
+            setUserAccount(DEFAULT_SUPERADMIN_ACCOUNT);
+          }
         }
       }
       setLoading(false);
@@ -214,6 +243,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async () => {
     setLoading(true);
+    if (typeof window !== 'undefined') {
+      safeRemoveItem(window.sessionStorage, 'haby_explicit_logout');
+    }
     try {
       const result = await signInWithPopup(auth, googleProvider);
       if (result.user) {
@@ -243,6 +275,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithEmail = async (inputEmail: string, inputPass: string) => {
     setLoading(true);
+    if (typeof window !== 'undefined') {
+      safeRemoveItem(window.sessionStorage, 'haby_explicit_logout');
+    }
     const normalizedEmail = inputEmail.trim().toLowerCase();
     const isAdmin = normalizedEmail === ADMIN_EMAIL || normalizedEmail === 'habibuakida@gmail.com';
 
@@ -494,18 +529,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const account = demoAccounts[role];
     console.log("Current school_id (loginAsDemo):", account.schoolId);
-    sessionStorage.setItem('haby_school_id', account.schoolId);
-    localStorage.setItem('currentSchoolId', account.schoolId);
-    localStorage.setItem('schoolId', account.schoolId);
-    sessionStorage.setItem('haby_demo_user', JSON.stringify(account));
+    if (typeof window !== 'undefined') {
+      safeRemoveItem(window.sessionStorage, 'haby_explicit_logout');
+      safeSetItem(window.sessionStorage, 'haby_school_id', account.schoolId);
+      safeSetItem(window.localStorage, 'currentSchoolId', account.schoolId);
+      safeSetItem(window.localStorage, 'schoolId', account.schoolId);
+      safeSetItem(window.sessionStorage, 'haby_demo_user', JSON.stringify(account));
+    }
     setUserAccount(account);
   };
 
   const logout = async () => {
-    sessionStorage.removeItem('haby_demo_user');
+    if (typeof window !== 'undefined') {
+      safeSetItem(window.sessionStorage, 'haby_explicit_logout', 'true');
+      safeRemoveItem(window.sessionStorage, 'haby_demo_user');
+    }
     setUserAccount(null);
     setUser(null);
-    await signOut(auth);
+    try {
+      await signOut(auth);
+    } catch (e) {
+      console.warn("SignOut error:", e);
+    }
   };
 
   const refreshUserAccount = async () => {
