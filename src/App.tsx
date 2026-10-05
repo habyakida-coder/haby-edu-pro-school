@@ -92,8 +92,7 @@ export default function App() {
 
     const schoolId = userAccount.schoolId;
     console.log("Current school_id:", schoolId);
-    localStorage.setItem('currentSchoolId', schoolId);
-    localStorage.setItem('schoolId', schoolId);
+    // Removed localStorage.setItem for schoolId
     const schoolKey = `haby_school_data_${schoolId}`;
 
     // 0. Primary Database Load: Prioritize LocalStorage Cache -> Firestore Snapshot -> Supabase
@@ -123,42 +122,42 @@ export default function App() {
       }
 
       try {
-        // B. Try Firestore for the cloud snapshot
-        const firestoreSnapshot = await getSchoolData(schoolId);
-        
-        if (firestoreSnapshot && typeof firestoreSnapshot === 'object') {
-          console.log("Loaded reliable data from Firestore for school:", schoolId);
-          
-          setData(prev => {
-            const snapStudents = Array.isArray(firestoreSnapshot.students) ? firestoreSnapshot.students : [];
-            const snapTeachers = Array.isArray(firestoreSnapshot.teachers) ? firestoreSnapshot.teachers : [];
-            const snapExams = Array.isArray(firestoreSnapshot.exams) ? firestoreSnapshot.exams : [];
-            const snapStreams = Array.isArray(firestoreSnapshot.streamSettings) ? firestoreSnapshot.streamSettings : [];
+        // B. Try Firestore for the cloud snapshot (real-time)
+        const unsubscribe = subscribeSchoolData(schoolId, (firestoreSnapshot) => {
+          if (firestoreSnapshot && typeof firestoreSnapshot === 'object') {
+            console.log("Loaded reliable data from Firestore (onSnapshot) for school:", schoolId);
+            
+            setData(prev => {
+              const snapStudents = Array.isArray(firestoreSnapshot.students) ? firestoreSnapshot.students : [];
+              const snapTeachers = Array.isArray(firestoreSnapshot.teachers) ? firestoreSnapshot.teachers : [];
+              const snapExams = Array.isArray(firestoreSnapshot.exams) ? firestoreSnapshot.exams : [];
+              const snapStreams = Array.isArray(firestoreSnapshot.streamSettings) ? firestoreSnapshot.streamSettings : [];
 
-            // Never overwrite existing data with empty array unless prev is also empty
-            const nextStudents = (snapStudents.length > 0 || prev.students.length === 0) ? snapStudents : prev.students;
-            const nextTeachers = (snapTeachers.length > 0 || prev.teachers.length === 0) ? snapTeachers : prev.teachers;
-            const nextExams = (snapExams.length > 0 || prev.exams.length === 0) ? snapExams : prev.exams;
-            const nextStreams = (snapStreams.length > 0 || (prev.streamSettings || []).length === 0) ? snapStreams : prev.streamSettings;
+              // Never overwrite existing data with empty array unless prev is also empty
+              const nextStudents = (snapStudents.length > 0 || prev.students.length === 0) ? snapStudents : prev.students;
+              const nextTeachers = (snapTeachers.length > 0 || prev.teachers.length === 0) ? snapTeachers : prev.teachers;
+              const nextExams = (snapExams.length > 0 || prev.exams.length === 0) ? snapExams : prev.exams;
+              const nextStreams = (snapStreams.length > 0 || (prev.streamSettings || []).length === 0) ? snapStreams : prev.streamSettings;
 
-            const merged: AppData = {
-              ...prev,
-              ...firestoreSnapshot,
-              students: nextStudents,
-              teachers: nextTeachers,
-              exams: nextExams,
-              streamSettings: nextStreams
-            };
-            try { localStorage.setItem(schoolKey, JSON.stringify(merged)); } catch (e) {}
-            return merged;
-          });
+              const merged: AppData = {
+                ...prev,
+                ...firestoreSnapshot,
+                students: nextStudents,
+                teachers: nextTeachers,
+                exams: nextExams,
+                streamSettings: nextStreams
+              };
+              // Removed localStorage.setItem
+              return merged;
+            });
 
-          setIsCloudSynced(true);
-          setDataLoading(false);
-          if (firestoreSnapshot.students && firestoreSnapshot.students.length > 0) {
-            return;
+            setIsCloudSynced(true);
+            setDataLoading(false);
           }
-        }
+        });
+
+        // Cleanup subscription
+        return () => unsubscribe();
 
         // C. Fallback: Fetch all records from Supabase tables
         console.log("Fetching complete data from Supabase...");
@@ -170,10 +169,10 @@ export default function App() {
           supabase.from('exams').select('*').eq('school_id', schoolId)
         ]);
 
-        const rawStudents = (studRes && Array.isArray(studRes.data) && studRes.data.length > 0) ? studRes.data : null;
-        const rawRecords = (recRes && Array.isArray(recRes.data) && recRes.data.length > 0) ? recRes.data : null;
-        const rawTeachers = (teachRes && Array.isArray(teachRes.data) && teachRes.data.length > 0) ? teachRes.data : null;
-        const rawExams = (examRes && Array.isArray(examRes.data) && examRes.data.length > 0) ? examRes.data : null;
+        const rawStudents = (studRes && studRes.data && Array.isArray(studRes.data) && studRes.data.length > 0) ? studRes.data : null;
+        const rawRecords = (recRes && recRes.data && Array.isArray(recRes.data) && recRes.data.length > 0) ? recRes.data : null;
+        const rawTeachers = (teachRes && teachRes.data && Array.isArray(teachRes.data) && teachRes.data.length > 0) ? teachRes.data : null;
+        const rawExams = (examRes && examRes.data && Array.isArray(examRes.data) && examRes.data.length > 0) ? examRes.data : null;
 
         setData(prev => {
           const nextStudents = rawStudents !== null 
@@ -197,7 +196,7 @@ export default function App() {
             exams: nextExams
           };
 
-          try { localStorage.setItem(schoolKey, JSON.stringify(updatedState)); } catch (e) {}
+          try { /* localStorage.setItem(schoolKey, JSON.stringify(updatedState)); */ } catch (e) {}
           saveSchoolData(schoolId, updatedState).catch(e => console.warn("Firestore sync error:", e));
           return updatedState;
         });
@@ -236,7 +235,7 @@ export default function App() {
             exams: useExams,
             streamSettings: useStreams
           };
-          try { localStorage.setItem(schoolKey, JSON.stringify(merged)); } catch (e) {}
+          try { /* localStorage.setItem(schoolKey, JSON.stringify(merged)); */ } catch (e) {}
           return merged;
         });
         setIsCloudSynced(true);
@@ -304,7 +303,7 @@ export default function App() {
             : (remoteData.examinationRecords && remoteData.examinationRecords.length > 0 ? remoteData.examinationRecords : prev.examinationRecords)
         };
         try {
-          localStorage.setItem(schoolKey, JSON.stringify(next));
+          /* localStorage.setItem(schoolKey, JSON.stringify(next)); */
         } catch (e) {}
         saveSchoolData(schoolId, next).catch(e => console.warn("Firestore sync error:", e));
 
@@ -335,7 +334,7 @@ export default function App() {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
       debounceTimer.current = setTimeout(() => {
         setCachedData(schoolKey, nextData).catch(e => console.warn("Could not save to IndexedDB:", e));
-        try { localStorage.setItem(schoolKey, JSON.stringify(nextData)); } catch (e) {}
+        try { /* localStorage.setItem(schoolKey, JSON.stringify(nextData)); */ } catch (e) {}
       }, 300);
 
       // Durable Firestore Persistence: Save exact nextData state

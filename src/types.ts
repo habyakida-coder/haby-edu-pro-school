@@ -52,6 +52,7 @@ export interface Student {
   total?: number;
   average?: string;
   division?: string;
+  points?: number | null;
   primaryGrade?: 'A' | 'B' | 'C' | 'D' | 'E';
   passStatus?: 'AMEFAULU' | 'HAJAFAULU' | string;
   gpa?: number;

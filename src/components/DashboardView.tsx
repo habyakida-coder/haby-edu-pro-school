@@ -297,6 +297,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
+      {/* Academic Overview Section */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {[
+          { title: "Total Students", value: students.length, icon: Users, color: "text-blue-600 bg-blue-50", action: () => handleNavigate('students') },
+          { title: "Active Teaching Staff", value: teachers.length, icon: GraduationCap, color: "text-emerald-600 bg-emerald-50", action: () => handleNavigate('teachers') },
+          { title: "Pending Exam Records", value: 0, icon: FileText, color: "text-amber-600 bg-amber-50", action: () => handleNavigate('results') }
+        ].map((card, idx) => (
+          <button key={idx} onClick={card.action} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between hover:border-blue-300 transition-all cursor-pointer text-left">
+            <div>
+              <p className="text-[10px] uppercase font-black text-slate-400 tracking-wider">{card.title}</p>
+              <h3 className="text-2xl font-black text-slate-900 mt-1">{card.value}</h3>
+            </div>
+            <div className={`p-3 rounded-xl ${card.color}`}>
+              <card.icon className="w-5 h-5" />
+            </div>
+          </button>
+        ))}
+      </div>
+
       {/* Main Executive Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* Card 1: Enrolled Students & Gender */}

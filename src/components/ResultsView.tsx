@@ -450,7 +450,8 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
         average: scores.length > 0 ? String(nectaRes.average) : undefined,
         primaryGrade: nectaRes.isPrimary ? (nectaRes.overallGrade as any) : undefined,
         passStatus: nectaRes.remarks,
-        division: nectaRes.division
+        division: nectaRes.division,
+        points: nectaRes.points
       };
     });
 
@@ -1863,7 +1864,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                                 'bg-red-100 text-red-800 border border-red-300'
                               }`}
                             >
-                              {st.division === 'INCOMPLETE' ? 'INC' : st.division}
+                              {st.division === 'INCOMPLETE' ? 'INC' : `Div ${st.division}${st.points ? ` (Pts ${st.points})` : ''}`}
                             </span>
                           ) : '-'
                         )}
