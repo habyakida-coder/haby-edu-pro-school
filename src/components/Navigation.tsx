@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { 
   LayoutDashboard, 
   Users, 
@@ -28,7 +28,9 @@ import {
   X,
   Menu,
   Activity,
-  Sparkles
+  Sparkles,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { SchoolInfo, UserAccount } from '../types';
 import { HabyEduProLogo } from './common/HabyEduProLogo';
@@ -325,6 +327,8 @@ export const Navigation: React.FC<NavigationProps> = ({
     return true;
   });
 
+  const navRef = useRef<HTMLDivElement>(null);
+
   const handleItemClick = (id: ActiveView) => {
     onSelectView(id);
     if (onMobileClose) {
@@ -332,43 +336,50 @@ export const Navigation: React.FC<NavigationProps> = ({
     }
   };
 
+  const handleScroll = (direction: 'left' | 'right') => {
+    if (navRef.current) {
+      const scrollAmount = direction === 'left' ? -320 : 320;
+      navRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
   return (
-    <header className="bg-white border-b border-slate-200/90 shadow-sm sticky top-0 z-50">
+    <header className="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-50">
       {/* Top Header Row: School Branding & User Info */}
-      <div className="max-w-full px-4 sm:px-6 py-2.5 flex items-center justify-between border-b border-slate-100 bg-slate-50/50">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="max-w-full px-3.5 sm:px-6 py-2.5 flex items-center justify-between border-b border-slate-100 bg-slate-50/70">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
           <div className="p-2 bg-gradient-to-br from-[#0f2948] to-[#1f4d8b] rounded-xl shadow-xs shrink-0 flex items-center justify-center text-white">
-            <HabyEduProLogo variant="icon" size="sm" className="w-6 h-6 text-white" />
+            <HabyEduProLogo variant="icon" size="sm" className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="font-black text-sm sm:text-base text-[#0f2948] truncate tracking-tight" title={schoolInfo?.name || 'HABY EDU PRO'}>
+            <h1 className="font-black text-xs sm:text-base text-[#0f2948] truncate tracking-tight" title={schoolInfo?.name || 'HABY EDU PRO'}>
               {schoolInfo?.name || 'HABY EDU PRO SCHOOL'}
             </h1>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest truncate">
-              Integrated School Management System
+            <p className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest truncate">
+              Comprehensive School Management System
             </p>
           </div>
         </div>
 
         {/* Right Status Badges & User Actions */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {/* Real-time Save Status */}
           {saveStatus === 'saving' && (
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-800 rounded-full border border-amber-200 text-[10px] font-black uppercase animate-pulse">
+            <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 bg-amber-50 text-amber-800 rounded-full border border-amber-200 text-[9px] sm:text-[10px] font-black uppercase animate-pulse">
               <RotateCw className="w-3 h-3 animate-spin" />
-              <span className="hidden sm:inline">Saving Changes</span>
+              <span className="hidden xs:inline">Saving</span>
             </div>
           )}
           {saveStatus === 'saved' && (
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-800 rounded-full border border-emerald-200 text-[10px] font-black uppercase">
+            <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 bg-emerald-50 text-emerald-800 rounded-full border border-emerald-200 text-[9px] sm:text-[10px] font-black uppercase">
               <Save className="w-3 h-3 text-emerald-600" />
-              <span className="hidden sm:inline">Cloud Synced</span>
+              <span className="hidden xs:inline">Synced</span>
             </div>
           )}
 
           {/* User Account Profile Pill */}
-          <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-xl border border-slate-200 shadow-2xs">
-            <div className="w-6 h-6 rounded-lg bg-blue-100 text-blue-800 flex items-center justify-center font-black text-xs">
+          <div className="flex items-center gap-1.5 sm:gap-2 bg-white px-2 sm:px-3 py-1 rounded-xl border border-slate-200 shadow-2xs">
+            <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-blue-100 text-blue-800 flex items-center justify-center font-black text-[10px] sm:text-xs">
               {(currentUser?.fullName || 'U').charAt(0).toUpperCase()}
             </div>
             <div className="hidden sm:block text-left min-w-0">
@@ -381,7 +392,7 @@ export const Navigation: React.FC<NavigationProps> = ({
           {onLogout && (
             <button
               onClick={onLogout}
-              className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer border border-transparent hover:border-rose-200"
+              className="p-1.5 sm:p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer border border-transparent hover:border-rose-200"
               title="Logout from System"
             >
               <LogOut className="w-4 h-4" />
@@ -391,27 +402,55 @@ export const Navigation: React.FC<NavigationProps> = ({
       </div>
 
       {/* Navigation Bar Row: Vibrant Horizontal Scrolling Tabs with Unique Item Colors */}
-      <nav className="max-w-full px-3 sm:px-6 py-2 overflow-x-auto no-scrollbar flex items-center gap-1.5 scroll-smooth">
-        {filteredNavItems.map(item => {
-          const isActive = activeView === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => handleItemClick(item.id)}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer shrink-0 border ${
-                isActive
-                  ? `${item.activeBg} border-transparent ring-2 ring-white/20`
-                  : `bg-white border-slate-200/80 ${item.hoverBg} hover:border-slate-300`
-              }`}
-            >
-              <span className={`shrink-0 transition-transform ${isActive ? 'text-white scale-110' : item.iconColor}`}>
-                {item.icon}
-              </span>
-              <span className="whitespace-nowrap tracking-tight">{item.label}</span>
-            </button>
-          );
-        })}
-      </nav>
+      <div className="relative flex items-center px-1 sm:px-2 bg-white border-t border-slate-100">
+        {/* Left Scroll Arrow */}
+        <button
+          type="button"
+          onClick={() => handleScroll('left')}
+          className="hidden sm:flex p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0 z-10 cursor-pointer"
+          title="Scroll Left"
+          aria-label="Scroll Left"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+
+        {/* Scrollable Tabs Container */}
+        <div 
+          ref={navRef}
+          className="flex-1 overflow-x-auto no-scrollbar flex items-center gap-1.5 py-2 px-1 scroll-smooth"
+        >
+          {filteredNavItems.map(item => {
+            const isActive = activeView === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => handleItemClick(item.id)}
+                className={`flex items-center gap-2 px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 border ${
+                  isActive
+                    ? `${item.activeBg} border-transparent ring-2 ring-blue-500/20 shadow-xs scale-[1.02]`
+                    : `bg-slate-50/70 border-slate-200/80 ${item.hoverBg} hover:border-slate-300 hover:bg-white`
+                }`}
+              >
+                <span className={`shrink-0 transition-transform ${isActive ? 'text-white scale-110' : item.iconColor}`}>
+                  {item.icon}
+                </span>
+                <span className="whitespace-nowrap tracking-tight">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Right Scroll Arrow */}
+        <button
+          type="button"
+          onClick={() => handleScroll('right')}
+          className="hidden sm:flex p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0 z-10 cursor-pointer"
+          title="Scroll Right"
+          aria-label="Scroll Right"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
     </header>
   );
 };

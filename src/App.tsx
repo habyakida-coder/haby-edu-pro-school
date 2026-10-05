@@ -1000,69 +1000,12 @@ export default function App() {
       {/* Floating Ambient Bubbles with Beautiful Iridescent Colors */}
       <FloatingBubbles />
 
-      {/* Mobile Sticky Top App Bar */}
-      <header className="lg:hidden sticky top-0 z-40 bg-[#0f2948] text-white px-3.5 py-2.5 flex items-center justify-between shadow-md border-b border-white/10">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <button
-            type="button"
-            onClick={() => setIsMobileNavOpen(true)}
-            className="p-2 -ml-1 text-white hover:bg-white/10 rounded-xl transition cursor-pointer flex items-center justify-center shrink-0"
-            aria-label="Open Navigation Menu"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-xs font-black text-white truncate tracking-tight">
-              {data.schoolInfo.name || 'HABY EDU PRO'}
-            </h1>
-            <p className="text-[10px] text-blue-300 font-bold uppercase tracking-wider truncate">
-              {activeView}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          {saveStatus === 'saving' && (
-            <span className="flex items-center gap-1 text-[9px] font-black text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-400/30">
-              <RotateCw className="w-2.5 h-2.5 animate-spin" />
-              <span className="hidden xs:inline">Saving</span>
-            </span>
-          )}
-          {saveStatus === 'saved' && (
-            <span className="flex items-center gap-1 text-[9px] font-black text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-400/30">
-              <Check className="w-2.5 h-2.5" />
-              <span className="hidden xs:inline">Synced</span>
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={handleForceRefreshSync}
-            disabled={isSyncing}
-            className="p-1.5 bg-white/10 hover:bg-white/20 text-blue-200 rounded-lg transition text-xs cursor-pointer"
-            title="Force Sync"
-          >
-            <RotateCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-      </header>
-
-      {/* Mobile Drawer Backdrop Overlay */}
-      {isMobileNavOpen && (
-        <div 
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 lg:hidden transition-opacity"
-          onClick={() => setIsMobileNavOpen(false)}
-        />
-      )}
-
-      {/* Top Horizontal Navigation Bar */}
+      {/* Top Horizontal Navigation Bar (Clean, Unified & Responsive for Phone & Laptop) */}
       <Navigation
         activeView={activeView}
         schoolInfo={data.schoolInfo}
         saveStatus={saveStatus}
-        onSelectView={view => {
-          setActiveView(view);
-          setIsMobileNavOpen(false);
-        }}
+        onSelectView={view => setActiveView(view)}
         currentUser={userAccount}
         onLogout={() => {
           if (window.confirm("Are you sure you want to logout?")) {
@@ -1070,8 +1013,6 @@ export default function App() {
           }
         }}
         layout="horizontal"
-        isMobileOpen={isMobileNavOpen}
-        onMobileClose={() => setIsMobileNavOpen(false)}
       />
 
       {/* Main Content Area - Full 100% width layout */}

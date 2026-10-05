@@ -28,19 +28,39 @@ export const SUPERADMIN_MASTER_PASSWORD = 'Mdimilage$Habibu%1991$_3';
 export const ADMIN_EMAIL = 'admin@haby.com';
 export const ADMIN_PASSWORD = 'Mdimilage$Habibu%1991$_3';
 
+const safeGetItem = (storage: Storage | undefined, key: string): string | null => {
+  try {
+    return storage ? storage.getItem(key) : null;
+  } catch (e) {
+    return null;
+  }
+};
+
+const safeSetItem = (storage: Storage | undefined, key: string, val: string): void => {
+  try {
+    if (storage) storage.setItem(key, val);
+  } catch (e) {}
+};
+
+const safeRemoveItem = (storage: Storage | undefined, key: string): void => {
+  try {
+    if (storage) storage.removeItem(key);
+  } catch (e) {}
+};
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userAccount, setUserAccount] = useState<UserAccount | null>(() => {
     // Check if demo user was saved in session
-    const savedDemo = sessionStorage.getItem('haby_demo_user');
-    if (savedDemo) {
-      try {
+    try {
+      const savedDemo = typeof window !== 'undefined' ? safeGetItem(window.sessionStorage, 'haby_demo_user') : null;
+      if (savedDemo) {
         return JSON.parse(savedDemo);
-      } catch {
-        return null;
       }
+    } catch {
+      return null;
     }
     return null;
   });
@@ -165,14 +185,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       });
 
+    // Safety timeout: Ensure loading finishes within 2 seconds even if network/firebase auth hangs
+    const fallbackTimer = setTimeout(() => {
+      setLoading(false);
+    }, 2000);
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      clearTimeout(fallbackTimer);
       setUser(firebaseUser);
       if (firebaseUser) {
-        sessionStorage.removeItem('haby_demo_user');
+        if (typeof window !== 'undefined') safeRemoveItem(window.sessionStorage, 'haby_demo_user');
         await fetchOrCreateUserAccount(firebaseUser);
       } else {
         // If not using demo account, clear userAccount
-        const savedDemo = sessionStorage.getItem('haby_demo_user');
+        const savedDemo = typeof window !== 'undefined' ? safeGetItem(window.sessionStorage, 'haby_demo_user') : null;
         if (!savedDemo) {
           setUserAccount(null);
         }
@@ -180,7 +206,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      clearTimeout(fallbackTimer);
+      unsubscribe();
+    };
   }, []);
 
   const signInWithGoogle = async () => {

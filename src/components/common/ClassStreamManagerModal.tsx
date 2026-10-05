@@ -101,17 +101,31 @@ export const ClassStreamManagerModal: React.FC<ClassStreamManagerModalProps> = (
     if (!cleanStream) return;
 
     const formatted = normalizeStreamName(cleanStream);
+    const exists = streamSettings.some(s => s.className.toLowerCase().trim() === className.toLowerCase().trim());
 
-    const updated = streamSettings.map(setting => {
-      if (setting.className === className) {
-        if (setting.streams.includes(formatted)) return setting;
-        return {
-          ...setting,
-          streams: [...setting.streams, formatted]
-        };
-      }
-      return setting;
-    });
+    let updated: StreamSetting[];
+    if (exists) {
+      updated = streamSettings.map(setting => {
+        if (setting.className.toLowerCase().trim() === className.toLowerCase().trim()) {
+          if (setting.streams.includes(formatted)) return setting;
+          return {
+            ...setting,
+            streams: [...setting.streams, formatted]
+          };
+        }
+        return setting;
+      });
+    } else {
+      updated = [
+        ...streamSettings,
+        {
+          id: Date.now(),
+          className,
+          level: inferEducationLevel(className),
+          streams: ['STREAM A', 'STREAM B', formatted]
+        }
+      ];
+    }
 
     onUpdateStreamSettings(updated);
     setNewStreamForClass('');
@@ -119,20 +133,33 @@ export const ClassStreamManagerModal: React.FC<ClassStreamManagerModalProps> = (
   };
 
   const handleAutoIncreaseStream = (className: string) => {
-    const setting = streamSettings.find(s => s.className === className);
+    const setting = streamSettings.find(s => s.className.toLowerCase().trim() === className.toLowerCase().trim());
     const existing = setting ? setting.streams : ['STREAM A', 'STREAM B'];
     const nextStream = getNextLogicalStream(existing);
 
-    const updated = streamSettings.map(s => {
-      if (s.className === className) {
-        if (s.streams.includes(nextStream)) return s;
-        return {
-          ...s,
-          streams: [...s.streams, nextStream]
-        };
-      }
-      return s;
-    });
+    let updated: StreamSetting[];
+    if (setting) {
+      updated = streamSettings.map(s => {
+        if (s.className.toLowerCase().trim() === className.toLowerCase().trim()) {
+          if (s.streams.includes(nextStream)) return s;
+          return {
+            ...s,
+            streams: [...s.streams, nextStream]
+          };
+        }
+        return s;
+      });
+    } else {
+      updated = [
+        ...streamSettings,
+        {
+          id: Date.now(),
+          className,
+          level: inferEducationLevel(className),
+          streams: [...existing, nextStream]
+        }
+      ];
+    }
 
     onUpdateStreamSettings(updated);
     showSuccess(`✓ Mkondo mpya wa "${nextStream}" umeongezwa kwenye ${className}!`);

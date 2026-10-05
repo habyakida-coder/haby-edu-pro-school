@@ -267,6 +267,41 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [viewingRecordStudent, setViewingRecordStudent] = useState<Student | null>(null);
 
+  const handleQuickIncreaseStream = (targetClass: string) => {
+    if (!onUpdateStreamSettings) return;
+    const currentList = streamSettings && streamSettings.length > 0 ? streamSettings : INITIAL_STREAM_SETTINGS;
+    const setting = currentList.find(s => s.className.toLowerCase().trim() === targetClass.toLowerCase().trim());
+    const existing = setting ? setting.streams : getStreamsForClass(targetClass, currentList, students);
+    const nextStream = getNextLogicalStream(existing);
+
+    let updated: StreamSetting[];
+    if (setting) {
+      updated = currentList.map(s => {
+        if (s.className.toLowerCase().trim() === targetClass.toLowerCase().trim()) {
+          if (s.streams.includes(nextStream)) return s;
+          return {
+            ...s,
+            streams: [...s.streams, nextStream]
+          };
+        }
+        return s;
+      });
+    } else {
+      updated = [
+        ...currentList,
+        {
+          id: Date.now(),
+          className: targetClass,
+          level: inferEducationLevel(targetClass),
+          streams: [...existing, nextStream]
+        }
+      ];
+    }
+    onUpdateStreamSettings(updated);
+    setStudentCreatedNotice(`✓ Mkondo mpya wa "${nextStream}" umeongezwa kwenye ${targetClass} kikamilifu!`);
+    setTimeout(() => setStudentCreatedNotice(null), 4000);
+  };
+
   const handleClassChange = (newClass: string) => {
     setClassName(newClass);
     if (NURSERY_CLASSES.includes(newClass)) {
@@ -393,6 +428,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
     const isPrimarySection = level === 'PRIMARY' || level === 'PRE_PRIMARY' || 
       PRIMARY_CLASSES.includes(className) || NURSERY_CLASSES.includes(className);
     const regNo = getNextStudentRegNo(students, schoolInfo?.schoolNumber, undefined, isPrimarySection);
+    const activeStream = level === 'ACSEE' ? (combination || stream) : (stream || 'STREAM A');
     const newStudent: Student = {
       id: Date.now(),
       regNo,
@@ -400,7 +436,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
       gender,
       className,
       level,
-      stream: level === 'CSEE' ? stream : undefined,
+      stream: activeStream,
       combination: level === 'ACSEE' ? combination : undefined,
       dob,
       parentPhone: parentPhone.trim() || undefined,
@@ -417,10 +453,9 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
 
     // Auto-sync class and stream into streamSettings registry
     if (onUpdateStreamSettings) {
-      const activeStreamName = level === 'ACSEE' ? combination : (stream || 'STREAM A');
       const { updatedSettings, wasChanged } = syncClassAndStreamToSettings(
         className,
-        activeStreamName,
+        activeStream,
         streamSettings
       );
       if (wasChanged) {
@@ -433,7 +468,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
     setPassportPhoto('');
     // After Student Create, show all students in Student button list immediately
     setActiveTab('register_list');
-    setStudentCreatedNotice(`Student ${newStudent.name} (${newStudent.regNo}) registered successfully! Class ${className} (${level === 'ACSEE' ? combination : stream}) updated across system.`);
+    setStudentCreatedNotice(`Student ${newStudent.name} (${newStudent.regNo}) registered successfully! Class ${className} (${activeStream}) updated across system.`);
     setTimeout(() => setStudentCreatedNotice(null), 6000);
   };
 
@@ -1371,9 +1406,20 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                             {classItem.level === 'CSEE' ? 'O-Level' : classItem.level === 'ACSEE' ? 'A-Level' : classItem.level}
                           </span>
                         </div>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          {classItem.streams.length} Stream{classItem.streams.length > 1 ? 's' : ''} Configured
-                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-xs text-slate-500">
+                            {classItem.streams.length} Stream{classItem.streams.length > 1 ? 's' : ''} Configured
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => handleQuickIncreaseStream(classItem.className)}
+                            className="px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-md text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                            title={`Ongeza mkondo unaofuata kwenye ${classItem.className}`}
+                          >
+                            <Plus className="w-3 h-3 text-emerald-600" />
+                            <span>+ Ongeza Mkondo</span>
+                          </button>
+                        </div>
                       </div>
 
                       {/* Class Stats Badge */}

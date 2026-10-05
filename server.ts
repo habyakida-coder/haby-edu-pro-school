@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { generateAITimetable } from './src/server/timetableAILogic.ts';
@@ -207,12 +208,16 @@ app.post('/api/ai/generate-timetable', async (req, res) => {
   }
 });
 
-// In dev mode, mount Vite middleware; in production, serve built dist files
+// In dev mode, mount Vite middleware; in production or when built, serve dist files
 async function startServer() {
-  if (process.env.NODE_ENV === 'production') {
-    app.use(express.static(path.resolve(__dirname, 'dist')));
+  const distDir = path.resolve(__dirname, 'dist');
+  const hasDist = fs.existsSync(path.join(distDir, 'index.html'));
+  const isProduction = process.env.NODE_ENV === 'production' || hasDist;
+
+  if (isProduction && hasDist) {
+    app.use(express.static(distDir));
     app.get('*', (_req, res) => {
-      res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
+      res.sendFile(path.join(distDir, 'index.html'));
     });
   } else {
     const { createServer } = await import('vite');
@@ -224,7 +229,7 @@ async function startServer() {
   }
 
   app.listen(port, () => {
-    console.log(`HABY EDU PRO server listening on http://localhost:${port}`);
+    console.log(`HABY EDU PRO server listening on http://localhost:${port} (production: ${isProduction})`);
   });
 }
 
