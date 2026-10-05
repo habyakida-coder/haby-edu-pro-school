@@ -62,25 +62,18 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userAccount, setUserAccount] = useState<UserAccount | null>(() => {
-    // Check if user explicitly logged out or if demo user was saved in session
+    // Check if demo user was saved in session
     try {
-      if (typeof window !== 'undefined') {
-        const explicitLogout = safeGetItem(window.sessionStorage, 'haby_explicit_logout');
-        if (explicitLogout === 'true') {
-          return null;
-        }
-        const savedDemo = safeGetItem(window.sessionStorage, 'haby_demo_user');
-        if (savedDemo) {
-          return JSON.parse(savedDemo);
-        }
+      const savedDemo = typeof window !== 'undefined' ? safeGetItem(window.sessionStorage, 'haby_demo_user') : null;
+      if (savedDemo) {
+        return JSON.parse(savedDemo);
       }
     } catch {
-      // ignore
+      return null;
     }
-    // Auto-bootstrap as Mwl. Habibu Akida (Super Admin) on initial visit so the published site NEVER shows a white page or broken login blocker
-    return DEFAULT_SUPERADMIN_ACCOUNT;
+    return null;
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const fetchOrCreateUserAccount = async (fbUser: FirebaseUser) => {
     const normEmail = fbUser.email?.toLowerCase() || '';
@@ -216,20 +209,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         await fetchOrCreateUserAccount(firebaseUser);
       } else {
-        const explicitLogout = typeof window !== 'undefined' ? safeGetItem(window.sessionStorage, 'haby_explicit_logout') : null;
-        if (explicitLogout === 'true') {
+        // If not using demo account, clear userAccount
+        const savedDemo = typeof window !== 'undefined' ? safeGetItem(window.sessionStorage, 'haby_demo_user') : null;
+        if (!savedDemo) {
           setUserAccount(null);
-        } else {
-          const savedDemo = typeof window !== 'undefined' ? safeGetItem(window.sessionStorage, 'haby_demo_user') : null;
-          if (savedDemo) {
-            try {
-              setUserAccount(JSON.parse(savedDemo));
-            } catch {
-              setUserAccount(DEFAULT_SUPERADMIN_ACCOUNT);
-            }
-          } else {
-            setUserAccount(DEFAULT_SUPERADMIN_ACCOUNT);
-          }
         }
       }
       setLoading(false);
