@@ -24,7 +24,8 @@ import {
   Grid,
   GraduationCap,
   ChevronRight,
-  PlusCircle
+  PlusCircle,
+  Plus
 } from 'lucide-react';
 import { Student, SchoolInfo, EducationLevel, StreamSetting } from '../types';
 import { 
@@ -50,7 +51,9 @@ import {
   getAllAvailableClasses, 
   getStreamsForClass, 
   inferEducationLevel, 
-  syncClassAndStreamToSettings 
+  syncClassAndStreamToSettings,
+  getNextLogicalStream,
+  normalizeStreamName
 } from '../utils/classStreamUtils';
 
 interface StudentsViewProps {

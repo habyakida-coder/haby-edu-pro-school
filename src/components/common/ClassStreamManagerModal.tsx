@@ -13,7 +13,7 @@ import {
   Users
 } from 'lucide-react';
 import { EducationLevel, StreamSetting, Student } from '../../types';
-import { inferEducationLevel } from '../../utils/classStreamUtils';
+import { inferEducationLevel, normalizeStreamName, getNextLogicalStream } from '../../utils/classStreamUtils';
 
 interface ClassStreamManagerModalProps {
   isOpen: boolean;
@@ -100,9 +100,7 @@ export const ClassStreamManagerModal: React.FC<ClassStreamManagerModalProps> = (
     const cleanStream = newStreamForClass.trim();
     if (!cleanStream) return;
 
-    const formatted = cleanStream.toUpperCase().startsWith('STREAM ') || cleanStream.length <= 3 
-      ? cleanStream.toUpperCase() 
-      : `STREAM ${cleanStream.toUpperCase()}`;
+    const formatted = normalizeStreamName(cleanStream);
 
     const updated = streamSettings.map(setting => {
       if (setting.className === className) {
@@ -118,6 +116,26 @@ export const ClassStreamManagerModal: React.FC<ClassStreamManagerModalProps> = (
     onUpdateStreamSettings(updated);
     setNewStreamForClass('');
     showSuccess(`✓ Mkondo "${formatted}" umeongezwa kwenye ${className}!`);
+  };
+
+  const handleAutoIncreaseStream = (className: string) => {
+    const setting = streamSettings.find(s => s.className === className);
+    const existing = setting ? setting.streams : ['STREAM A', 'STREAM B'];
+    const nextStream = getNextLogicalStream(existing);
+
+    const updated = streamSettings.map(s => {
+      if (s.className === className) {
+        if (s.streams.includes(nextStream)) return s;
+        return {
+          ...s,
+          streams: [...s.streams, nextStream]
+        };
+      }
+      return s;
+    });
+
+    onUpdateStreamSettings(updated);
+    showSuccess(`✓ Mkondo mpya wa "${nextStream}" umeongezwa kwenye ${className}!`);
   };
 
   const handleDeleteStream = (className: string, streamName: string) => {
@@ -317,12 +335,21 @@ export const ClassStreamManagerModal: React.FC<ClassStreamManagerModalProps> = (
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
+                          onClick={() => handleAutoIncreaseStream(setting.className)}
+                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-all cursor-pointer text-xs font-black flex items-center gap-1 shadow-2xs active:scale-95"
+                          title="Ongeza mkondo unaofuata kiotomatiki (mf. STREAM C, STREAM D)"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>+ Ongeza Mkondo</span>
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => setSelectedClassToEdit(isEditing ? null : setting.className)}
                           className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer text-xs font-bold flex items-center gap-1"
-                          title="Ongeza au rekebisha mikondo"
+                          title="Ongeza kwa kuandika au rekebisha mikondo"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
-                          <span>{isEditing ? 'Funga' : '+ Mkondo'}</span>
+                          <span>{isEditing ? 'Funga' : 'Badili'}</span>
                         </button>
                         <button
                           type="button"

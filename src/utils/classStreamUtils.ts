@@ -111,6 +111,40 @@ export const getAllAvailableClasses = (
 };
 
 /**
+ * Normalizes a stream name string into standard uppercase canonical format.
+ * Examples: 'a' -> 'STREAM A', 'stream b' -> 'STREAM B', '3' -> 'STREAM 3', 'PCM' -> 'PCM'
+ */
+export const normalizeStreamName = (input: string): string => {
+  if (!input || !input.trim()) return 'STREAM A';
+  const clean = input.trim().toUpperCase();
+  if (clean.startsWith('STREAM ')) return clean;
+  if (/^[A-Z]$/.test(clean)) return `STREAM ${clean}`;
+  if (/^\d+$/.test(clean)) return `STREAM ${clean}`;
+  return clean;
+};
+
+/**
+ * Predicts and generates the next logical stream name for a given list of streams.
+ * Example: ['STREAM A', 'STREAM B'] -> 'STREAM C'
+ * Example: ['STREAM A', 'STREAM B', 'STREAM C'] -> 'STREAM D'
+ */
+export const getNextLogicalStream = (existingStreams: string[] = []): string => {
+  if (!existingStreams || existingStreams.length === 0) return 'STREAM A';
+
+  const normalized = existingStreams.map(normalizeStreamName);
+  const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+
+  for (const letter of letters) {
+    const candidate = `STREAM ${letter}`;
+    if (!normalized.some(s => s === candidate)) {
+      return candidate;
+    }
+  }
+
+  return `STREAM ${normalized.length + 1}`;
+};
+
+/**
  * Get all registered streams for a specific class.
  */
 export const getStreamsForClass = (
@@ -127,7 +161,7 @@ export const getStreamsForClass = (
     );
     if (found && Array.isArray(found.streams)) {
       found.streams.forEach(st => {
-        if (st && st.trim()) streamsSet.add(st.trim());
+        if (st && st.trim()) streamsSet.add(normalizeStreamName(st));
       });
     }
   }
@@ -137,10 +171,10 @@ export const getStreamsForClass = (
     students.forEach(st => {
       if (st.className && st.className.toLowerCase().trim() === className.toLowerCase().trim()) {
         if (st.stream && st.stream.trim()) {
-          streamsSet.add(st.stream.trim());
+          streamsSet.add(normalizeStreamName(st.stream));
         }
         if (st.combination && st.combination.trim()) {
-          streamsSet.add(st.combination.trim());
+          streamsSet.add(normalizeStreamName(st.combination));
         }
       }
     });
@@ -154,7 +188,7 @@ export const getStreamsForClass = (
     return ['STREAM A', 'STREAM B'];
   }
 
-  return Array.from(streamsSet).sort();
+  return Array.from(streamsSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 };
 
 /**
