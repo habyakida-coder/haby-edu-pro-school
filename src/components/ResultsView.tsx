@@ -450,8 +450,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
         average: scores.length > 0 ? String(nectaRes.average) : undefined,
         primaryGrade: nectaRes.isPrimary ? (nectaRes.overallGrade as any) : undefined,
         passStatus: nectaRes.remarks,
-        division: nectaRes.division,
-        points: nectaRes.points
+        division: nectaRes.division
       };
     });
 
@@ -1864,7 +1863,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                                 'bg-red-100 text-red-800 border border-red-300'
                               }`}
                             >
-                              {st.division === 'INCOMPLETE' ? 'INC' : `Div ${st.division}${st.points ? ` (Pts ${st.points})` : ''}`}
+                              {st.division === 'INCOMPLETE' ? 'INC' : `Div ${st.division}${((st as any).points || calculateOLevelDivision((pendingMarks[st.id] || st.marks || {}) as any).points) ? ` (Pts ${(st as any).points || calculateOLevelDivision((pendingMarks[st.id] || st.marks || {}) as any).points})` : ''}`}
                             </span>
                           ) : '-'
                         )}
@@ -2429,6 +2428,14 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
               >
                 <Edit3 className="w-3.5 h-3.5" />
                 <span>Edit Remarks</span>
+              </button>
+
+              <button
+                onClick={handlePrintReport}
+                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download PDF</span>
               </button>
 
               <button

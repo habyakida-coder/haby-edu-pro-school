@@ -129,7 +129,8 @@ export const SECONDARY_SUBJECTS = [
   'French',
   'Arabic',
   'Bible Knowledge',
-  'Islamic Knowledge'
+  'Islamic Knowledge',
+  'Mikondo'
 ];
 
 export const SUBJECT_LIST = [
@@ -189,6 +190,7 @@ export const SUBJECT_LIST = [
   'Historia Ya Tanzania Na Maadili',
   'Literature in English',
   'Academic Communications',
+  'Mikondo',
   // Extra-curricular / special meal & activity periods
   'Religion',
   'Praying',

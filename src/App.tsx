@@ -169,10 +169,15 @@ export default function App() {
           supabase.from('exams').select('*').eq('school_id', schoolId)
         ]);
 
-        const rawStudents = (studRes && studRes.data && Array.isArray(studRes.data) && studRes.data.length > 0) ? studRes.data : null;
-        const rawRecords = (recRes && recRes.data && Array.isArray(recRes.data) && recRes.data.length > 0) ? recRes.data : null;
-        const rawTeachers = (teachRes && teachRes.data && Array.isArray(teachRes.data) && teachRes.data.length > 0) ? teachRes.data : null;
-        const rawExams = (examRes && examRes.data && Array.isArray(examRes.data) && examRes.data.length > 0) ? examRes.data : null;
+        const studData = studRes?.data;
+        const recData = recRes?.data;
+        const teachData = teachRes?.data;
+        const examData = examRes?.data;
+
+        const rawStudents = (((studData as any[])?.length || 0) > 0) ? studData : null;
+        const rawRecords = (((recData as any[])?.length || 0) > 0) ? recData : null;
+        const rawTeachers = (((teachData as any[])?.length || 0) > 0) ? teachData : null;
+        const rawExams = (((examData as any[])?.length || 0) > 0) ? examData : null;
 
         setData(prev => {
           const nextStudents = rawStudents !== null 

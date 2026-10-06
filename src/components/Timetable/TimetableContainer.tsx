@@ -543,6 +543,8 @@ Ratiba hii imekaguliwa rasmi na haina mgongano (Zero Clashes).`;
       activityType: 'academic'
     };
 
+    console.log('[TimetableContainer] INVESTIGATE SAVE - handleMasterAssign new assignment object:', JSON.stringify(data, null, 2));
+
     const updated = assignments.filter(
       a =>
         !(
@@ -553,7 +555,10 @@ Ratiba hii imekaguliwa rasmi na haina mgongano (Zero Clashes).`;
         )
     );
 
-    onUpdateAssignments([...updated, data]);
+    const finalAssignments = [...updated, data];
+    console.log('[TimetableContainer] INVESTIGATE SAVE - dispatching total assignments count:', finalAssignments.length);
+
+    onUpdateAssignments(finalAssignments);
     alert(`Assigned ${assignSubject} to ${assignClass} ${assignStream} on ${assignDay}!`);
   };
 
