@@ -25,7 +25,8 @@ import {
   GraduationCap,
   ChevronRight,
   PlusCircle,
-  Plus
+  Plus,
+  Shield
 } from 'lucide-react';
 import { Student, SchoolInfo, EducationLevel, StreamSetting } from '../types';
 import { 
@@ -90,6 +91,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   const [combination, setCombination] = useState('PCM');
   const [dob, setDob] = useState('2010-01-01');
   const [parentPhone, setParentPhone] = useState('');
+  const [parentName, setParentName] = useState('');
   const [passportPhoto, setPassportPhoto] = useState<string>('');
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([
     'English Language', 'Kiswahili', 'Mathematics', 'Biology', 'Chemistry', 'Physics'
@@ -136,7 +138,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   }, [students]);
 
   // List filters & sorting (with gender-grouped alphabetical arrangement per user request)
-  const [activeTab, setActiveTab] = useState<'form' | 'register_list' | 'classes_streams'>('classes_streams');
+  const [activeTab, setActiveTab] = useState<'form' | 'register_list' | 'classes_streams' | 'parents_list'>('classes_streams');
   const [searchFilter, setSearchFilter] = useState('');
   const [classFilter, setClassFilter] = useState('ALL');
   const [streamFilter, setStreamFilter] = useState('ALL');
@@ -306,6 +308,115 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
     setTimeout(() => setStudentCreatedNotice(null), 4000);
   };
 
+  const handleQuickDecreaseStream = (targetClass: string) => {
+    if (!onUpdateStreamSettings) return;
+    const currentList = streamSettings && streamSettings.length > 0 ? streamSettings : INITIAL_STREAM_SETTINGS;
+    const setting = currentList.find(s => s.className.toLowerCase().trim() === targetClass.toLowerCase().trim());
+    const existing = setting ? setting.streams : getStreamsForClass(targetClass, currentList, students);
+
+    if (existing.length <= 1) {
+      alert(`Darasa la ${targetClass} lina mkondo mmoja tu (${existing[0]}). Huwezi kupunguza mikondo chini ya 1.`);
+      return;
+    }
+
+    const streamToRemove = existing[existing.length - 1];
+    const studentCount = students.filter(
+      s => s.className.toLowerCase().trim() === targetClass.toLowerCase().trim() &&
+           ((s.stream || '').toUpperCase().includes(streamToRemove.toUpperCase().replace(/^STREAM\s+/i, '')) ||
+            (s.combination || '').toUpperCase() === streamToRemove.toUpperCase())
+    ).length;
+
+    if (studentCount > 0) {
+      if (!window.confirm(`Kuna wanafunzi ${studentCount} walioandikishwa kwenye ${targetClass} - ${streamToRemove}. Je, una uhakika unataka kupunguza/kufuta mkondo huu?`)) {
+        return;
+      }
+    } else {
+      if (!window.confirm(`Je, una uhakika unataka kupunguza mkondo wa mwisho (${streamToRemove}) kutoka ${targetClass}?`)) {
+        return;
+      }
+    }
+
+    const updatedStreams = existing.slice(0, existing.length - 1);
+    let updated: StreamSetting[];
+    if (setting) {
+      updated = currentList.map(s => {
+        if (s.className.toLowerCase().trim() === targetClass.toLowerCase().trim()) {
+          return {
+            ...s,
+            streams: updatedStreams
+          };
+        }
+        return s;
+      });
+    } else {
+      updated = [
+        ...currentList,
+        {
+          id: Date.now(),
+          className: targetClass,
+          level: inferEducationLevel(targetClass),
+          streams: updatedStreams
+        }
+      ];
+    }
+
+    onUpdateStreamSettings(updated);
+    setStudentCreatedNotice(`✓ Mkondo wa "${streamToRemove}" umepunguzwa kutoka ${targetClass}!`);
+    setTimeout(() => setStudentCreatedNotice(null), 4000);
+  };
+
+  const handleDeleteSpecificStream = (targetClass: string, streamName: string) => {
+    if (!onUpdateStreamSettings) return;
+    const currentList = streamSettings && streamSettings.length > 0 ? streamSettings : INITIAL_STREAM_SETTINGS;
+    const setting = currentList.find(s => s.className.toLowerCase().trim() === targetClass.toLowerCase().trim());
+    const existing = setting ? setting.streams : getStreamsForClass(targetClass, currentList, students);
+
+    if (existing.length <= 1) {
+      alert(`Darasa la ${targetClass} lina mkondo mmoja tu (${existing[0]}). Huwezi kufuta mkondo wa pekee.`);
+      return;
+    }
+
+    const studentCount = students.filter(
+      s => s.className.toLowerCase().trim() === targetClass.toLowerCase().trim() &&
+           ((s.stream || '').toUpperCase().includes(streamName.toUpperCase().replace(/^STREAM\s+/i, '')) ||
+            (s.combination || '').toUpperCase() === streamName.toUpperCase())
+    ).length;
+
+    const msg = studentCount > 0
+      ? `Kuna wanafunzi ${studentCount} walioandikishwa kwenye ${targetClass} - ${streamName}. Je, una uhakika unataka kufuta mkondo huu?`
+      : `Je, una uhakika unataka kufuta mkondo wa "${streamName}" kwenye darasa la ${targetClass}?`;
+
+    if (!window.confirm(msg)) return;
+
+    const updatedStreams = existing.filter(st => st.toLowerCase().trim() !== streamName.toLowerCase().trim());
+    let updated: StreamSetting[];
+    if (setting) {
+      updated = currentList.map(s => {
+        if (s.className.toLowerCase().trim() === targetClass.toLowerCase().trim()) {
+          return {
+            ...s,
+            streams: updatedStreams
+          };
+        }
+        return s;
+      });
+    } else {
+      updated = [
+        ...currentList,
+        {
+          id: Date.now(),
+          className: targetClass,
+          level: inferEducationLevel(targetClass),
+          streams: updatedStreams
+        }
+      ];
+    }
+
+    onUpdateStreamSettings(updated);
+    setStudentCreatedNotice(`✓ Mkondo wa "${streamName}" umefutwa kikamilifu kutoka ${targetClass}!`);
+    setTimeout(() => setStudentCreatedNotice(null), 4000);
+  };
+
   const handleClassChange = (newClass: string) => {
     setClassName(newClass);
     if (NURSERY_CLASSES.includes(newClass)) {
@@ -443,6 +554,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
       stream: activeStream,
       combination: level === 'ACSEE' ? combination : undefined,
       dob,
+      parentName: parentName.trim() || undefined,
       parentPhone: parentPhone.trim() || undefined,
       phone: parentPhone.trim() || undefined,
       passportPhoto: passportPhoto || undefined,
@@ -469,6 +581,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
 
     setName('');
     setParentPhone('');
+    setParentName('');
     setPassportPhoto('');
     // After Student Create, show all students in Student button list immediately
     setActiveTab('register_list');
@@ -912,6 +1025,18 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
             <UserPlus className="w-4 h-4" />
             <span>Student Registration Form</span>
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('parents_list')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'parents_list'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <Shield className="w-4 h-4" />
+            <span>Wazazi & Wanafunzi Wao (Parents Directory)</span>
+          </button>
         </div>
 
         <div className="flex items-center gap-2">
@@ -1150,6 +1275,17 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                     type="date"
                     value={dob}
                     onChange={e => setDob(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-600 uppercase block mb-1">Parent / Guardian Full Name</label>
+                  <input
+                    type="text"
+                    value={parentName}
+                    onChange={e => setParentName(e.target.value)}
+                    placeholder="e.g. Juma Mohamed"
                     className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white"
                   />
                 </div>
@@ -1423,6 +1559,15 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                             <Plus className="w-3 h-3 text-emerald-600" />
                             <span>+ Ongeza Mkondo</span>
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => handleQuickDecreaseStream(classItem.className)}
+                            className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-md text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                            title={`Punguza mkondo wa mwisho kutoka ${classItem.className}`}
+                          >
+                            <Trash2 className="w-3 h-3 text-rose-600" />
+                            <span>- Punguza Mkondo</span>
+                          </button>
                         </div>
                       </div>
 
@@ -1476,9 +1621,22 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                                   <Grid className="w-3.5 h-3.5 text-blue-600" />
                                   {streamItem.streamName}
                                 </span>
-                                <span className="px-2 py-0.5 bg-white border border-slate-200 rounded-lg text-xs font-black text-slate-900 shadow-2xs font-mono">
-                                  {sTotal}
-                                </span>
+                                <div className="flex items-center gap-1">
+                                  <span className="px-2 py-0.5 bg-white border border-slate-200 rounded-lg text-xs font-black text-slate-900 shadow-2xs font-mono" title="Wanafunzi waliosajiliwa">
+                                    {sTotal}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteSpecificStream(classItem.className, streamItem.streamName);
+                                    }}
+                                    className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                    title={`Futa mkondo wa ${streamItem.streamName} kutoka ${classItem.className}`}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </div>
 
                               <div className="flex items-center justify-between text-[10px] text-slate-500 font-semibold">
@@ -1909,6 +2067,94 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
       </div>
       )}
 
+      {/* TAB 4: PARENT DIRECTORY (WAZAZI NA WANAFUNZI WAO) */}
+      {activeTab === 'parents_list' && (
+        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-2 border-b border-slate-200">
+            <div>
+              <h3 className="text-base font-bold text-[#1f4d8b] flex items-center gap-2">
+                <Users className="w-4 h-4 text-indigo-600" />
+                Orodha ya Wazazi na Wanafunzi Wao (Parent Directory & Login Info)
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Wazazi wote waliojisajili kupitia namba za simu wakati wa kusajili wanafunzi, pamoja na wanafunzi wao. Wazazi wanaweza kuingia kwenye Parent Portal kwa namba zao za simu.
+              </p>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-xs text-left">
+              <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-black text-slate-500 uppercase">
+                <tr>
+                  <th className="p-3 border-r border-slate-200">#</th>
+                  <th className="p-3 border-r border-slate-200">Parent / Guardian Name</th>
+                  <th className="p-3 border-r border-slate-200">Parent Phone (Portal Login)</th>
+                  <th className="p-3 border-r border-slate-200">Linked Student(s) Name</th>
+                  <th className="p-3 border-r border-slate-200">Reg No</th>
+                  <th className="p-3 border-r border-slate-200">Class & Stream</th>
+                  <th className="p-3 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {(() => {
+                  const parentMap = new Map<string, { parentName: string; phone: string; students: any[] }>();
+                  students.forEach(st => {
+                    const phone = st.parentPhone || st.phone || (st as any).parent_phone || '';
+                    if (!phone) return;
+                    const pName = st.parentName || (st as any).parent_name || 'Mzazi / Mlezi';
+                    if (!parentMap.has(phone)) {
+                      parentMap.set(phone, { parentName: pName, phone, students: [] });
+                    }
+                    parentMap.get(phone)?.students.push(st);
+                  });
+
+                  const parentsList = Array.from(parentMap.values());
+
+                  if (parentsList.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan={7} className="p-8 text-center text-slate-400 font-bold italic">
+                          Hakuna wazazi waliosajiliwa na namba za simu bado. Sajili mwanafunzi na uweke namba ya simu ya mzazi.
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  return parentsList.map((p, idx) => (
+                    <tr key={p.phone} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-3 border-r border-slate-200 font-bold text-slate-500 text-center">{idx + 1}</td>
+                      <td className="p-3 border-r border-slate-200 font-bold text-slate-900">{p.parentName}</td>
+                      <td className="p-3 border-r border-slate-200 font-mono font-bold text-blue-600">{p.phone}</td>
+                      <td className="p-3 border-r border-slate-200 font-semibold text-slate-800">
+                        {p.students.map(s => s.name).join(', ')}
+                      </td>
+                      <td className="p-3 border-r border-slate-200 font-mono text-slate-600">
+                        {p.students.map(s => s.regNo).join(', ')}
+                      </td>
+                      <td className="p-3 border-r border-slate-200 font-bold text-slate-700">
+                        {p.students.map(s => `${s.className} (${s.stream || '-'})`).join('; ')}
+                      </td>
+                      <td className="p-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(p.phone);
+                            alert(`Namba ya simu ya mzazi ${p.phone} imekopiwa! Wanafunzi: ${p.students.map(s => s.name).join(', ')}`);
+                          }}
+                          className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-[11px] font-bold transition-colors cursor-pointer"
+                        >
+                          Copy Phone / Login Info
+                        </button>
+                      </td>
+                    </tr>
+                  ));
+                })()}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Edit Student Modal */}
       {editingStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
@@ -2010,6 +2256,16 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                       <option value="Female">Female</option>
                     </select>
                   </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-600 block mb-1">Parent / Guardian Full Name</label>
+                  <input
+                    type="text"
+                    value={editingStudent.parentName || (editingStudent as any).parent_name || ''}
+                    onChange={e => setEditingStudent({ ...editingStudent, parentName: e.target.value } as any)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white"
+                  />
                 </div>
 
                 <div>

@@ -1655,10 +1655,25 @@ Ratiba hii imekaguliwa rasmi na haina mgongano (Zero Clashes).`;
                     schoolName
                   );
                 }}
-                className="px-3 py-2 text-xs font-bold bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-1.5 shadow-xs"
+                className="px-3 py-2 text-xs font-bold bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download PDF</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  const currentTeacher = teachers.find(t => t.id === selectedTeacherFilter);
+                  printFormattedSection(
+                    'teacher-printable-view',
+                    `${currentTeacher?.name || 'Teacher'} Teaching Timetable`,
+                    schoolName
+                  );
+                }}
+                className="px-3 py-2 text-xs font-bold bg-slate-800 text-white rounded-lg hover:bg-slate-900 flex items-center gap-1.5 shadow-xs cursor-pointer"
               >
                 <Printer className="w-3.5 h-3.5" />
-                Print Teacher Schedule
+                <span>Print Schedule</span>
               </button>
             </div>
           </div>
@@ -1673,18 +1688,18 @@ Ratiba hii imekaguliwa rasmi na haina mgongano (Zero Clashes).`;
               const teacherCol = getTeacherColor(currentTeacher.id);
 
               return (
-                <div>
-                  <div className="flex items-center gap-3 pb-4 border-b border-slate-200">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4 pb-4 border-b border-slate-200">
                     <span
                       style={{ backgroundColor: teacherCol.hex, color: '#ffffff' }}
-                      className="w-12 h-12 rounded-full inline-flex items-center justify-center text-base font-bold shadow-xs"
+                      className="w-14 h-14 rounded-xl inline-flex items-center justify-center text-lg font-black shadow-sm"
                     >
                       {currentTeacher.initial}
                     </span>
                     <div>
-                      <h3 className="text-lg font-bold text-slate-800">{currentTeacher.name}</h3>
-                      <p className="text-xs text-slate-500">
-                        Teaching Subjects: {currentTeacher.subjects.join(', ')} • Total Lessons: {teacherAssignments.length}
+                      <h3 className="text-lg font-black text-slate-900 uppercase tracking-wide">{currentTeacher.name}</h3>
+                      <p className="text-xs font-bold text-slate-500 mt-0.5">
+                        Teaching Subjects: <span className="text-blue-700">{currentTeacher.subjects.join(', ')}</span> • Total Lessons Assigned: <span className="text-emerald-700">{teacherAssignments.length}</span>
                       </p>
                     </div>
                   </div>
@@ -1692,55 +1707,66 @@ Ratiba hii imekaguliwa rasmi na haina mgongano (Zero Clashes).`;
                   <div className="overflow-x-auto mt-4">
                     <table className="w-full text-left border-collapse text-xs">
                       <thead>
-                        <tr className="bg-slate-50 border-b border-slate-200 text-[11px] text-slate-600 font-bold uppercase">
-                          <th className="p-2.5 border-r border-slate-200">Day</th>
-                          <th className="p-2.5 border-r border-slate-200">Period / Time</th>
-                          <th className="p-2.5 border-r border-slate-200">Class & Stream</th>
-                          <th className="p-2.5 border-r border-slate-200">Subject</th>
-                          <th className="p-2.5 border-r border-slate-200">Room / Venue</th>
+                        <tr className="bg-slate-100 border-b border-slate-200 font-bold text-slate-700 uppercase text-[11px]">
+                          <th className="p-2.5 border-r border-slate-200 w-36">Period / Time</th>
+                          {DAYS_OF_WEEK.map(day => {
+                            const dayTheme = getDayTheme(day, dayThemes);
+                            return (
+                              <th
+                                key={day}
+                                style={{ backgroundColor: dayTheme.bg, color: dayTheme.text }}
+                                className="p-2.5 border-r border-slate-200 min-w-[130px] text-center"
+                              >
+                                {day}
+                              </th>
+                            );
+                          })}
                         </tr>
                       </thead>
                       <tbody>
-                        {teacherAssignments.length === 0 ? (
-                          <tr>
-                            <td colSpan={5} className="p-6 text-center text-slate-400">
-                              No teaching assignments scheduled for this teacher.
-                            </td>
-                          </tr>
-                        ) : (
-                          teacherAssignments.map(a => {
-                            const subCol = getSubjectColor(a.subject);
-                            const dayTheme = getDayTheme(a.day, dayThemes);
+                        {Array.from(new Set(periodSettings.map(p => `${p.name} (${p.start}-${p.end})`))).map(periodKey => {
+                          return (
+                            <tr key={periodKey} className="border-b border-slate-100">
+                              <td className="p-2.5 border-r border-slate-200 font-semibold bg-slate-50 text-slate-800">
+                                {periodKey}
+                              </td>
 
-                            return (
-                              <tr key={a.id} className="border-b border-slate-100 hover:bg-slate-50">
-                                <td className="p-2.5 border-r border-slate-200 font-bold">
-                                  <span
-                                    style={{ backgroundColor: dayTheme.bg, color: dayTheme.text }}
-                                    className="px-2 py-0.5 rounded-full text-[11px]"
+                              {DAYS_OF_WEEK.map(day => {
+                                const pNameOnly = periodKey.split(' (')[0];
+                                const assignment = teacherAssignments.find(
+                                  a =>
+                                    a.day === day &&
+                                    (a.period === periodKey || a.period === pNameOnly || (a.periodName && a.periodName === pNameOnly))
+                                );
+                                const subColor = assignment ? getSubjectColor(assignment.subject) : null;
+
+                                return (
+                                  <td
+                                    key={day}
+                                    className="p-2 border-r border-slate-200 text-center hover:bg-blue-50/40 transition-colors"
                                   >
-                                    {a.day}
-                                  </span>
-                                </td>
-                                <td className="p-2.5 border-r border-slate-200 text-slate-600">{a.period}</td>
-                                <td className="p-2.5 border-r border-slate-200 font-bold text-slate-800">
-                                  {a.className} • {a.stream}
-                                </td>
-                                <td className="p-2.5 border-r border-slate-200">
-                                  <span
-                                    style={{ backgroundColor: subCol.bg, color: subCol.text, borderColor: subCol.border }}
-                                    className="px-2 py-0.5 rounded-md border font-bold text-[11px]"
-                                  >
-                                    {a.subject}
-                                  </span>
-                                </td>
-                                <td className="p-2.5 border-r border-slate-200 text-slate-500">
-                                  {a.room || 'Regular Classroom'}
-                                </td>
-                              </tr>
-                            );
-                          })
-                        )}
+                                    {assignment ? (
+                                      <div
+                                        style={{ 
+                                          backgroundColor: subColor?.bg, 
+                                          borderColor: subColor?.border 
+                                        }}
+                                        className="p-2 rounded-md border text-xs shadow-2xs space-y-0.5"
+                                      >
+                                        <div className="font-black text-slate-900 tracking-tighter">{assignment.subject}</div>
+                                        <div className="text-[10px] text-slate-700 font-bold bg-white/60 px-1.5 py-0.5 rounded">
+                                          {assignment.className} ({assignment.stream})
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <span className="text-slate-300 text-[10px] font-bold italic">— Free —</span>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -2080,10 +2106,64 @@ Ratiba hii imekaguliwa rasmi na haina mgongano (Zero Clashes).`;
                 }
                 alert(`Streams for ${newStreamClass} updated!`);
               }}
-              className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs"
+              className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs cursor-pointer"
             >
               Save Class Streams
             </button>
+
+            {/* Active Class Streams with Delete buttons */}
+            <div className="pt-4 border-t border-slate-200 space-y-3">
+              <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                Orodha ya Madarasa na Mikondo Yaliyopo (Active Class Streams & Combinations):
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {streamSettings.map(ss => (
+                  <div key={ss.className} className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-black text-sm text-slate-900">{ss.className}</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800">
+                        {ss.streams.length} Mikondo
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {ss.streams.map(st => (
+                        <span
+                          key={st}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-slate-800 border border-slate-200 shadow-2xs group"
+                        >
+                          <span>{st}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (ss.streams.length <= 1) {
+                                alert(`Darasa la ${ss.className} lina mkondo mmoja tu. Huwezi kufuta mkondo wote.`);
+                                return;
+                              }
+                              if (confirm(`Una uhakika unataka kufuta mkondo wa "${st}" kwenye ${ss.className}?`)) {
+                                const updated = streamSettings.map(setting => {
+                                  if (setting.className === ss.className) {
+                                    return {
+                                      ...setting,
+                                      streams: setting.streams.filter(x => x !== st)
+                                    };
+                                  }
+                                  return setting;
+                                });
+                                onUpdateStreamSettings(updated);
+                              }
+                            }}
+                            className="text-slate-400 hover:text-rose-600 transition-colors cursor-pointer p-0.5 rounded"
+                            title={`Futa mkondo wa ${st}`}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}

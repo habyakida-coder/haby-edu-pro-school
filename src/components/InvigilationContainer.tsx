@@ -1822,99 +1822,115 @@ export const InvigilationContainer: React.FC<InvigilationContainerProps> = ({
       {/* TAB 5: CLASS INVIGILATION TIMETABLE                      */}
       {/* ======================================================== */}
       {activeTab === 'class' && (
-        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
             <div className="flex items-center gap-3">
-              <label className="text-xs font-bold text-slate-600 uppercase">Select Class:</label>
-              <select
-                value={selectedClassForInvig}
-                onChange={e => setSelectedClassForInvig(e.target.value)}
-                className="px-3 py-1.5 text-xs font-bold border border-slate-300 rounded-lg bg-white"
-              >
-                {DEFAULT_CLASSES.map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+              <div className="p-3 bg-blue-50 text-blue-700 rounded-xl">
+                <Layers className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900 uppercase">Class Examination & Invigilation Schedule</h3>
+                <p className="text-xs text-slate-500 font-medium">Ratiba ya mtihani na wasimamizi kwa kila darasa na mkondo</p>
+              </div>
             </div>
 
-            <button
-              onClick={() => printFormattedSection('class-invig-print', `${selectedClassForInvig} Examination & Invigilation Schedule`, schoolInfo.name)}
-              className="px-4 py-2 text-xs font-bold bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-1.5 shadow-xs cursor-pointer"
-            >
-              <Printer className="w-4 h-4" />
-              Print Class Schedule
-            </button>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-bold text-slate-600 uppercase">Select Class:</label>
+                <select
+                  value={selectedClassForInvig}
+                  onChange={e => setSelectedClassForInvig(e.target.value)}
+                  className="px-3 py-2 text-xs font-bold border border-slate-300 rounded-xl bg-white shadow-2xs outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {DEFAULT_CLASSES.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => printFormattedSection('class-invig-print', `${selectedClassForInvig} Examination & Invigilation Schedule`, schoolInfo.name)}
+                  className="px-3.5 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download PDF</span>
+                </button>
+                <button
+                  onClick={() => printFormattedSection('class-invig-print', `${selectedClassForInvig} Examination & Invigilation Schedule`, schoolInfo.name)}
+                  className="px-3.5 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-900 text-white rounded-xl flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Print</span>
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div id="class-invig-print" className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-[11px] text-slate-600 font-bold uppercase">
-                  <th className="p-3 border-r border-slate-200">Date & Day</th>
-                  <th className="p-3 border-r border-slate-200">Session</th>
-                  <th className="p-3 border-r border-slate-200">Time Range</th>
-                  <th className="p-3 border-r border-slate-200">Exam Subject</th>
-                  <th className="p-3 border-r border-slate-200">Stream</th>
-                  <th className="p-3 border-r border-slate-200 text-center">Rooms</th>
-                  <th className="p-3">Assigned Invigilators</th>
-                </tr>
-              </thead>
-              <tbody>
-                {normalizedSessions.filter(s => s.className.toLowerCase() === selectedClassForInvig.toLowerCase()).length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="p-8 text-center text-slate-400">
-                      No examination sessions scheduled for {selectedClassForInvig}.
-                    </td>
-                  </tr>
-                ) : (
-                  normalizedSessions
-                    .filter(s => s.className.toLowerCase() === selectedClassForInvig.toLowerCase())
-                    .map(s => {
-                      const subCol = getSubjectColor(s.subject);
-                      const assignedTeachersList: string[] = [];
-                      for (let r = 0; r < s.rooms; r++) {
-                        const tid = invigilationAssignments[`${s.id}_room${r}`];
-                        const tObj = teachers.find(t => t.id === tid);
-                        assignedTeachersList.push(`Room ${r + 1}: ${tObj ? tObj.name : 'Unassigned'}`);
-                      }
+          <div id="class-invig-print" className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {normalizedSessions.filter(s => s.className.toLowerCase() === selectedClassForInvig.toLowerCase()).length === 0 ? (
+                <div className="col-span-full py-16 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                  <Calendar className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                  <p className="text-slate-500 font-bold text-sm">No examination sessions scheduled for {selectedClassForInvig}.</p>
+                </div>
+              ) : (
+                normalizedSessions
+                  .filter(s => s.className.toLowerCase() === selectedClassForInvig.toLowerCase())
+                  .map(s => {
+                    const subCol = getSubjectColor(s.subject);
+                    return (
+                      <div key={s.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-3 hover:shadow-md transition-all">
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                          <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase ${
+                            s.session === 'SESSION I' ? 'bg-blue-100 text-blue-900' :
+                            s.session === 'SESSION II' ? 'bg-indigo-100 text-indigo-900' :
+                            'bg-purple-100 text-purple-900'
+                          }`}>
+                            {s.session}
+                          </span>
+                          <span className="text-xs font-mono font-bold text-slate-600">{s.time}</span>
+                        </div>
 
-                      return (
-                        <tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50">
-                          <td className="p-3 border-r border-slate-200 font-bold">
-                            <div>{s.day}</div>
-                            <span className="text-[11px] text-slate-500 font-normal">{s.date}</span>
-                          </td>
-                          <td className="p-3 border-r border-slate-200">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-black ${
-                              s.session === 'SESSION I'
-                                ? 'bg-blue-100 text-blue-900'
-                                : s.session === 'SESSION II'
-                                ? 'bg-indigo-100 text-indigo-900'
-                                : 'bg-purple-100 text-purple-900'
-                            }`}>
-                              {s.session}
-                            </span>
-                          </td>
-                          <td className="p-3 border-r border-slate-200 font-mono text-slate-600">{s.time}</td>
-                          <td className="p-3 border-r border-slate-200">
-                            <span
+                        <div>
+                          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">{s.day} • {s.date}</div>
+                          <h4 className="text-base font-black text-slate-900 mt-1 flex items-center gap-2">
+                            <span 
                               style={{ backgroundColor: subCol.bg, color: subCol.text, borderColor: subCol.border }}
-                              className="px-2 py-0.5 rounded-md border font-bold text-xs inline-block"
+                              className="px-2.5 py-1 rounded-lg border text-xs font-bold"
                             >
                               {s.subject}
                             </span>
-                          </td>
-                          <td className="p-3 border-r border-slate-200 font-semibold text-slate-800">{s.stream}</td>
-                          <td className="p-3 border-r border-slate-200 text-center font-bold">{s.rooms}</td>
-                          <td className="p-3 text-[11px] text-slate-700">
-                            {assignedTeachersList.join(' • ')}
-                          </td>
-                        </tr>
-                      );
-                    })
-                )}
-              </tbody>
-            </table>
+                          </h4>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-700 bg-slate-50 p-2.5 rounded-xl">
+                          <span>Stream: <strong className="text-blue-700">{s.stream}</strong></span>
+                          <span>Rooms: <strong className="text-indigo-700">{s.rooms} Exam Halls</strong></span>
+                        </div>
+
+                        <div className="space-y-1 pt-1 border-t border-slate-100">
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Assigned Invigilators</span>
+                          <div className="space-y-1">
+                            {Array.from({ length: s.rooms }).map((_, r) => {
+                              const tid = invigilationAssignments[`${s.id}_room${r}`];
+                              const tObj = teachers.find(t => t.id === tid);
+                              return (
+                                <div key={r} className="text-xs font-semibold text-slate-700 flex items-center justify-between bg-slate-50/60 px-2.5 py-1.5 rounded-lg">
+                                  <span>Room {r + 1}:</span>
+                                  <span className={tObj ? 'text-indigo-700 font-bold' : 'text-amber-600 italic'}>
+                                    {tObj ? tObj.name : 'Unassigned'}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+              )}
+            </div>
           </div>
         </div>
       )}

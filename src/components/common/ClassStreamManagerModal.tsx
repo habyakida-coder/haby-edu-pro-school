@@ -369,6 +369,20 @@ export const ClassStreamManagerModal: React.FC<ClassStreamManagerModalProps> = (
                           <Plus className="w-3.5 h-3.5" />
                           <span>+ Ongeza Mkondo</span>
                         </button>
+                        {setting.streams.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const lastStream = setting.streams[setting.streams.length - 1];
+                              handleDeleteStream(setting.className, lastStream);
+                            }}
+                            className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg transition-all cursor-pointer text-xs font-black flex items-center gap-1 shadow-2xs active:scale-95"
+                            title={`Punguza mkondo wa mwisho (${setting.streams[setting.streams.length - 1]})`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                            <span>- Punguza Mkondo</span>
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => setSelectedClassToEdit(isEditing ? null : setting.className)}

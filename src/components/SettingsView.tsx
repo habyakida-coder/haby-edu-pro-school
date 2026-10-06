@@ -730,13 +730,65 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </div>
 
                   <div className="space-y-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                      Active Streams ({setting.streams.length}):
-                    </span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                        Active Streams ({setting.streams.length}):
+                      </span>
+                      {onUpdateStreamSettings && setting.streams.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const streamToRemove = setting.streams[setting.streams.length - 1];
+                            if (confirm(`Punguza mkondo wa mwisho (${streamToRemove}) kutoka ${setting.className}?`)) {
+                              const updated = streamSettings.map(s => {
+                                if (s.className === setting.className) {
+                                  return {
+                                    ...s,
+                                    streams: s.streams.slice(0, s.streams.length - 1)
+                                  };
+                                }
+                                return s;
+                              });
+                              onUpdateStreamSettings(updated);
+                            }
+                          }}
+                          className="text-[10px] text-rose-600 hover:text-rose-800 font-bold hover:underline cursor-pointer"
+                        >
+                          - Punguza Mkondo
+                        </button>
+                      )}
+                    </div>
                     <div className="flex flex-wrap gap-1.5">
                       {setting.streams.map(st => (
-                        <span key={st} className="px-2 py-1 text-xs font-bold bg-white border border-slate-200 rounded-lg text-slate-800 shadow-2xs">
-                          {st}
+                        <span key={st} className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-bold bg-white border border-slate-200 rounded-lg text-slate-800 shadow-2xs">
+                          <span>{st}</span>
+                          {onUpdateStreamSettings && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (setting.streams.length <= 1) {
+                                  alert(`Darasa la ${setting.className} lina mkondo mmoja tu. Huwezi kufuta mkondo wote.`);
+                                  return;
+                                }
+                                if (confirm(`Una uhakika unataka kufuta mkondo wa "${st}" kutoka ${setting.className}?`)) {
+                                  const updated = streamSettings.map(s => {
+                                    if (s.className === setting.className) {
+                                      return {
+                                        ...s,
+                                        streams: s.streams.filter(x => x !== st)
+                                      };
+                                    }
+                                    return s;
+                                  });
+                                  onUpdateStreamSettings(updated);
+                                }
+                              }}
+                              className="text-slate-400 hover:text-rose-600 cursor-pointer p-0.5 rounded"
+                              title={`Futa mkondo wa ${st}`}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )}
                         </span>
                       ))}
                     </div>
