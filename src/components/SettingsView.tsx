@@ -396,7 +396,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     onSaveSchoolInfo({
-      name: name.trim() || 'KIOMONI SECONDARY SCHOOL',
+      name: name.trim() || 'HabyEduPro3A',
       schoolNumber: schoolNumber.trim() || 'S.0123',
       address: address.trim(),
       phone: phone.trim() || '0717616343',
@@ -947,7 +947,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   type="text"
                   value={name}
                   onChange={e => setName(e.target.value)}
-                  placeholder="e.g. KIOMONI SECONDARY SCHOOL"
+                  placeholder="e.g. HabyEduPro3A"
                   className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-semibold"
                   required
                 />
@@ -1037,7 +1037,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  placeholder="e.g. info@kiomonisec.ac.tz"
+                  placeholder="e.g. info@habyedupro3a.ac.tz"
                   className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>

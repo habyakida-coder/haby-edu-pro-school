@@ -154,7 +154,7 @@ export const EvaluationAnalysisView: React.FC<EvaluationAnalysisViewProps> = ({
       <div className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white rounded-2xl p-6 shadow-md flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <span className="bg-white/15 text-blue-200 text-xs font-black uppercase px-3 py-1 rounded-full border border-white/20">
-            KIOMONI SECONDARY SCHOOL • OFFICIAL EVALUATION
+            {schoolInfo?.name || 'HabyEduPro3A'} • OFFICIAL EVALUATION
           </span>
           <h2 className="text-2xl font-black mt-2">Uchambuzi wa Tathmini ya Ufundishaji</h2>
           <p className="text-xs text-blue-200 mt-0.5">Ripoti rasmi ya wiki, mwezi na muhula ikichukua muda moja kwa moja kutoka kwenye ratiba ya shule.</p>
@@ -284,10 +284,10 @@ export const EvaluationAnalysisView: React.FC<EvaluationAnalysisViewProps> = ({
         {/* Header Letterhead */}
         <div className="border-b-2 border-slate-900 pb-4 text-center">
           <h1 className="text-xl font-black uppercase tracking-wider text-slate-900">
-            {schoolInfo?.name || 'KIOMONI SECONDARY SCHOOL'}
+            {schoolInfo?.name || 'HabyEduPro3A'}
           </h1>
           <p className="text-xs text-slate-600 font-semibold mt-0.5">
-            KIOMONI SECONDARY SCHOOL - WEEKLY TEACHING / EVALUATION REPORT
+            {schoolInfo?.name || 'HabyEduPro3A'} - WEEKLY TEACHING / EVALUATION REPORT
           </p>
           <p className="text-xs text-slate-500 font-mono mt-1">
             CLASS: {selectedClass} • {selectedTerm} • {selectedMonth} • {selectedWeek}

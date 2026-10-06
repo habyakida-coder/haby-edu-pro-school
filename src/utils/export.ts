@@ -144,7 +144,7 @@ export function exportInvigilationToCSV(
 export function exportTimetableToICal(
   assignments: TimetableAssignment[],
   teachers: Teacher[],
-  schoolName: string = 'KIOMONI SECONDARY SCHOOL',
+  schoolName: string = 'HabyEduPro3A',
   filename: string = 'Teaching_Timetable.ics'
 ) {
   const dayMap: Record<string, string> = {
@@ -225,7 +225,7 @@ export function exportInvigilationToICal(
   sessions: InvigilationSession[],
   teachers: Teacher[],
   assignments: Record<string, number>,
-  schoolName: string = 'KIOMONI SECONDARY SCHOOL',
+  schoolName: string = 'HabyEduPro3A',
   filename: string = 'Invigilation_Schedule.ics'
 ) {
   const now = new Date();
@@ -300,7 +300,7 @@ export function exportInvigilationToICal(
 export function printFormattedSection(
   elementId: string, 
   title: string, 
-  schoolName: string = 'KIOMONI SECONDARY SCHOOL',
+  schoolName: string = 'HabyEduPro3A',
   options?: {
     orientation?: 'portrait' | 'landscape';
     pageSize?: string;
@@ -516,7 +516,7 @@ export function printReportCardDocument(
   elementId: string, 
   orientation: 'portrait' | 'landscape',
   studentName: string,
-  schoolName: string = 'KIOMONI SECONDARY SCHOOL'
+  schoolName: string = 'HabyEduPro3A'
 ) {
   printFormattedSection(
     elementId,

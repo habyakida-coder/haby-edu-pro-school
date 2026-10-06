@@ -398,7 +398,7 @@ export const ClassJournalTab: React.FC<ClassJournalTabProps> = ({
     printFormattedSection(
       'official-class-journal-printable',
       `Official Class Journal - ${selectedClass} ${selectedStream} (${selectedWeek})`,
-      schoolInfo?.name || 'KIOMONI SECONDARY SCHOOL',
+      schoolInfo?.name || 'HabyEduPro3A',
       {
         orientation: 'landscape',
         pageSize: 'A4',
@@ -892,7 +892,7 @@ export const ClassJournalTab: React.FC<ClassJournalTabProps> = ({
         <div className="border-b-2 border-slate-900 pb-3 mb-4 flex items-center justify-between">
           <div>
             <h1 className="text-xl font-black uppercase text-blue-900 tracking-wider">
-              {schoolInfo?.name || 'KIOMONI SECONDARY SCHOOL'}
+              {schoolInfo?.name || 'HabyEduPro3A'}
             </h1>
             <p className="text-xs font-semibold text-slate-600">
               {schoolInfo?.address || 'P.O. BOX 145, TANGA, TANZANIA'} • TEL: {schoolInfo?.phone || '0717616343'}

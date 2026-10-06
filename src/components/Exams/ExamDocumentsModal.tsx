@@ -441,7 +441,7 @@ export const ExamDocumentsModal: React.FC<ExamDocumentsModalProps> = ({
                 <div className="text-center flex-1">
                   <div className="flex items-center justify-center gap-2">
                     <h1 className="text-xl sm:text-2xl font-black uppercase text-slate-900 tracking-wide leading-tight">
-                      {schoolInfo.name || 'KIOMONI SECONDARY SCHOOL'}
+                      {schoolInfo.name || 'HabyEduPro3A'}
                     </h1>
                     {schoolInfo.schoolNumber && (
                       <span className="text-[10px] bg-amber-400 text-slate-900 font-black px-2 py-0.5 rounded uppercase font-mono">

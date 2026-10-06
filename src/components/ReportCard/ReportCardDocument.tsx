@@ -111,7 +111,7 @@ export const ReportCardDocument: React.FC<ReportCardDocumentProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-black uppercase text-[#1f4d8b] tracking-wider leading-tight">
-                  {schoolInfo.name || 'KIOMONI SECONDARY SCHOOL'}
+                  {schoolInfo.name || 'HabyEduPro3A'}
                 </h1>
                 {schoolInfo.schoolNumber && (
                   <span className="text-[10px] bg-amber-400 text-slate-900 font-black px-1.5 py-0.5 rounded uppercase">
@@ -403,7 +403,7 @@ export const ReportCardDocument: React.FC<ReportCardDocumentProps> = ({
           <div className="text-center">
             <div className="flex items-center justify-center gap-2">
               <h1 className="text-2xl font-black text-slate-900 tracking-wide uppercase leading-tight">
-                {schoolInfo.name || 'KIOMONI SECONDARY SCHOOL'}
+                {schoolInfo.name || 'HabyEduPro3A'}
               </h1>
               {schoolInfo.schoolNumber && (
                 <span className="text-[10px] bg-amber-400 text-slate-900 font-black px-2 py-0.5 rounded uppercase">

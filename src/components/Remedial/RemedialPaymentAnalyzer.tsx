@@ -262,7 +262,7 @@ export const RemedialPaymentAnalyzer: React.FC<RemedialPaymentAnalyzerProps> = (
       {/* Main Table */}
       <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden" id="remedial-printable-area">
         <div className="p-8 border-b border-slate-100 text-center print:block hidden">
-           <h1 className="text-2xl font-black uppercase text-slate-900">{schoolInfo?.name || 'KIOMONI SECONDARY SCHOOL'}</h1>
+           <h1 className="text-2xl font-black uppercase text-slate-900">{schoolInfo?.name || 'HabyEduPro3A'}</h1>
            <p className="text-sm font-bold text-slate-600 mt-1 uppercase">REMEDIAL TEACHING PAYMENT ANALYSIS REPORT</p>
            <p className="text-xs text-slate-500 font-mono mt-2 italic">Generated on {format(new Date(), 'dd MMM yyyy HH:mm')}</p>
         </div>

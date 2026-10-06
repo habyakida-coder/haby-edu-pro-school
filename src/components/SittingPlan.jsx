@@ -162,7 +162,7 @@ export default function SittingPlan({ schoolId = 'DEMO_SCHOOL', schoolInfo = {},
 
   // GLOBAL EXAM DETAILS
   const [examType, setExamType] = useState('CSEE');
-  const [schoolName, setSchoolName] = useState(schoolInfo.name || 'KIOMONI SECONDARY SCHOOL');
+  const [schoolName, setSchoolName] = useState(schoolInfo.name || 'HabyEduPro3A');
   const [day, setDay] = useState('Monday');
   const [examDate, setExamDate] = useState(new Date().toISOString().split('T')[0]);
   const [subject, setSubject] = useState('011 BASIC MATHEMATICS');

@@ -753,11 +753,11 @@ export const DEFAULT_APP_DATA: AppData = {
     'Form 6': true
   },
   schoolInfo: {
-    name: 'KIOMONI SECONDARY SCHOOL',
+    name: 'HabyEduPro3A',
     schoolNumber: 'S.0123',
     address: 'P.O. Box 1234, Tanga, Tanzania',
     phone: '0717616343',
-    email: 'info@kiomonisec.ac.tz',
+    email: 'info@habyedupro3a.ac.tz',
     motto: 'Education for Development & Integrity',
     principal: 'Mwl. H. Akida',
     logo: DEFAULT_SCHOOL_LOGO,

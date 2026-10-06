@@ -418,6 +418,26 @@ export default function App() {
     }
   }, [data.exams, data.students.length, data.teachers.length]);
 
+  // Auto-upgrade school name for Super Admin to 'HabyEduPro3A'
+  useEffect(() => {
+    if (userAccount?.email === 'habibuakida@gmail.com' || userAccount?.isSuperAdmin) {
+      if (data.schoolInfo && (
+        data.schoolInfo.name === 'KIOMONI SECONDARY SCHOOL' ||
+        data.schoolInfo.name?.toUpperCase().includes('KIOMONI') ||
+        !data.schoolInfo.name
+      )) {
+        console.log("Auto-updating school name for super admin to 'HabyEduPro3A'...");
+        const updatedSchoolInfo = {
+          ...data.schoolInfo,
+          name: 'HabyEduPro3A',
+          email: 'info@habyedupro3a.ac.tz'
+        };
+        setData(prev => ({ ...prev, schoolInfo: updatedSchoolInfo }));
+        updateRemoteData({ schoolInfo: updatedSchoolInfo });
+      }
+    }
+  }, [userAccount, data.schoolInfo?.name]);
+
   // Release calculated results to Examination Records
   const handleReleaseResultsToExaminationRecords = useCallback(async (
     records: ExaminationRecord[],

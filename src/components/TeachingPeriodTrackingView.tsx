@@ -251,7 +251,7 @@ export const TeachingPeriodTrackingView: React.FC<TeachingPeriodTrackingViewProp
           {/* Header Letterhead */}
           <div className="border-b-2 border-slate-900 pb-4 text-center">
             <h1 className="text-xl font-black uppercase tracking-wider text-slate-900">
-              {schoolInfo?.name || 'KIOMONI SECONDARY SCHOOL'}
+              {schoolInfo?.name || 'HabyEduPro3A'}
             </h1>
             <p className="text-xs text-slate-600 font-semibold mt-0.5">
               TEACHING EVALUATION & PERIOD TRACKING REPORT &bull; CLASS: {selectedClass} ({selectedStream})
