@@ -166,10 +166,16 @@ export const ClassStreamManagerModal: React.FC<ClassStreamManagerModalProps> = (
   };
 
   const handleDeleteStream = (className: string, streamName: string) => {
+    console.log(`[DEBUG] handleDeleteStream called for class: ${className}, stream: ${streamName}`);
+    
+    // Normalize to ensure consistent comparison
+    const normalizedTarget = normalizeStreamName(streamName);
+    
     // Check if students exist in this stream
     const studentCount = students.filter(
-      s => s.className === className && (s.stream === streamName || s.combination === streamName)
+      s => s.className === className && (normalizeStreamName(s.stream || '') === normalizedTarget || normalizeStreamName(s.combination || '') === normalizedTarget)
     ).length;
+    console.log(`[DEBUG] studentCount for normalized target ${normalizedTarget}: ${studentCount}`);
 
     if (studentCount > 0) {
       if (!window.confirm(`Kuna wanafunzi ${studentCount} walioandikishwa kwenye ${className} - ${streamName}. Una uhakika unataka kufuta mkondo huu?`)) {
@@ -179,14 +185,19 @@ export const ClassStreamManagerModal: React.FC<ClassStreamManagerModalProps> = (
 
     const updated = streamSettings.map(setting => {
       if (setting.className === className) {
+        console.log(`[DEBUG] Found class ${className}, original streams:`, setting.streams);
+        // Normalize streams in list for comparison during filter
+        const filtered = setting.streams.filter(st => normalizeStreamName(st) !== normalizedTarget);
+        console.log(`[DEBUG] Streams after filter:`, filtered);
         return {
           ...setting,
-          streams: setting.streams.filter(st => st !== streamName)
+          streams: filtered
         };
       }
       return setting;
     });
 
+    console.log(`[DEBUG] Updated streamSettings:`, updated);
     onUpdateStreamSettings(updated);
     showSuccess(`Mkondo "${streamName}" umefutwa kutoka ${className}.`);
   };

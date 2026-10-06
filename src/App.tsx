@@ -31,6 +31,7 @@ import { RemedialDailyTracker } from './components/Remedial/RemedialDailyTracker
 import { RemedialPaymentAnalyzer } from './components/Remedial/RemedialPaymentAnalyzer';
 import { OnboardingTour } from './components/common/OnboardingTour';
 import { useAuth } from './context/AuthContext';
+import { ConfirmDeleteProvider } from './context/ConfirmDeleteContext';
 import SittingPlan from './components/SittingPlan.jsx';
 import SaasFinance from './components/SaasFinance.jsx';
 import { 
@@ -1003,9 +1004,10 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#edf2f7] text-slate-800 font-sans relative overflow-x-hidden flex flex-col">
-      {/* Floating Ambient Bubbles with Beautiful Iridescent Colors */}
-      <FloatingBubbles />
+    <ConfirmDeleteProvider>
+      <div className="min-h-screen bg-[#edf2f7] text-slate-800 font-sans relative overflow-x-hidden flex flex-col">
+        {/* Floating Ambient Bubbles with Beautiful Iridescent Colors */}
+        <FloatingBubbles />
 
       {/* Top Horizontal Navigation Bar (Clean, Unified & Responsive for Phone & Laptop) */}
       <Navigation
@@ -1329,6 +1331,52 @@ export default function App() {
             />
           )}
 
+          {activeView === 'classjournal' && (
+            <TimetableContainer
+              assignments={data.timetableAssignments}
+              teachers={data.teachers}
+              periodSettings={data.periodSettings}
+              streamSettings={data.streamSettings}
+              classTimetableReleased={data.classTimetableReleased}
+              schoolName={data.schoolInfo.name}
+              schoolInfo={data.schoolInfo}
+              currentUser={userAccount}
+              students={data.students}
+              dayThemes={data.dayThemes}
+              institutionalPolicy={data.institutionalPolicy}
+              subjectPeriodAllocations={data.subjectPeriodAllocations || []}
+              teacherAssignments={data.teacherAssignments || []}
+              initialTab="journal"
+              onUpdateAssignments={assignments => {
+                updateRemoteData({ timetableAssignments: assignments });
+              }}
+              onUpdatePeriodSettings={periodSettings => {
+                updateRemoteData({ periodSettings });
+              }}
+              onUpdateStreamSettings={streamSettings => {
+                updateRemoteData({ streamSettings });
+              }}
+              onToggleClassRelease={cName => {
+                updateRemoteData({
+                  classTimetableReleased: {
+                    ...data.classTimetableReleased,
+                    [cName]: !data.classTimetableReleased[cName]
+                  }
+                });
+              }}
+              onUpdateDayThemes={dayThemes => updateRemoteData({ dayThemes })}
+              onUpdateInstitutionalPolicy={institutionalPolicy => {
+                updateRemoteData({ institutionalPolicy });
+              }}
+              onUpdateSubjectPeriodAllocations={subjectPeriodAllocations => {
+                updateRemoteData({ subjectPeriodAllocations });
+              }}
+              onUpdateTeacherAssignments={teacherAssignments => {
+                updateRemoteData({ teacherAssignments });
+              }}
+            />
+          )}
+
           {activeView === 'timetable' && (
             <TimetableContainer
               assignments={data.timetableAssignments}
@@ -1538,5 +1586,6 @@ export default function App() {
         </footer>
       </div>
     </div>
-  );
+  </ConfirmDeleteProvider>
+);
 }

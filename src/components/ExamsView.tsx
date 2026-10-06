@@ -19,6 +19,7 @@ import {
   Check,
   FileSpreadsheet
 } from 'lucide-react';
+import { useConfirmDelete } from '../context/ConfirmDeleteContext';
 import { Exam, InvigilationSession, EducationLevel, Student, SchoolInfo } from '../types';
 import { ALL_SCHOOL_CLASSES, NURSERY_CLASSES, PRIMARY_CLASSES, SECONDARY_CLASSES } from '../constants/defaults';
 import { ExamDocumentsModal } from './Exams/ExamDocumentsModal';
@@ -40,6 +41,7 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
   students = [],
   schoolInfo
 }) => {
+  const { openConfirmDelete } = useConfirmDelete();
   const [viewMode, setViewMode] = useState<'calendar' | 'table'>('calendar');
   const [calendarScope, setCalendarScope] = useState<'month' | 'week'>('month');
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -969,10 +971,14 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  if (confirm(`Delete exam "${selectedExamDetails.name}"?`)) {
-                    onDeleteExam(selectedExamDetails.id);
-                    setSelectedExamDetails(null);
-                  }
+                  openConfirmDelete(
+                    "Thibitisha Ufutaji",
+                    `Je, una uhakika unataka kufuta mtihani "${selectedExamDetails.name}"? Hatua hii haiwezi kutenduliwa.`,
+                    () => {
+                      onDeleteExam(selectedExamDetails.id);
+                      setSelectedExamDetails(null);
+                    }
+                  );
                 }}
                 className="px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-lg font-bold flex items-center gap-1 cursor-pointer"
               >

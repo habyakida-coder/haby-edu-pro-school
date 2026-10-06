@@ -44,6 +44,7 @@ import { TeacherEvaluationView } from './TeacherEvaluationView';
 import { MultipleTeacherRegistrationModal } from './Teachers/MultipleTeacherRegistrationModal';
 import { PhoneInputPlugin } from './common/PhoneInputPlugin';
 import { StudentPhoneBadge } from './common/StudentPhoneBadge';
+import { useConfirmDelete } from '../context/ConfirmDeleteContext';
 
 interface TeachersViewProps {
   teachers: Teacher[];
@@ -96,6 +97,7 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
   schoolInfo,
   currentUser
 }) => {
+  const { openConfirmDelete } = useConfirmDelete();
   const [activeSubTab, setActiveSubTab] = useState<'roster' | 'evaluations'>('roster');
   const [isMultipleTeacherModalOpen, setIsMultipleTeacherModalOpen] = useState(false);
 
@@ -1474,10 +1476,14 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
                               <button
                                 type="button"
                                 onClick={() => {
-                                  if (confirm(`Delete staff member ${t.name}?`)) {
-                                    onDeleteTeacher(t.id);
-                                    if (editingTeacher?.id === t.id) cancelEdit();
-                                  }
+                                  openConfirmDelete(
+                                    "Thibitisha Ufutaji",
+                                    `Je, una uhakika unataka kufuta mfanyakazi ${t.name}? Hatua hii haiwezi kutenduliwa.`,
+                                    () => {
+                                      onDeleteTeacher(t.id);
+                                      if (editingTeacher?.id === t.id) cancelEdit();
+                                    }
+                                  );
                                 }}
                                 className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded cursor-pointer"
                                 title="Delete Teacher"

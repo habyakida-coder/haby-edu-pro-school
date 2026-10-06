@@ -1504,14 +1504,14 @@ export const InvigilationContainer: React.FC<InvigilationContainerProps> = ({
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-[11px] text-slate-600 font-bold uppercase">
-                    <th className="p-3 border-r border-slate-200">Date & Day of Week</th>
-                    <th className="p-3 border-r border-slate-200">Session Slot</th>
-                    <th className="p-3 border-r border-slate-200">Time Range</th>
-                    <th className="p-3 border-r border-slate-200">Exam Subject</th>
-                    <th className="p-3 border-r border-slate-200">Class & Stream</th>
-                    <th className="p-3 border-r border-slate-200 text-center">Rooms</th>
-                    <th className="p-3 text-center">Actions</th>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-[11px] text-slate-600 font-black uppercase tracking-wider">
+                    <th className="p-4 border-r border-slate-200">Date & Day</th>
+                    <th className="p-4 border-r border-slate-200">Session</th>
+                    <th className="p-4 border-r border-slate-200">Time</th>
+                    <th className="p-4 border-r border-slate-200">Subject</th>
+                    <th className="p-4 border-r border-slate-200">Class/Stream</th>
+                    <th className="p-4 border-r border-slate-200 text-center">Rooms</th>
+                    <th className="p-4 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody>

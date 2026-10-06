@@ -29,6 +29,7 @@ import {
   Shield
 } from 'lucide-react';
 import { Student, SchoolInfo, EducationLevel, StreamSetting } from '../types';
+import { useConfirmDelete } from '../context/ConfirmDeleteContext';
 import { 
   SUBJECT_LIST, 
   NURSERY_CLASSES, 
@@ -83,6 +84,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   onBulkDeleteStudents,
   onBulkAddStudents
 }) => {
+  const { openConfirmDelete } = useConfirmDelete();
   // Form State
   const [name, setName] = useState('');
   const [gender, setGender] = useState<'Male' | 'Female' | ''>('Male');
@@ -2055,11 +2057,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                             Edit
                           </button>
                           <button
-                            onClick={() => {
-                              if (confirm(`Delete student ${s.name}?`)) {
-                                onDeleteStudent(s.id);
-                              }
-                            }}
+                            onClick={() => openConfirmDelete('Delete Student', `Are you sure you want to delete student ${s.name}?`, () => onDeleteStudent(s.id))}
                             className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded cursor-pointer"
                             title="Delete Student"
                           >
