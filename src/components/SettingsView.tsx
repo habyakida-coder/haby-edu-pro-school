@@ -817,10 +817,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {activeTab === 'school' && (
         <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-6">
           <div>
-            <h2 className="text-xl font-bold text-[#1f4d8b] flex items-center gap-2">
-              <SettingsIcon className="w-5 h-5 text-blue-600" />
-              School Information & Administrative Settings
-            </h2>
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-bold text-[#1f4d8b] flex items-center gap-2">
+                <SettingsIcon className="w-5 h-5 text-blue-600" />
+                School Information & Administrative Settings
+              </h2>
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm("ARE YOU SURE? This will PERMANENTLY DELETE ALL school data, students, teachers, and timetable settings and reset the application to factory defaults. This action cannot be undone.")) {
+                    onResetToDefaults();
+                  }
+                }}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow-sm flex items-center gap-2 cursor-pointer transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                Factory Reset Database
+              </button>
+            </div>
             <p className="text-xs text-slate-500 mt-1">
               Configure school identification, mottos, and contact details that appear on printed timetables, invigilation sheets, and student report cards.
             </p>
