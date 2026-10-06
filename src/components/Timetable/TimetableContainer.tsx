@@ -42,7 +42,10 @@ import {
   ActivityType,
   InstitutionalPolicy,
   SubjectPeriodAllocation,
-  TeacherAssignment
+  TeacherAssignment,
+  SchoolInfo,
+  UserAccount,
+  Student
 } from '../../types';
 import { 
   DAYS_OF_WEEK, 
@@ -77,6 +80,7 @@ import { InstitutionalPoliciesTab } from './InstitutionalPoliciesTab';
 import { SubjectPeriodAllocationTab } from './SubjectPeriodAllocationTab';
 import { TeacherAssignmentsTab } from './TeacherAssignmentsTab';
 import { AIGenerateByLevelModal } from './AIGenerateByLevelModal';
+import { ClassJournalTab } from './ClassJournalTab';
 
 export const renderActivityIcon = (iconName: string, className = "w-3 h-3") => {
   switch (iconName) {
@@ -106,6 +110,10 @@ interface TimetableContainerProps {
   institutionalPolicy?: InstitutionalPolicy;
   subjectPeriodAllocations?: SubjectPeriodAllocation[];
   teacherAssignments?: TeacherAssignment[];
+  schoolInfo?: SchoolInfo;
+  currentUser?: UserAccount | null;
+  students?: Student[];
+  initialTab?: 'general' | 'class' | 'teacher' | 'master' | 'journal' | 'policies' | 'allocations' | 'teacherAssignments' | 'integrity' | 'settings';
   onUpdateAssignments: (assignments: TimetableAssignment[]) => void;
   onUpdatePeriodSettings: (settings: PeriodSetting[]) => void;
   onUpdateStreamSettings: (settings: StreamSetting[]) => void;
@@ -127,6 +135,10 @@ export const TimetableContainer: React.FC<TimetableContainerProps> = ({
   institutionalPolicy = DEFAULT_INSTITUTIONAL_POLICY,
   subjectPeriodAllocations = [],
   teacherAssignments = [],
+  schoolInfo,
+  currentUser,
+  students,
+  initialTab,
   onUpdateAssignments,
   onUpdatePeriodSettings,
   onUpdateStreamSettings,
@@ -137,8 +149,14 @@ export const TimetableContainer: React.FC<TimetableContainerProps> = ({
   onUpdateTeacherAssignments
 }) => {
   const [activeTab, setActiveTab] = useState<
-    'general' | 'class' | 'teacher' | 'master' | 'policies' | 'allocations' | 'teacherAssignments' | 'integrity' | 'settings'
-  >('general');
+    'general' | 'class' | 'teacher' | 'master' | 'journal' | 'policies' | 'allocations' | 'teacherAssignments' | 'integrity' | 'settings'
+  >(initialTab || 'general');
+
+  React.useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
   const [selectedDayFilter, setSelectedDayFilter] = useState<string>('All');
   const [selectedClassFilter, setSelectedClassFilter] = useState<string>('Form 1');
   const [selectedGeneralClass, setSelectedGeneralClass] = useState<string>('Form 1');
@@ -615,6 +633,18 @@ Ratiba hii imekaguliwa rasmi na haina mgongano (Zero Clashes).`;
         </button>
 
         <button
+          onClick={() => setActiveTab('journal')}
+          className={`px-4 py-2.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 ${
+            activeTab === 'journal'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <BookOpen className="w-4 h-4" />
+          <span>Shajara ya Darasa (Class Journal)</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('policies')}
           className={`px-4 py-2.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 ${
             activeTab === 'policies'
@@ -913,6 +943,16 @@ Ratiba hii imekaguliwa rasmi na haina mgongano (Zero Clashes).`;
               >
                 <Zap className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
                 <span>Generate by Level</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('journal')}
+                className="px-3.5 py-2 text-xs font-black bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 rounded-lg flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                title="Fungua Shajara ya Darasa (Class Journal)"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Shajara ya Darasa (Class Journal)</span>
               </button>
 
               <button
@@ -2169,7 +2209,23 @@ Ratiba hii imekaguliwa rasmi na haina mgongano (Zero Clashes).`;
       )}
 
       {/* ======================================================== */}
-      {/* 6. TIMETABLE INTEGRITY & POLICY AUDIT TAB               */}
+      {/* 6. CLASS JOURNAL TAB (SHAJARA YA DARASA)                 */}
+      {/* ======================================================== */}
+      {activeTab === 'journal' && (
+        <ClassJournalTab
+          assignments={assignments}
+          teachers={teachers}
+          periodSettings={periodSettings}
+          streamSettings={streamSettings}
+          schoolInfo={schoolInfo || ({ name: schoolName } as any)}
+          currentUser={currentUser}
+          students={students}
+          institutionalPolicy={institutionalPolicy}
+        />
+      )}
+
+      {/* ======================================================== */}
+      {/* 7. TIMETABLE INTEGRITY & POLICY AUDIT TAB               */}
       {/* ======================================================== */}
       {activeTab === 'integrity' && (
         <TimetableIntegrityReportModal

@@ -6,7 +6,7 @@ import {
   RecordExamType, 
   Student 
 } from '../types';
-import { calculateOLevelDivision, calculatePrimaryScoreResult, isPrimaryOrNursery } from './reportCardUtils';
+import { calculateOLevelDivision, calculatePrimaryScoreResult, isPrimaryOrNursery, cleanAndFilterMarksForClass } from './reportCardUtils';
 import { calculateNectaLevelResults } from './nectaRules';
 
 /**
@@ -129,12 +129,13 @@ export function buildExaminationRecord(
 ): ExaminationRecord {
   const calendarType = detectCalendarType(student.className);
   const rawMarks = student.marks || {};
+  const cleanedMarks = cleanAndFilterMarksForClass(rawMarks, student.className, student.level);
   const subjectsRecord: Record<string, ExaminationRecordSubjectInfo> = {};
 
   let totalMarks = 0;
   let subjectCount = 0;
 
-  Object.entries(rawMarks).forEach(([subjName, score]) => {
+  Object.entries(cleanedMarks).forEach(([subjName, score]) => {
     if (typeof score === 'number' && !isNaN(score)) {
       const grade = calculateExamGrade(score);
       subjectsRecord[subjName] = {
@@ -150,7 +151,7 @@ export function buildExaminationRecord(
   const averageMarks = subjectCount > 0 ? Number((totalMarks / subjectCount).toFixed(1)) : 0;
   
   // Calculate NECTA level-specific evaluation (Std IV, Std VII, Form II, Form IV, Form VI)
-  const nectaRes = calculateNectaLevelResults(rawMarks, student.className);
+  const nectaRes = calculateNectaLevelResults(cleanedMarks, student.className);
   const overallGrade = (nectaRes.overallGrade || calculateExamGrade(averageMarks)) as any;
   const division = nectaRes.division || student.division || overallGrade;
   const points = nectaRes.points;

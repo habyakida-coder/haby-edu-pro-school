@@ -10,6 +10,8 @@
  * 5. ACSEE (Form Six Advanced Certificate of Secondary Education Examination)
  */
 
+import { cleanAndFilterMarksForClass } from './reportCardUtils';
+
 export type NectaClassLevel = 'STD_IV' | 'STD_VII' | 'FORM_II' | 'FORM_IV' | 'FORM_VI' | 'PRIMARY_GENERAL' | 'SECONDARY_OLEVEL' | 'SECONDARY_ALEVEL';
 
 export interface NectaGradeThreshold {
@@ -204,8 +206,9 @@ export function calculateNectaLevelResults(
   const policy = getNectaPolicyForClass(className);
   const isPrimary = policy.levelCategory === 'STD_IV' || policy.levelCategory === 'STD_VII' || policy.levelCategory === 'PRIMARY_GENERAL';
 
+  const cleanedMarks = cleanAndFilterMarksForClass(marks, className);
   const validEntries: { subject: string; score: number }[] = [];
-  Object.entries(marks || {}).forEach(([sub, score]) => {
+  Object.entries(cleanedMarks || {}).forEach(([sub, score]) => {
     if (typeof score === 'number' && !isNaN(score) && score >= 0) {
       validEntries.push({ subject: sub, score: Math.round(score) });
     }

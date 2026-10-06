@@ -37,6 +37,7 @@ import {
   NURSERY_SUBJECTS_LIST, 
   LOWER_PRIMARY_SUBJECTS_LIST, 
   UPPER_PRIMARY_SUBJECTS_LIST,
+  SECONDARY_SUBJECTS,
   INITIAL_STREAM_SETTINGS 
 } from '../constants/defaults';
 import { downloadFile, escapeCSV, printFormattedSection } from '../utils/export';
@@ -436,7 +437,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
       setTimeout(() => setShowAutoFillNotice(false), 3000);
     } else if (['Form 1', 'Form 2', 'Form 3', 'Form 4'].includes(newClass)) {
       setLevel('CSEE');
-      setSelectedSubjects(['English Language', 'Kiswahili', 'Mathematics', 'Biology', 'Chemistry', 'Physics', 'Geography', 'History', 'Civics']);
+      setSelectedSubjects(['English Language', 'Kiswahili', 'Basic Mathematics', 'Biology', 'Chemistry', 'Physics', 'Geography', 'History', 'Civics']);
       setShowAutoFillNotice(true);
       setTimeout(() => setShowAutoFillNotice(false), 3000);
     } else if (['Form 5', 'Form 6'].includes(newClass)) {
@@ -456,7 +457,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
         setSelectedSubjects(UPPER_PRIMARY_SUBJECTS_LIST);
       }
     } else if (newLevel === 'CSEE') {
-      setSelectedSubjects(['English Language', 'Kiswahili', 'Mathematics', 'Biology', 'Chemistry', 'Physics', 'Geography', 'History', 'Civics']);
+      setSelectedSubjects(['English Language', 'Kiswahili', 'Basic Mathematics', 'Biology', 'Chemistry', 'Physics', 'Geography', 'History', 'Civics']);
     } else if (newLevel === 'ACSEE') {
       autoFillCombinationSubjects(combination);
     }
@@ -753,7 +754,16 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
     );
   };
 
-  const filteredSubjects = SUBJECT_LIST.filter(s => 
+  const isSelectedLevelPrimary = level === 'PRIMARY' || PRIMARY_CLASSES.includes(className);
+  const isSelectedLevelNursery = level === 'PRE_PRIMARY' || NURSERY_CLASSES.includes(className);
+
+  const availableSubjectsForStudent = isSelectedLevelNursery 
+    ? NURSERY_SUBJECTS_LIST 
+    : isSelectedLevelPrimary 
+    ? (className === 'Standard 1' || className === 'Standard 2' ? LOWER_PRIMARY_SUBJECTS_LIST : UPPER_PRIMARY_SUBJECTS_LIST)
+    : SECONDARY_SUBJECTS;
+
+  const filteredSubjects = availableSubjectsForStudent.filter(s => 
     s.toLowerCase().includes(subjectSearch.toLowerCase())
   );
 

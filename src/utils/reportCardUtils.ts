@@ -306,13 +306,176 @@ export interface OLevelDivisionResult {
  *   DIV IV: 26-33 points
  *   DIV 0: 34-35 points (or > 35)
  */
-export function calculateOLevelDivision(marks: Record<string, number | undefined | null>): OLevelDivisionResult {
-  const validScores: number[] = [];
-  Object.values(marks || {}).forEach(score => {
-    if (typeof score === 'number' && !isNaN(score) && score >= 0) {
-      validScores.push(score);
+/**
+ * Sanitizes, deduplicates, and filters marks for a student based on their class level.
+ * Prevents duplicates (e.g. 'Basic Mathematics' vs 'Mathematics', 'English Language' vs 'English Language (Primary)')
+ * and strictly separates Secondary subjects from Primary/Nursery subjects.
+ */
+export function cleanAndFilterMarksForClass(
+  rawMarks: Record<string, any> | undefined | null,
+  className?: string,
+  level?: EducationLevel
+): Record<string, number> {
+  if (!rawMarks || typeof rawMarks !== 'object') return {};
+
+  const isNursery = isPrePrimaryLevel(level, className);
+  const isPrimary = !isNursery && isPrimaryLevel(level, className);
+  const isSecondary = !isNursery && !isPrimary;
+
+  const result: Record<string, number> = {};
+
+  const extractNum = (val: any): number | null => {
+    if (typeof val === 'number' && !isNaN(val)) return Math.min(100, Math.max(0, Math.round(val)));
+    if (typeof val === 'string' && val.trim() !== '' && !isNaN(Number(val))) {
+      return Math.min(100, Math.max(0, Math.round(Number(val))));
     }
-  });
+    if (typeof val === 'object' && val !== null && typeof val.marks === 'number' && !isNaN(val.marks)) {
+      return Math.min(100, Math.max(0, Math.round(val.marks)));
+    }
+    return null;
+  };
+
+  for (const [rawKey, rawVal] of Object.entries(rawMarks)) {
+    const num = extractNum(rawVal);
+    if (num === null) continue;
+
+    const lower = rawKey.trim().toLowerCase();
+
+    if (isSecondary) {
+      // Primary-only & Nursery subjects must NOT be present in secondary results
+      const primaryOnly = [
+        'sayansi na teknolojia', 'science and technology', 'science & technology',
+        'maarifa ya jamii', 'social studies', 'uraia na maadili', 'civic and moral',
+        'stadi za kazi', 'vocational skills', 'kusoma', 'kuandika', 'kuhesabu',
+        'afya na mazingira', 'sanaa na michezo', 'kuhesabu na namba', 'kusoma na kuwasiliana',
+        'lugha ya kiingereza ya awali', 'afya na mazingira ya mtoto',
+        'sanaa, muziki na michezo ya awali', 'maadili na malezi bora',
+        'awali.num', 'awali.lit', 'awali.eng', 'awali.env', 'awali.art', 'awali.soc',
+        'eng.pri', 'english language (primary)'
+      ];
+      if (primaryOnly.some(p => lower === p || lower.startsWith(p))) {
+        continue;
+      }
+
+      // Canonicalize Secondary subjects (merge Mathematics and Basic Mathematics into Basic Mathematics)
+      let canonical = rawKey.trim();
+
+      if (lower === 'basic mathematics' || lower === 'mathematics' || lower === 'b.math' || lower === 'basic maths' || lower === 'maths' || lower === 'hisabati') {
+        canonical = 'Basic Mathematics';
+      } else if (lower === 'english language' || lower === 'english' || lower === 'eng') {
+        canonical = 'English Language';
+      } else if (lower === 'kiswahili' || lower === 'kis' || lower === 'kisw') {
+        canonical = 'Kiswahili';
+      } else if (lower === 'biology' || lower === 'bio') {
+        canonical = 'Biology';
+      } else if (lower === 'chemistry' || lower === 'che' || lower === 'chem') {
+        canonical = 'Chemistry';
+      } else if (lower === 'physics' || lower === 'phy' || lower === 'phys') {
+        canonical = 'Physics';
+      } else if (lower === 'geography' || lower === 'geo' || lower === 'geog') {
+        canonical = 'Geography';
+      } else if (lower === 'history' || lower === 'his' || lower === 'hist') {
+        canonical = 'History';
+      } else if (lower === 'civics' || lower === 'civ') {
+        canonical = 'Civics';
+      } else if (lower === 'commerce' || lower === 'comm' || lower === 'com') {
+        canonical = 'Commerce';
+      } else if (lower === 'book keeping' || lower === 'bookkeeping' || lower === 'b.keep' || lower === 'bk') {
+        canonical = 'Book Keeping';
+      } else if (lower === 'literature in english' || lower === 'literature' || lower === 'lit') {
+        canonical = 'Literature in English';
+      } else if (lower === 'agriculture' || lower === 'agri') {
+        canonical = 'Agriculture';
+      } else if (lower === 'computer studies' || lower === 'comp' || lower === 'computer' || lower === 'ict / tehama' || lower === 'tehama') {
+        canonical = 'Computer Studies';
+      } else if (lower === 'fine art' || lower === 'f.art' || lower === 'art') {
+        canonical = 'Fine Art';
+      } else if (lower === 'historia ya tanzania na maadili' || lower === 'h.tz') {
+        canonical = 'Historia Ya Tanzania Na Maadili';
+      } else if (lower === 'elimu ya dini ya kiislamu' || lower === 'islamic knowledge' || lower === 'islamic religious education' || lower === 'e.dini' || lower === 'edk') {
+        canonical = 'Elimu ya Dini ya Kiislamu';
+      } else if (lower === 'christian religious education' || lower === 'bible knowledge' || lower === 'cre' || lower === 'elimu ya dini ya kikristo' || lower === 'edkri') {
+        canonical = 'Christian Religious Education';
+      } else if (lower === 'french' || lower === 'fre' || lower === 'french (kifaransa)' || lower === 'kifaransa') {
+        canonical = 'French';
+      } else if (lower === 'arabic' || lower === 'ara') {
+        canonical = 'Arabic';
+      } else if (lower === 'physical education' || lower === 'pe') {
+        canonical = 'Physical Education';
+      } else if (lower === 'mikondo' || lower === 'mik') {
+        canonical = 'Mikondo';
+      }
+
+      // Deduplicate: If key exists, take maximum or non-empty score
+      if (result[canonical] === undefined) {
+        result[canonical] = num;
+      } else {
+        result[canonical] = Math.max(result[canonical], num);
+      }
+    } else if (isPrimary) {
+      // Secondary-only subjects must NOT be present in primary results
+      const secondaryOnly = [
+        'physics', 'chemistry', 'biology', 'civics', 'commerce', 'book keeping',
+        'literature in english', 'agriculture', 'basic applied mathematics',
+        'advanced mathematics', 'economics', 'accountancy', 'general studies', 'divinity'
+      ];
+      if (secondaryOnly.some(s => lower === s || lower.startsWith(s))) {
+        continue;
+      }
+
+      let canonical = rawKey.trim();
+
+      if (lower === 'hisabati' || lower === 'hisabati (mathematics)' || lower === 'mathematics (hisabati)' || lower === 'mathematics' || lower === 'basic mathematics' || lower === 'b.math' || lower === 'his') {
+        canonical = 'Hisabati (Mathematics)';
+      } else if (lower === 'english language' || lower === 'english language (primary)' || lower === 'english' || lower === 'eng.pri' || lower === 'eng') {
+        canonical = 'English Language';
+      } else if (lower === 'kiswahili' || lower === 'kisw' || lower === 'kis') {
+        canonical = 'Kiswahili';
+      } else if (lower.includes('sayansi') || lower.includes('science')) {
+        canonical = 'Sayansi na Teknolojia';
+      } else if (lower.includes('maarifa ya jamii') || lower.includes('social studies')) {
+        canonical = 'Maarifa ya Jamii';
+      } else if (lower.includes('uraia na maadili') || lower.includes('civic and moral')) {
+        canonical = 'Uraia na Maadili';
+      } else if (lower.includes('stadi za kazi') || lower.includes('vocational skills')) {
+        canonical = 'Stadi za Kazi';
+      } else if (lower.includes('kusoma') || lower === 'reading') {
+        canonical = 'Kusoma';
+      } else if (lower.includes('kuandika') || lower === 'writing') {
+        canonical = 'Kuandika';
+      } else if (lower.includes('kuhesabu') || lower === 'arithmetic') {
+        canonical = 'Kuhesabu';
+      } else if (lower.includes('afya na mazingira')) {
+        canonical = 'Afya na Mazingira';
+      } else if (lower.includes('sanaa na michezo')) {
+        canonical = 'Sanaa na Michezo';
+      } else if (lower.includes('dini ya kiislamu') || lower === 'edk') {
+        canonical = 'Elimu ya Dini ya Kiislamu';
+      } else if (lower.includes('dini ya kikristo') || lower === 'edkri') {
+        canonical = 'Elimu ya Dini ya Kikristo';
+      } else if (lower.includes('tehama') || lower.includes('ict')) {
+        canonical = 'TEHAMA (ICT)';
+      } else if (lower === 'mikondo' || lower === 'mik') {
+        canonical = 'Mikondo';
+      }
+
+      if (result[canonical] === undefined) {
+        result[canonical] = num;
+      } else {
+        result[canonical] = Math.max(result[canonical], num);
+      }
+    } else {
+      // Nursery
+      result[rawKey.trim()] = num;
+    }
+  }
+
+  return result;
+}
+
+export function calculateOLevelDivision(marks: Record<string, number | undefined | null>, className?: string): OLevelDivisionResult {
+  const cleanMarks = cleanAndFilterMarksForClass(marks, className || 'Form 1');
+  const validScores: number[] = Object.values(cleanMarks);
 
   const scoredSubjectsCount = validScores.length;
 
@@ -414,7 +577,8 @@ export function calculatePerformanceSummary(
   level?: EducationLevel,
   className?: string
 ): PerformanceSummary {
-  const entries = Object.entries(marks || {});
+  const cleanedMarks = cleanAndFilterMarksForClass(marks, className, level);
+  const entries = Object.entries(cleanedMarks);
   const subjectCount = entries.length;
   
   if (subjectCount === 0) {
@@ -434,7 +598,7 @@ export function calculatePerformanceSummary(
 
   // Check if Primary or Pre-Primary (Tanzanian NECTA Primary Scale: A=81-100, B=61-80, C=41-60, D=21-40, E=0-20)
   if (isPrimaryOrNursery(level, className)) {
-    const primaryRes = calculatePrimaryScoreResult(marks);
+    const primaryRes = calculatePrimaryScoreResult(cleanedMarks);
     const gradeCounts = { A: 0, B: 0, C: 0, D: 0, F: 0 };
     entries.forEach(([, score]) => {
       const pInfo = getPrimarySubjectGradeInfo(score);

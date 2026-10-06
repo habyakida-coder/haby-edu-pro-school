@@ -212,7 +212,7 @@ app.post('/api/ai/generate-timetable', async (req, res) => {
 async function startServer() {
   const distDir = path.resolve(__dirname, 'dist');
   const hasDist = fs.existsSync(path.join(distDir, 'index.html'));
-  const isProduction = process.env.NODE_ENV === 'production' || hasDist;
+  const isProduction = process.env.NODE_ENV === 'production' && hasDist;
 
   if (isProduction && hasDist) {
     app.use(express.static(distDir));

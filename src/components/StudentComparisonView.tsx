@@ -73,7 +73,13 @@ export const StudentComparisonView: React.FC<StudentComparisonViewProps> = ({
 
   // Helper to get numeric mark for a student in a subject
   const getScore = (student: Student, subjectFullName: string, subjectKey: string): number | null => {
-    const val: unknown = student.marks?.[subjectFullName] ?? student.marks?.[subjectKey];
+    let val: unknown = student.marks?.[subjectFullName] ?? student.marks?.[subjectKey];
+    if (val === undefined && subjectKey === 'B.MATH') {
+      val = student.marks?.['Basic Mathematics'] ?? student.marks?.['Mathematics'];
+    }
+    if (val === undefined && subjectKey === 'ENG') {
+      val = student.marks?.['English Language'] ?? student.marks?.['English'];
+    }
     if (typeof val === 'number' && !isNaN(val)) return val;
     if (typeof val === 'string' && val.trim() !== '') {
       const num = Number(val);

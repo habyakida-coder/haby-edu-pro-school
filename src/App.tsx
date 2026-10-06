@@ -1337,6 +1337,9 @@ export default function App() {
               streamSettings={data.streamSettings}
               classTimetableReleased={data.classTimetableReleased}
               schoolName={data.schoolInfo.name}
+              schoolInfo={data.schoolInfo}
+              currentUser={userAccount}
+              students={data.students}
               dayThemes={data.dayThemes}
               institutionalPolicy={data.institutionalPolicy}
               subjectPeriodAllocations={data.subjectPeriodAllocations || []}

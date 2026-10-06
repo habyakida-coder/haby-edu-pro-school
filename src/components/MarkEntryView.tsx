@@ -37,11 +37,12 @@ import {
   NURSERY_SUBJECTS, 
   LOWER_PRIMARY_SUBJECTS, 
   UPPER_PRIMARY_SUBJECTS,
+  SECONDARY_SUBJECTS,
   NURSERY_CLASSES,
   PRIMARY_CLASSES,
   SECONDARY_CLASSES
 } from '../constants/defaults';
-import { calculateOLevelDivision, calculatePrimaryScoreResult, isPrimaryOrNursery, getPrimarySubjectGradeInfo } from '../utils/reportCardUtils';
+import { calculateOLevelDivision, calculatePrimaryScoreResult, isPrimaryOrNursery, getPrimarySubjectGradeInfo, cleanAndFilterMarksForClass } from '../utils/reportCardUtils';
 import { USALModal } from './USAL/USALModal';
 
 interface MarkEntryViewProps {
@@ -164,7 +165,7 @@ export const MarkEntryView: React.FC<MarkEntryViewProps> = ({
 
   // Subjects filtered for teacher mode and appropriate school level
   const availableSubjects = useMemo(() => {
-    let baseList = SUBJECT_LIST.filter(s => !['Breakfast', 'Lunch', 'Sports and Games', 'General Assembly'].includes(s));
+    let baseList = SECONDARY_SUBJECTS;
     if (isClassNursery) {
       baseList = NURSERY_SUBJECTS;
     } else if (isClassLowerPrimary) {
@@ -292,21 +293,23 @@ export const MarkEntryView: React.FC<MarkEntryViewProps> = ({
       const currentMarks = { ...(s.marks || {}) };
       if (pending === '') {
         delete currentMarks[selectedSubject];
+        if (selectedSubject === 'Basic Mathematics') delete currentMarks['Mathematics'];
       } else {
         currentMarks[selectedSubject] = Number(pending);
+        if (selectedSubject === 'Basic Mathematics') delete currentMarks['Mathematics'];
       }
 
-      const markVals = Object.values(currentMarks).filter(v => typeof v === 'number' && !isNaN(v as number)) as number[];
+      const isStudentPrimary = isPrimaryOrNursery(s.level, s.className || selectedClass);
+      const cleanedMarks = cleanAndFilterMarksForClass(currentMarks, s.className || selectedClass, s.level);
+      const markVals = Object.values(cleanedMarks);
       const total = markVals.reduce((acc, curr) => acc + curr, 0);
       const avg = markVals.length > 0 ? (total / markVals.length).toFixed(1) : undefined;
-      
-      const isStudentPrimary = isPrimaryOrNursery(s.level, s.className || selectedClass);
 
       if (isStudentPrimary) {
-        const primaryRes = calculatePrimaryScoreResult(currentMarks);
+        const primaryRes = calculatePrimaryScoreResult(cleanedMarks);
         return {
           ...s,
-          marks: currentMarks,
+          marks: cleanedMarks,
           total,
           average: avg,
           primaryGrade: primaryRes.overallGrade,
@@ -314,10 +317,10 @@ export const MarkEntryView: React.FC<MarkEntryViewProps> = ({
           division: primaryRes.overallGrade
         };
       } else {
-        const olevel = calculateOLevelDivision(currentMarks);
+        const olevel = calculateOLevelDivision(cleanedMarks);
         return {
           ...s,
-          marks: currentMarks,
+          marks: cleanedMarks,
           total,
           average: avg,
           division: olevel.division

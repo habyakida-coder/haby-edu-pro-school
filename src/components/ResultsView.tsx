@@ -56,7 +56,8 @@ import {
   calculateOLevelDivision,
   calculatePrimaryScoreResult,
   isPrimaryOrNursery,
-  getPrimarySubjectGradeInfo
+  getPrimarySubjectGradeInfo,
+  cleanAndFilterMarksForClass
 } from '../utils/reportCardUtils';
 import { 
   ALL_SCHOOL_CLASSES, 
@@ -92,59 +93,62 @@ export interface LedgerSubjectItem {
   label: string;
   fullName: string;
   category: 'Core' | 'Languages' | 'Sciences' | 'Social' | 'Commercial' | 'Technical' | 'Religion' | 'Arts';
+  level: 'SECONDARY' | 'PRIMARY' | 'NURSERY';
 }
 
 export const ALL_AVAILABLE_SUBJECTS: LedgerSubjectItem[] = [
   // Primary & Pre-Primary Tanzanian Subjects
-  { key: 'KISW', label: 'KISW', fullName: 'Kiswahili', category: 'Languages' },
-  { key: 'ENG.PRI', label: 'ENG', fullName: 'English Language (Primary)', category: 'Languages' },
-  { key: 'HISABATI', label: 'HIS', fullName: 'Hisabati (Mathematics)', category: 'Core' },
-  { key: 'SAYANSI', label: 'SAY', fullName: 'Sayansi na Teknolojia', category: 'Sciences' },
-  { key: 'JAMII', label: 'JAMII', fullName: 'Maarifa ya Jamii', category: 'Social' },
-  { key: 'URAIA', label: 'URAIA', fullName: 'Uraia na Maadili', category: 'Core' },
-  { key: 'STADI', label: 'STADI', fullName: 'Stadi za Kazi', category: 'Technical' },
-  { key: 'EDK', label: 'EDK', fullName: 'Elimu ya Dini ya Kiislamu', category: 'Religion' },
-  { key: 'EDKRI', label: 'EDKRI', fullName: 'Elimu ya Dini ya Kikristo', category: 'Religion' },
-  { key: 'TEHAMA', label: 'TEHAMA', fullName: 'TEHAMA (ICT)', category: 'Technical' },
-  { key: 'KUSOMA', label: 'KUSOMA', fullName: 'Kusoma', category: 'Languages' },
-  { key: 'KUANDIKA', label: 'KUANDIKA', fullName: 'Kuandika', category: 'Languages' },
-  { key: 'KUHESABU', label: 'KUHESABU', fullName: 'Kuhesabu', category: 'Core' },
-  { key: 'AFYA', label: 'AFYA', fullName: 'Afya na Mazingira', category: 'Sciences' },
-  { key: 'SANAA', label: 'SANAA', fullName: 'Sanaa na Michezo', category: 'Arts' },
-  { key: 'AWALI.NUM', label: 'NUM', fullName: 'Kuhesabu na Namba (Awali)', category: 'Core' },
-  { key: 'AWALI.LIT', label: 'LIT', fullName: 'Kusoma na Kuwasiliana (Awali)', category: 'Languages' },
-  { key: 'AWALI.ENG', label: 'ENG.A', fullName: 'Lugha ya Kiingereza ya Awali', category: 'Languages' },
-  { key: 'AWALI.ENV', label: 'ENV', fullName: 'Afya na Mazingira ya Mtoto', category: 'Sciences' },
-  { key: 'AWALI.ART', label: 'ART', fullName: 'Sanaa, Muziki na Michezo ya Awali', category: 'Arts' },
-  { key: 'AWALI.SOC', label: 'SOC', fullName: 'Maadili na Malezi Bora', category: 'Social' },
+  { key: 'KISW', label: 'KISW', fullName: 'Kiswahili', category: 'Languages', level: 'PRIMARY' },
+  { key: 'ENG.PRI', label: 'ENG', fullName: 'English Language (Primary)', category: 'Languages', level: 'PRIMARY' },
+  { key: 'HISABATI', label: 'HIS', fullName: 'Hisabati (Mathematics)', category: 'Core', level: 'PRIMARY' },
+  { key: 'SAYANSI', label: 'SAY', fullName: 'Sayansi na Teknolojia', category: 'Sciences', level: 'PRIMARY' },
+  { key: 'JAMII', label: 'JAMII', fullName: 'Maarifa ya Jamii', category: 'Social', level: 'PRIMARY' },
+  { key: 'URAIA', label: 'URAIA', fullName: 'Uraia na Maadili', category: 'Core', level: 'PRIMARY' },
+  { key: 'STADI', label: 'STADI', fullName: 'Stadi za Kazi', category: 'Technical', level: 'PRIMARY' },
+  { key: 'EDK', label: 'EDK', fullName: 'Elimu ya Dini ya Kiislamu', category: 'Religion', level: 'PRIMARY' },
+  { key: 'EDKRI', label: 'EDKRI', fullName: 'Elimu ya Dini ya Kikristo', category: 'Religion', level: 'PRIMARY' },
+  { key: 'TEHAMA', label: 'TEHAMA', fullName: 'TEHAMA (ICT)', category: 'Technical', level: 'PRIMARY' },
+  { key: 'KUSOMA', label: 'KUSOMA', fullName: 'Kusoma', category: 'Languages', level: 'PRIMARY' },
+  { key: 'KUANDIKA', label: 'KUANDIKA', fullName: 'Kuandika', category: 'Languages', level: 'PRIMARY' },
+  { key: 'KUHESABU', label: 'KUHESABU', fullName: 'Kuhesabu', category: 'Core', level: 'PRIMARY' },
+  { key: 'AFYA', label: 'AFYA', fullName: 'Afya na Mazingira', category: 'Sciences', level: 'PRIMARY' },
+  { key: 'SANAA', label: 'SANAA', fullName: 'Sanaa na Michezo', category: 'Arts', level: 'PRIMARY' },
+  { key: 'MIKONDO.PRI', label: 'MIK', fullName: 'Mikondo', category: 'Core', level: 'PRIMARY' },
+  { key: 'AWALI.NUM', label: 'NUM', fullName: 'Kuhesabu na Namba (Awali)', category: 'Core', level: 'NURSERY' },
+  { key: 'AWALI.LIT', label: 'LIT', fullName: 'Kusoma na Kuwasiliana (Awali)', category: 'Languages', level: 'NURSERY' },
+  { key: 'AWALI.ENG', label: 'ENG.A', fullName: 'Lugha ya Kiingereza ya Awali', category: 'Languages', level: 'NURSERY' },
+  { key: 'AWALI.ENV', label: 'ENV', fullName: 'Afya na Mazingira ya Mtoto', category: 'Sciences', level: 'NURSERY' },
+  { key: 'AWALI.ART', label: 'ART', fullName: 'Sanaa, Muziki na Michezo ya Awali', category: 'Arts', level: 'NURSERY' },
+  { key: 'AWALI.SOC', label: 'SOC', fullName: 'Maadili na Malezi Bora', category: 'Social', level: 'NURSERY' },
 
-  // Secondary School Subjects
-  { key: 'ENG', label: 'ENG', fullName: 'English Language', category: 'Languages' },
-  { key: 'KIS', label: 'KIS', fullName: 'Kiswahili', category: 'Languages' },
-  { key: 'B.MATH', label: 'B.MATH', fullName: 'Mathematics', category: 'Core' },
-  { key: 'CIV', label: 'CIV', fullName: 'Civics', category: 'Core' },
-  { key: 'GEO', label: 'GEO', fullName: 'Geography', category: 'Social' },
-  { key: 'HIS', label: 'HIS', fullName: 'History', category: 'Social' },
-  { key: 'BIO', label: 'BIO', fullName: 'Biology', category: 'Sciences' },
-  { key: 'CHE', label: 'CHE', fullName: 'Chemistry', category: 'Sciences' },
-  { key: 'PHY', label: 'PHY', fullName: 'Physics', category: 'Sciences' },
-  { key: 'BUS', label: 'BUS', fullName: 'Business Studies', category: 'Commercial' },
-  { key: 'B.KEEP', label: 'B.KEEP', fullName: 'Book Keeping', category: 'Commercial' },
-  { key: 'COMM', label: 'COMM', fullName: 'Commerce', category: 'Commercial' },
-  { key: 'COMP', label: 'COMP', fullName: 'Computer Studies', category: 'Technical' },
-  { key: 'AGRI', label: 'AGRI', fullName: 'Agriculture', category: 'Technical' },
-  { key: 'F.ART', label: 'F.ART', fullName: 'Fine Art', category: 'Arts' },
-  { key: 'H.TZ', label: 'H.TZ', fullName: 'Historia Ya Tanzania Na Maadili', category: 'Social' },
-  { key: 'E.DINI', label: 'E.DINI', fullName: 'Elimu ya Dini ya Kiislamu', category: 'Religion' },
-  { key: 'CRE', label: 'CRE', fullName: 'Christian Religious Education', category: 'Religion' },
-  { key: 'LIT', label: 'LIT', fullName: 'Literature in English', category: 'Languages' },
-  { key: 'FRE', label: 'FRE', fullName: 'French', category: 'Languages' },
-  { key: 'ARA', label: 'ARA', fullName: 'Arabic', category: 'Languages' },
-  { key: 'PE', label: 'PE', fullName: 'Physical Education', category: 'Arts' }
+  // Secondary School Subjects (O-Level & A-Level)
+  { key: 'ENG', label: 'ENG', fullName: 'English Language', category: 'Languages', level: 'SECONDARY' },
+  { key: 'KIS', label: 'KIS', fullName: 'Kiswahili', category: 'Languages', level: 'SECONDARY' },
+  { key: 'B.MATH', label: 'B.MATH', fullName: 'Basic Mathematics', category: 'Core', level: 'SECONDARY' },
+  { key: 'CIV', label: 'CIV', fullName: 'Civics', category: 'Core', level: 'SECONDARY' },
+  { key: 'GEO', label: 'GEO', fullName: 'Geography', category: 'Social', level: 'SECONDARY' },
+  { key: 'HIS', label: 'HIS', fullName: 'History', category: 'Social', level: 'SECONDARY' },
+  { key: 'BIO', label: 'BIO', fullName: 'Biology', category: 'Sciences', level: 'SECONDARY' },
+  { key: 'CHE', label: 'CHE', fullName: 'Chemistry', category: 'Sciences', level: 'SECONDARY' },
+  { key: 'PHY', label: 'PHY', fullName: 'Physics', category: 'Sciences', level: 'SECONDARY' },
+  { key: 'BUS', label: 'BUS', fullName: 'Business Studies', category: 'Commercial', level: 'SECONDARY' },
+  { key: 'B.KEEP', label: 'B.KEEP', fullName: 'Book Keeping', category: 'Commercial', level: 'SECONDARY' },
+  { key: 'COMM', label: 'COMM', fullName: 'Commerce', category: 'Commercial', level: 'SECONDARY' },
+  { key: 'COMP', label: 'COMP', fullName: 'Computer Studies', category: 'Technical', level: 'SECONDARY' },
+  { key: 'AGRI', label: 'AGRI', fullName: 'Agriculture', category: 'Technical', level: 'SECONDARY' },
+  { key: 'F.ART', label: 'F.ART', fullName: 'Fine Art', category: 'Arts', level: 'SECONDARY' },
+  { key: 'H.TZ', label: 'H.TZ', fullName: 'Historia Ya Tanzania Na Maadili', category: 'Social', level: 'SECONDARY' },
+  { key: 'E.DINI', label: 'E.DINI', fullName: 'Elimu ya Dini ya Kiislamu', category: 'Religion', level: 'SECONDARY' },
+  { key: 'CRE', label: 'CRE', fullName: 'Christian Religious Education', category: 'Religion', level: 'SECONDARY' },
+  { key: 'LIT', label: 'LIT', fullName: 'Literature in English', category: 'Languages', level: 'SECONDARY' },
+  { key: 'FRE', label: 'FRE', fullName: 'French', category: 'Languages', level: 'SECONDARY' },
+  { key: 'ARA', label: 'ARA', fullName: 'Arabic', category: 'Languages', level: 'SECONDARY' },
+  { key: 'PE', label: 'PE', fullName: 'Physical Education', category: 'Arts', level: 'SECONDARY' },
+  { key: 'MIKONDO', label: 'MIK', fullName: 'Mikondo', category: 'Core', level: 'SECONDARY' }
 ];
 
 export const DEFAULT_ACTIVE_SUBJECT_KEYS = [
-  'ENG', 'KIS', 'B.MATH', 'GEO', 'HIS', 'BIO', 'CHE', 'PHY', 'CIV', 'BUS', 'COMP'
+  'ENG', 'KIS', 'B.MATH', 'GEO', 'HIS', 'BIO', 'CHE', 'PHY', 'CIV', 'MIKONDO'
 ];
 
 export const PRIMARY_UPPER_SUBJECT_KEYS = [
@@ -318,12 +322,23 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
     } catch {}
   };
 
+  const isClassPrimary = isPrimaryOrNursery(undefined, selectedClass);
+  const isClassNursery = NURSERY_CLASSES.includes(selectedClass);
+  const currentSectionLevel: 'SECONDARY' | 'PRIMARY' | 'NURSERY' = isClassNursery 
+    ? 'NURSERY' 
+    : isClassPrimary 
+    ? 'PRIMARY' 
+    : 'SECONDARY';
+
   // Restrict ledger columns for Teacher role to only their registered/assigned subjects, or user customization
   const activeLedgerSubjects = useMemo(() => {
+    // 1. Strictly filter by current class educational level
+    const levelSubjects = ALL_AVAILABLE_SUBJECTS.filter(sub => sub.level === currentSectionLevel);
+
     if (currentUser?.role === 'TEACHER') {
       const assigned = currentUser.assignedSubjects || [];
       if (assigned.length > 0) {
-        return ALL_AVAILABLE_SUBJECTS.filter(sub =>
+        const teacherSubs = levelSubjects.filter(sub =>
           assigned.some(a =>
             a.toLowerCase() === sub.fullName.toLowerCase() ||
             a.toLowerCase() === sub.key.toLowerCase() ||
@@ -331,11 +346,24 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
             a.toLowerCase().includes(sub.fullName.toLowerCase())
           )
         );
+        if (teacherSubs.length > 0) return teacherSubs;
       }
     }
-    const filtered = ALL_AVAILABLE_SUBJECTS.filter(sub => selectedSubjectKeys.includes(sub.key));
-    return filtered.length > 0 ? filtered : ALL_AVAILABLE_SUBJECTS.slice(0, 7);
-  }, [currentUser, selectedSubjectKeys]);
+
+    const filtered = levelSubjects.filter(sub => selectedSubjectKeys.includes(sub.key));
+    if (filtered.length > 0) return filtered;
+
+    if (currentSectionLevel === 'SECONDARY') {
+      return levelSubjects.filter(s => DEFAULT_ACTIVE_SUBJECT_KEYS.includes(s.key));
+    } else if (currentSectionLevel === 'PRIMARY') {
+      if (selectedClass === 'Standard 1' || selectedClass === 'Standard 2') {
+        return levelSubjects.filter(s => PRIMARY_LOWER_SUBJECT_KEYS.includes(s.key));
+      }
+      return levelSubjects.filter(s => PRIMARY_UPPER_SUBJECT_KEYS.includes(s.key));
+    } else {
+      return levelSubjects.filter(s => NURSERY_SUBJECT_KEYS.includes(s.key));
+    }
+  }, [currentUser, selectedSubjectKeys, currentSectionLevel, selectedClass]);
 
   // Local pending marks: studentId -> { [subjectKey]: score }
   const [pendingMarks, setPendingMarks] = useState<Record<number, Record<string, number | string>>>({});
@@ -407,7 +435,42 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
     if (pendingMarks[student.id] && pendingMarks[student.id][subjectKey] !== undefined) {
       return pendingMarks[student.id][subjectKey];
     }
-    return student.marks?.[subjectFullName] ?? student.marks?.[subjectKey] ?? '';
+    if (!student.marks) return '';
+
+    // Direct match on fullName or key
+    if (student.marks[subjectFullName] !== undefined) return student.marks[subjectFullName];
+    if (student.marks[subjectKey] !== undefined) return student.marks[subjectKey];
+
+    // Deduplicated alias matching for Secondary
+    if (subjectKey === 'B.MATH') {
+      return student.marks['Basic Mathematics'] ?? student.marks['Mathematics'] ?? student.marks['Maths'] ?? '';
+    }
+    if (subjectKey === 'ENG') {
+      return student.marks['English Language'] ?? student.marks['English'] ?? '';
+    }
+    if (subjectKey === 'KIS') {
+      return student.marks['Kiswahili'] ?? student.marks['KISW'] ?? '';
+    }
+    if (subjectKey === 'HISABATI') {
+      return student.marks['Hisabati (Mathematics)'] ?? student.marks['Hisabati'] ?? student.marks['Mathematics (Hisabati)'] ?? '';
+    }
+    if (subjectKey === 'ENG.PRI') {
+      return student.marks['English Language (Primary)'] ?? student.marks['English Language'] ?? '';
+    }
+    if (subjectKey === 'SAYANSI') {
+      return student.marks['Sayansi na Teknolojia'] ?? student.marks['Science and Technology (Sayansi na Teknolojia)'] ?? student.marks['Science'] ?? '';
+    }
+    if (subjectKey === 'JAMII') {
+      return student.marks['Maarifa ya Jamii'] ?? student.marks['Social Studies (Maarifa ya Jamii)'] ?? student.marks['Social Studies'] ?? '';
+    }
+    if (subjectKey === 'URAIA') {
+      return student.marks['Uraia na Maadili'] ?? student.marks['Civic and Moral Education (Uraia na Maadili)'] ?? '';
+    }
+    if (subjectKey === 'MIKONDO' || subjectKey === 'MIKONDO.PRI') {
+      return student.marks['Mikondo'] ?? '';
+    }
+
+    return '';
   };
 
   const handleCellChange = (studentId: number, subjectKey: string, val: string) => {
@@ -425,19 +488,25 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
     // Recompute total, average, division and ranking for all candidates in this class
     const updatedCandidates = classCandidates.map(s => {
       const p = pendingMarks[s.id] || {};
-      const newMarks = { ...(s.marks || {}) };
+      const rawMarks = { ...(s.marks || {}) };
 
-      ALL_AVAILABLE_SUBJECTS.forEach(sub => {
+      activeLedgerSubjects.forEach(sub => {
         if (p[sub.key] !== undefined) {
           if (p[sub.key] === '') {
-            delete newMarks[sub.fullName];
-            delete newMarks[sub.key];
+            delete rawMarks[sub.fullName];
+            delete rawMarks[sub.key];
+            if (sub.key === 'B.MATH') delete rawMarks['Mathematics'];
           } else {
-            newMarks[sub.fullName] = Number(p[sub.key]);
+            rawMarks[sub.fullName] = Number(p[sub.key]);
+            if (sub.key === 'B.MATH') {
+              rawMarks['Basic Mathematics'] = Number(p[sub.key]);
+              delete rawMarks['Mathematics'];
+            }
           }
         }
       });
 
+      const newMarks = cleanAndFilterMarksForClass(rawMarks, s.className || selectedClass, s.level);
       const scores = Object.values(newMarks).filter(v => typeof v === 'number' && !isNaN(v as number)) as number[];
       
       // Official NECTA National Evaluation Rules according to class level (Std IV, Std VII, Form II, Form IV, Form VI)
@@ -827,8 +896,6 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
     link.click();
     link.remove();
   };
-
-  const isClassPrimary = isPrimaryOrNursery(undefined, selectedClass);
 
   // Dashboard & Grade Distribution calculations (A, B, C, D, E, F) and Class Average
   const dashboardMetrics = useMemo(() => {
@@ -2522,62 +2589,81 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
             {/* Presets and Filter Bar */}
             <div className="p-4 border-b border-slate-100 bg-slate-50/50 space-y-3">
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-xs font-bold text-slate-600 mr-1">Quick Presets:</span>
+                <span className="text-xs font-bold text-slate-600 mr-1">
+                  Presets ({currentSectionLevel}):
+                </span>
+                {currentSectionLevel === 'SECONDARY' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleSaveSubjectKeys(['ENG', 'KIS', 'B.MATH', 'GEO', 'HIS', 'BIO', 'CIV'])}
+                      className="px-2.5 py-1 text-xs font-bold rounded-md bg-blue-50 border border-blue-300 hover:bg-blue-100 text-blue-800 cursor-pointer"
+                    >
+                      Secondary Core 7
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSaveSubjectKeys(DEFAULT_ACTIVE_SUBJECT_KEYS)}
+                      className="px-2.5 py-1 text-xs font-bold rounded-md bg-indigo-50 border border-indigo-300 hover:bg-indigo-100 text-indigo-800 cursor-pointer"
+                    >
+                      All Secondary Active (10)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSaveSubjectKeys(['B.MATH', 'PHY', 'CHE', 'BIO', 'GEO'])}
+                      className="px-2.5 py-1 text-xs font-bold rounded-md bg-white border border-slate-300 hover:bg-slate-100 text-emerald-700 cursor-pointer"
+                    >
+                      Sciences
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSaveSubjectKeys(['ENG', 'KIS', 'GEO', 'HIS', 'CIV', 'H.TZ'])}
+                      className="px-2.5 py-1 text-xs font-bold rounded-md bg-white border border-slate-300 hover:bg-slate-100 text-amber-700 cursor-pointer"
+                    >
+                      Arts & Social
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSaveSubjectKeys(['B.MATH', 'BUS', 'B.KEEP', 'COMM', 'ENG', 'KIS'])}
+                      className="px-2.5 py-1 text-xs font-bold rounded-md bg-white border border-slate-300 hover:bg-slate-100 text-purple-700 cursor-pointer"
+                    >
+                      Commercial
+                    </button>
+                  </>
+                )}
+                {currentSectionLevel === 'PRIMARY' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleSaveSubjectKeys(PRIMARY_UPPER_SUBJECT_KEYS)}
+                      className="px-2.5 py-1 text-xs font-bold rounded-md bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 text-emerald-800 cursor-pointer"
+                    >
+                      Primary Std 3-7 (8 Subjects)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSaveSubjectKeys(PRIMARY_LOWER_SUBJECT_KEYS)}
+                      className="px-2.5 py-1 text-xs font-bold rounded-md bg-teal-50 border border-teal-300 hover:bg-teal-100 text-teal-800 cursor-pointer"
+                    >
+                      Primary Std 1-2 (5 Subjects)
+                    </button>
+                  </>
+                )}
+                {currentSectionLevel === 'NURSERY' && (
+                  <button
+                    type="button"
+                    onClick={() => handleSaveSubjectKeys(NURSERY_SUBJECT_KEYS)}
+                    className="px-2.5 py-1 text-xs font-bold rounded-md bg-amber-50 border border-amber-300 hover:bg-amber-100 text-amber-800 cursor-pointer"
+                  >
+                    Nursery Level (6 Areas)
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => handleSaveSubjectKeys(PRIMARY_UPPER_SUBJECT_KEYS)}
-                  className="px-2.5 py-1 text-xs font-bold rounded-md bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 text-emerald-800 cursor-pointer"
-                >
-                  Primary Std 3-7 (7 Subjects)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSaveSubjectKeys(PRIMARY_LOWER_SUBJECT_KEYS)}
-                  className="px-2.5 py-1 text-xs font-bold rounded-md bg-teal-50 border border-teal-300 hover:bg-teal-100 text-teal-800 cursor-pointer"
-                >
-                  Primary Std 1-2 (5 Subjects)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSaveSubjectKeys(NURSERY_SUBJECT_KEYS)}
-                  className="px-2.5 py-1 text-xs font-bold rounded-md bg-amber-50 border border-amber-300 hover:bg-amber-100 text-amber-800 cursor-pointer"
-                >
-                  Nursery Level (6 Areas)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSaveSubjectKeys(['ENG', 'KIS', 'B.MATH', 'GEO', 'HIS', 'BIO', 'CIV'])}
-                  className="px-2.5 py-1 text-xs font-bold rounded-md bg-blue-50 border border-blue-300 hover:bg-blue-100 text-blue-800 cursor-pointer"
-                >
-                  Secondary Core 7
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSaveSubjectKeys(['B.MATH', 'PHY', 'CHE', 'BIO', 'GEO'])}
-                  className="px-2.5 py-1 text-xs font-bold rounded-md bg-white border border-slate-300 hover:bg-slate-100 text-emerald-700 cursor-pointer"
-                >
-                  Sciences
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSaveSubjectKeys(['ENG', 'KIS', 'GEO', 'HIS', 'CIV', 'H.TZ'])}
-                  className="px-2.5 py-1 text-xs font-bold rounded-md bg-white border border-slate-300 hover:bg-slate-100 text-amber-700 cursor-pointer"
-                >
-                  Arts & Social
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSaveSubjectKeys(['B.MATH', 'BUS', 'B.KEEP', 'COMM', 'ENG', 'KIS'])}
-                  className="px-2.5 py-1 text-xs font-bold rounded-md bg-white border border-slate-300 hover:bg-slate-100 text-purple-700 cursor-pointer"
-                >
-                  Commercial
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSaveSubjectKeys(ALL_AVAILABLE_SUBJECTS.map(s => s.key))}
+                  onClick={() => handleSaveSubjectKeys(ALL_AVAILABLE_SUBJECTS.filter(s => s.level === currentSectionLevel).map(s => s.key))}
                   className="px-2.5 py-1 text-xs font-bold rounded-md bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 cursor-pointer"
                 >
-                  Show All ({ALL_AVAILABLE_SUBJECTS.length})
+                  Show All {currentSectionLevel} ({ALL_AVAILABLE_SUBJECTS.filter(s => s.level === currentSectionLevel).length})
                 </button>
               </div>
 
@@ -2619,11 +2705,12 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {ALL_AVAILABLE_SUBJECTS
                   .filter(s => {
+                    const matchLevel = s.level === currentSectionLevel;
                     const matchCat = subjectCategoryFilter === 'ALL' || s.category === subjectCategoryFilter;
                     const matchQ = !subjectSearchQuery || 
                       s.fullName.toLowerCase().includes(subjectSearchQuery.toLowerCase()) ||
                       s.key.toLowerCase().includes(subjectSearchQuery.toLowerCase());
-                    return matchCat && matchQ;
+                    return matchLevel && matchCat && matchQ;
                   })
                   .map(sub => {
                     const isChecked = selectedSubjectKeys.includes(sub.key);

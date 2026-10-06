@@ -52,6 +52,7 @@ export type ActiveView =
   | 'exams'
   | 'teachers'
   | 'timetable'
+  | 'classjournal'
   | 'invigilation'
   | 'settings'
   | 'markentry'
@@ -189,6 +190,14 @@ export const Navigation: React.FC<NavigationProps> = ({
       hoverBg: 'hover:bg-indigo-50 text-slate-700 hover:text-indigo-800'
     },
     {
+      id: 'classjournal',
+      label: 'Shajara ya Darasa (Class Journal)',
+      icon: <BookOpen className="w-4 h-4" />,
+      iconColor: 'text-amber-600',
+      activeBg: 'bg-amber-600 text-white shadow-md shadow-amber-600/30',
+      hoverBg: 'hover:bg-amber-50 text-slate-700 hover:text-amber-800'
+    },
+    {
       id: 'teachers',
       label: 'Teachers & Staff',
       icon: <GraduationCap className="w-4 h-4" />,
@@ -316,6 +325,7 @@ export const Navigation: React.FC<NavigationProps> = ({
         'lessonplans', 
         'attendance', 
         'timetable', 
+        'classjournal',
         'invigilation', 
         'discipline', 
         'markentry',

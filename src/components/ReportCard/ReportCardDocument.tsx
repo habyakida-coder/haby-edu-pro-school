@@ -7,7 +7,8 @@ import {
   getDefaultPeriodSetting,
   getSubjectGradeInfo,
   isPrimaryOrNursery,
-  getPrimarySubjectGradeInfo
+  getPrimarySubjectGradeInfo,
+  cleanAndFilterMarksForClass
 } from '../../utils/reportCardUtils';
 import { 
   GraduationCap, 
@@ -37,8 +38,9 @@ export const ReportCardDocument: React.FC<ReportCardDocumentProps> = ({
   allStudents = [],
   containerId = 'report-card-printable-area'
 }) => {
-  const marks = student.marks || {};
-  const perf = calculatePerformanceSummary(marks);
+  const rawMarks = student.marks || {};
+  const marks = cleanAndFilterMarksForClass(rawMarks, student.className, student.level);
+  const perf = calculatePerformanceSummary(marks, student.level, student.className);
   const rank = calculateStudentRank(student, allStudents);
   const isPrimary = isPrimaryOrNursery(student.level, student.className);
   const primaryOverallGrade = perf.average >= 81 ? 'A' : perf.average >= 61 ? 'B' : perf.average >= 41 ? 'C' : perf.average >= 21 ? 'D' : 'E';

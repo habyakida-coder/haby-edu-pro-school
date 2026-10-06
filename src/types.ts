@@ -134,6 +134,7 @@ export interface PeriodSetting {
   end: string;   // "08:40"
   assignedTeacherId?: number; // assigned teacher / duty master for this period
   defaultSubject?: string;
+  isBreak?: boolean;
 }
 
 export interface StreamSetting {

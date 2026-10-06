@@ -521,16 +521,16 @@ export const INITIAL_TIMETABLE_ASSIGNMENTS = [
 ];
 
 export const INITIAL_STUDENTS: Student[] = [
-  { id: 1, name: 'Amina Juma Mohamed', regNo: 'S0123/0001/2026', sex: 'F', className: 'Form 1', stream: 'STREAM A', subjects: ['Mathematics', 'English Language', 'Biology', 'History'], dob: '2010-05-15', status: 'ACTIVE' },
-  { id: 2, name: 'Baraka Saidi Ally', regNo: 'S0123/0002/2026', sex: 'M', className: 'Form 1', stream: 'STREAM A', subjects: ['Mathematics', 'English Language', 'Biology', 'History'], dob: '2010-08-22', status: 'ACTIVE' },
-  { id: 3, name: 'Catherine Joseph Shirima', regNo: 'S0123/0003/2026', sex: 'F', className: 'Form 1', stream: 'STREAM B', subjects: ['Mathematics', 'English Language', 'Biology', 'History'], dob: '2011-01-10', status: 'ACTIVE' },
+  { id: 1, name: 'Amina Juma Mohamed', regNo: 'S0123/0001/2026', sex: 'F', className: 'Form 1', stream: 'STREAM A', subjects: ['Basic Mathematics', 'English Language', 'Biology', 'History'], dob: '2010-05-15', status: 'ACTIVE' },
+  { id: 2, name: 'Baraka Saidi Ally', regNo: 'S0123/0002/2026', sex: 'M', className: 'Form 1', stream: 'STREAM A', subjects: ['Basic Mathematics', 'English Language', 'Biology', 'History'], dob: '2010-08-22', status: 'ACTIVE' },
+  { id: 3, name: 'Catherine Joseph Shirima', regNo: 'S0123/0003/2026', sex: 'F', className: 'Form 1', stream: 'STREAM B', subjects: ['Basic Mathematics', 'English Language', 'Biology', 'History'], dob: '2011-01-10', status: 'ACTIVE' },
   { id: 4, name: 'Daudi Hamisi Mvungi', regNo: 'S0123/0004/2026', sex: 'M', className: 'Form 2', stream: 'STREAM A', subjects: ['Physics', 'Chemistry', 'Biology', 'Civics'], dob: '2009-11-30', status: 'ACTIVE' },
   { id: 5, name: 'Ester Richard Mushi', regNo: 'S0123/0005/2026', sex: 'F', className: 'Form 2', stream: 'STREAM A', subjects: ['Physics', 'Chemistry', 'Biology', 'Civics'], dob: '2009-04-05', status: 'ACTIVE' },
-  { id: 6, name: 'Faraja Emmanuel Masawe', regNo: 'S0123/0006/2026', sex: 'M', className: 'Form 3', stream: 'STREAM A', subjects: ['History', 'Geography', 'English', 'Kiswahili'], dob: '2008-07-18', status: 'ACTIVE' },
-  { id: 7, name: 'Grace Peter Mmbaga', regNo: 'S0123/0007/2026', sex: 'F', className: 'Form 3', stream: 'STREAM A', subjects: ['History', 'Geography', 'English', 'Kiswahili'], dob: '2008-12-12', status: 'ACTIVE' },
-  { id: 8, name: 'Hamisi Omari Kipande', regNo: 'S0123/0008/2026', sex: 'M', className: 'Form 4', stream: 'STREAM B', subjects: ['Book Keeping', 'Commerce', 'Mathematics', 'Civics'], dob: '2007-09-09', status: 'ACTIVE' },
-  { id: 9, name: 'Irene John Lyimo', regNo: 'S0123/0009/2026', sex: 'F', className: 'Standard 7', stream: 'STREAM A', subjects: ['Science', 'Mathematics', 'Social Studies'], dob: '2012-03-25', status: 'ACTIVE' },
-  { id: 10, name: 'John Peter Temu', regNo: 'S0123/0010/2026', sex: 'M', className: 'Standard 4', stream: 'STREAM C', subjects: ['Reading', 'Writing', 'Arithmetic'], dob: '2015-06-14', status: 'ACTIVE' }
+  { id: 6, name: 'Faraja Emmanuel Masawe', regNo: 'S0123/0006/2026', sex: 'M', className: 'Form 3', stream: 'STREAM A', subjects: ['History', 'Geography', 'English Language', 'Kiswahili'], dob: '2008-07-18', status: 'ACTIVE' },
+  { id: 7, name: 'Grace Peter Mmbaga', regNo: 'S0123/0007/2026', sex: 'F', className: 'Form 3', stream: 'STREAM A', subjects: ['History', 'Geography', 'English Language', 'Kiswahili'], dob: '2008-12-12', status: 'ACTIVE' },
+  { id: 8, name: 'Hamisi Omari Kipande', regNo: 'S0123/0008/2026', sex: 'M', className: 'Form 4', stream: 'STREAM B', subjects: ['Book Keeping', 'Commerce', 'Basic Mathematics', 'Civics'], dob: '2007-09-09', status: 'ACTIVE' },
+  { id: 9, name: 'Irene John Lyimo', regNo: 'S0123/0009/2026', sex: 'F', className: 'Standard 7', stream: 'STREAM A', subjects: ['Sayansi na Teknolojia', 'Hisabati (Mathematics)', 'Maarifa ya Jamii', 'Kiswahili', 'English Language'], dob: '2012-03-25', status: 'ACTIVE' },
+  { id: 10, name: 'John Peter Temu', regNo: 'S0123/0010/2026', sex: 'M', className: 'Standard 4', stream: 'STREAM C', subjects: ['Kusoma', 'Kuandika', 'Kuhesabu', 'Afya na Mazingira', 'Sanaa na Michezo'], dob: '2015-06-14', status: 'ACTIVE' }
 ];
 
 export const INITIAL_EXAMS = [
@@ -660,7 +660,7 @@ export const INITIAL_EXAMINATION_RECORDS: ExaminationRecord[] = [
     term: 'Term 1', 
     examType: 'Midterm', 
     subjects: { 
-      'Mathematics': { marks: 85, grade: 'A' }, 
+      'Basic Mathematics': { marks: 85, grade: 'A' }, 
       'English Language': { marks: 78, grade: 'A' }, 
       'Biology': { marks: 92, grade: 'A' }, 
       'History': { marks: 80, grade: 'A' } 
@@ -685,7 +685,7 @@ export const INITIAL_EXAMINATION_RECORDS: ExaminationRecord[] = [
     term: 'Term 1', 
     examType: 'Midterm', 
     subjects: { 
-      'Mathematics': { marks: 65, grade: 'B' }, 
+      'Basic Mathematics': { marks: 65, grade: 'B' }, 
       'English Language': { marks: 60, grade: 'B' }, 
       'Biology': { marks: 70, grade: 'B' }, 
       'History': { marks: 68, grade: 'B' } 
@@ -710,7 +710,7 @@ export const INITIAL_EXAMINATION_RECORDS: ExaminationRecord[] = [
     term: 'Term 1', 
     examType: 'Midterm', 
     subjects: { 
-      'Mathematics': { marks: 45, grade: 'C' }, 
+      'Basic Mathematics': { marks: 45, grade: 'C' }, 
       'English Language': { marks: 55, grade: 'C' }, 
       'Biology': { marks: 48, grade: 'C' }, 
       'History': { marks: 52, grade: 'C' } 
